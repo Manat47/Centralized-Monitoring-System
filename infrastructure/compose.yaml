@@ -1,0 +1,16 @@
+services:
+  asset-db:
+    image: postgres:17-alpine
+    container_name: asset-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${ASSET_DB_USER}
+      POSTGRES_PASSWORD: ${ASSET_DB_PASSWORD}
+      POSTGRES_DB: ${ASSET_DB_NAME}
+    ports:
+      - "${ASSET_DB_PORT}:5432"
+    volumes:
+      - asset_db_data:/var/lib/postgresql/data
+
+volumes:
+  asset_db_data:
