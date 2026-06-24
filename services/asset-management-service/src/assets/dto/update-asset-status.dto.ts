@@ -1,11 +1,11 @@
-import { IsEnum } from 'class-validator';
-export enum AssetStatus {
-  ACTIVATE = 'ACTIVATE',
-  INACTIVATE = 'INACTIVATE',
-  DEACTIVATE = 'DEACTIVATE',
-}
+import { IsIn } from 'class-validator';
+
+import {
+  ASSET_STATUSES,
+  type AssetStatus,
+} from '../domain/entities/asset.entity';
 
 export class UpdateAssetStatusDto {
-  @IsEnum(AssetStatus)
+  @IsIn(ASSET_STATUSES)
   status!: AssetStatus;
 }
