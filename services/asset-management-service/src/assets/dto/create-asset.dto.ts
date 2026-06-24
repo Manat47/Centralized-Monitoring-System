@@ -17,6 +17,11 @@ export class CreateAssetDto {
   @MaxLength(255)
   name!: string;
 
+  @IsOptional()
+  @IsString()
+  @MaxLength(255)
+  hostname?: string;
+
   @IsEnum(TargetType)
   targetType!: TargetType;
 

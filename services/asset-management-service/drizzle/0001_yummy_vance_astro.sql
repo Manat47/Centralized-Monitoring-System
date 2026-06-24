@@ -1,0 +1,1 @@
+ALTER TABLE "assets" ADD COLUMN "monitoring_enabled" boolean DEFAULT false NOT NULL;
