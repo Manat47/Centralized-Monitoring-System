@@ -12,5 +12,60 @@ services:
     volumes:
       - asset_db_data:/var/lib/postgresql/data
 
+  influxdb:
+    image: influxdb:2
+    container_name: influxdb
+    restart: unless-stopped
+    environment:
+      DOCKER_INFLUXDB_INIT_MODE: setup
+      DOCKER_INFLUXDB_INIT_USERNAME: ${INFLUXDB_ADMIN_USER}
+      DOCKER_INFLUXDB_INIT_PASSWORD: ${INFLUXDB_ADMIN_PASSWORD}
+      DOCKER_INFLUXDB_INIT_ORG: ${INFLUXDB_ORG}
+      DOCKER_INFLUXDB_INIT_BUCKET: ${INFLUXDB_BUCKET}
+      DOCKER_INFLUXDB_INIT_ADMIN_TOKEN: ${INFLUXDB_ADMIN_TOKEN}
+    ports:
+      - "${INFLUXDB_PORT}:8086"
+    volumes:
+      - influxdb_data:/var/lib/influxdb2
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    restart: unless-stopped
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD}
+    ports:
+      - "${RABBITMQ_AMQP_PORT}:5672"
+      - "${RABBITMQ_MANAGEMENT_PORT}:15672"
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+
+  nginx:
+    image: nginx:latest
+    restart: unless-stopped
+    ports:
+      - "${NGINX_PORT}:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+
+  monitoring-db:
+    image: postgres:17-alpine
+    container_name: monitoring-db
+    environment:
+      POSTGRES_USER: ${MONITORING_DB_USER}
+      POSTGRES_PASSWORD: ${MONITORING_DB_PASSWORD}
+      POSTGRES_DB: ${MONITORING_DB_NAME}
+    ports:
+      - "${MONITORING_DB_PORT}:5432"
+    volumes:
+      - monitoring_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d monitoring_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
 volumes:
   asset_db_data:
+  influxdb_data:
+  rabbitmq_data:
+  monitoring_db_data:
