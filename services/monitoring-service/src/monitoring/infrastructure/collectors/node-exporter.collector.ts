@@ -3,6 +3,7 @@ import { Injectable } from '@nestjs/common';
 import type {
   MetricsCollector,
   VerifyMetricsEndpointResult,
+  CollectMetricsResult,
 } from '../../domain/ports/metrics-collector.port';
 
 @Injectable()
@@ -45,6 +46,51 @@ export class NodeExporterCollector implements MetricsCollector {
           error instanceof Error
             ? error.message
             : 'Unable to connect to Node Exporter',
+      };
+    }
+  }
+  async collect(url: string): Promise<CollectMetricsResult> {
+    const collectedAt = new Date();
+
+    try {
+      const response = await fetch(url, {
+        method: 'GET',
+        signal: AbortSignal.timeout(5000),
+      });
+
+      if (!response.ok) {
+        return {
+          success: false,
+          rawMetrics: null,
+          collectedAt,
+          errorMessage: `Node Exporter returned HTTP ${response.status}`,
+        };
+      }
+
+      const rawMetrics = await response.text();
+
+      if (!rawMetrics.includes('node_')) {
+        return {
+          success: false,
+          rawMetrics: null,
+          collectedAt,
+          errorMessage: 'Response does not contain Node Exporter metrics',
+        };
+      }
+
+      return {
+        success: true,
+        rawMetrics,
+        collectedAt,
+        errorMessage: null,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        rawMetrics: null,
+        collectedAt,
+        errorMessage:
+          error instanceof Error ? error.message : 'Unable to collect metrics',
       };
     }
   }
