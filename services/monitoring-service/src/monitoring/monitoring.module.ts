@@ -27,6 +27,10 @@ import { PrometheusTextParser } from './infrastructure/collectors/prometheus-tex
       provide: METRICS_COLLECTOR,
       useClass: NodeExporterCollector,
     },
+    {
+      provide: METRICS_PARSER,
+      useClass: PrometheusTextParser,
+    },
   ],
 })
 export class MonitoringModule {}
