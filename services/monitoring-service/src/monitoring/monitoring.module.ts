@@ -11,6 +11,7 @@ import { EnableMonitoringUseCase } from './application/use-cases/enable-monitori
 import { DisableMonitoringUseCase } from './application/use-cases/disable-monitoring.use-case';
 import { METRICS_PARSER } from './domain/ports/metrics-parser.port';
 import { PrometheusTextParser } from './infrastructure/collectors/prometheus-text.parser';
+import { CollectTargetMetricsUseCase } from './application/use-cases/collect-target-metrics.use-case';
 
 @Module({
   controllers: [MonitoringTargetsController],
@@ -19,6 +20,7 @@ import { PrometheusTextParser } from './infrastructure/collectors/prometheus-tex
     VerifyMonitoringTargetUseCase,
     EnableMonitoringUseCase,
     DisableMonitoringUseCase,
+    CollectTargetMetricsUseCase,
     {
       provide: MONITORING_TARGET_REPOSITORY,
       useClass: DrizzleMonitoringTargetRepository,
