@@ -18,6 +18,10 @@ import {
   MONITORING_TARGET_REPOSITORY,
   type MonitoringTargetRepository,
 } from '../../domain/repositories/monitoring-target.repository';
+import {
+  METRICS_STORAGE,
+  type MetricsStorage,
+} from '../../domain/ports/metrics-storage.port';
 
 const SUPPORTED_METRICS = new Set([
   'node_cpu_seconds_total',
@@ -43,6 +47,9 @@ export class CollectTargetMetricsUseCase {
 
     @Inject(METRICS_PARSER)
     private readonly metricsParser: MetricsParser,
+
+    @Inject(METRICS_STORAGE)
+    private readonly metricsStorage: MetricsStorage,
   ) {}
 
   async execute(targetId: string): Promise<ParsedMetric[]> {
@@ -84,6 +91,12 @@ export class CollectTargetMetricsUseCase {
     const supportedMetrics = parsedMetrics.filter((metric) =>
       SUPPORTED_METRICS.has(metric.name),
     );
+
+    await this.metricsStorage.writeMetrics({
+      targetId: targetData.targetId,
+      assetId: targetData.assetId,
+      metrics: supportedMetrics,
+    });
 
     target.markCollected();
 

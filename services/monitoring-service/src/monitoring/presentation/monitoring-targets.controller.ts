@@ -43,6 +43,7 @@ export class MonitoringTargetsController {
       throw error;
     }
   }
+
   @Post(':id/verify')
   async verify(@Param('id', new ParseUUIDPipe()) id: string) {
     const target = await this.verifyMonitoringTargetUseCase.execute(id);

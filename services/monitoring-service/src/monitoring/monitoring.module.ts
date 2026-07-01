@@ -12,6 +12,8 @@ import { DisableMonitoringUseCase } from './application/use-cases/disable-monito
 import { METRICS_PARSER } from './domain/ports/metrics-parser.port';
 import { PrometheusTextParser } from './infrastructure/collectors/prometheus-text.parser';
 import { CollectTargetMetricsUseCase } from './application/use-cases/collect-target-metrics.use-case';
+import { METRICS_STORAGE } from './domain/ports/metrics-storage.port';
+import { InfluxMetricsStorage } from './infrastructure/persistence/influx-metrics.storage';
 
 @Module({
   controllers: [MonitoringTargetsController],
@@ -32,6 +34,10 @@ import { CollectTargetMetricsUseCase } from './application/use-cases/collect-tar
     {
       provide: METRICS_PARSER,
       useClass: PrometheusTextParser,
+    },
+    {
+      provide: METRICS_STORAGE,
+      useClass: InfluxMetricsStorage,
     },
   ],
 })
