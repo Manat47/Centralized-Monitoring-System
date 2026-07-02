@@ -16,6 +16,9 @@ import { METRICS_STORAGE } from './domain/ports/metrics-storage.port';
 import { InfluxMetricsStorage } from './infrastructure/persistence/influx-metrics.storage';
 import { CollectEnabledTargetsUseCase } from './application/use-cases/collect-enabled-targets.use-case';
 import { MonitoringScheduler } from './infrastructure/collectors/monitoring.scheduler';
+import { METRICS_QUERY } from './domain/ports/metrics-query.port';
+import { InfluxMetricsQuery } from './infrastructure/persistence/influx-metrics.query';
+import { QueryMetricUseCase } from './application/use-cases/query-metric.use-case';
 
 @Module({
   controllers: [MonitoringTargetsController],
@@ -27,6 +30,7 @@ import { MonitoringScheduler } from './infrastructure/collectors/monitoring.sche
     CollectTargetMetricsUseCase,
     CollectEnabledTargetsUseCase,
     MonitoringScheduler,
+    QueryMetricUseCase,
     {
       provide: MONITORING_TARGET_REPOSITORY,
       useClass: DrizzleMonitoringTargetRepository,
@@ -42,6 +46,10 @@ import { MonitoringScheduler } from './infrastructure/collectors/monitoring.sche
     {
       provide: METRICS_STORAGE,
       useClass: InfluxMetricsStorage,
+    },
+    {
+      provide: METRICS_QUERY,
+      useClass: InfluxMetricsQuery,
     },
   ],
 })

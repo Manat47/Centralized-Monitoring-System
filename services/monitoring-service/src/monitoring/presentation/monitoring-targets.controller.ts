@@ -6,6 +6,8 @@ import {
   Post,
   Param,
   ParseUUIDPipe,
+  Get,
+  Query,
 } from '@nestjs/common';
 
 import { CreateMonitoringTargetUseCase } from '../application/use-cases/create-monitoring-target.use-case';
@@ -14,6 +16,8 @@ import { VerifyMonitoringTargetUseCase } from '../application/use-cases/verify-m
 import { EnableMonitoringUseCase } from '../application/use-cases/enable-monitoring.use-case';
 import { DisableMonitoringUseCase } from '../application/use-cases/disable-monitoring.use-case';
 import { CollectTargetMetricsUseCase } from '../application/use-cases/collect-target-metrics.use-case';
+import { QueryMetricUseCase } from '../application/use-cases/query-metric.use-case';
+import { QueryMetricDto } from './dto/query-metric.dto';
 
 @Controller('monitoring-targets')
 export class MonitoringTargetsController {
@@ -23,6 +27,7 @@ export class MonitoringTargetsController {
     private readonly enableMonitoringUseCase: EnableMonitoringUseCase,
     private readonly disableMonitoringUseCase: DisableMonitoringUseCase,
     private readonly collectTargetMetricsUseCase: CollectTargetMetricsUseCase,
+    private readonly queryMetricUseCase: QueryMetricUseCase,
   ) {}
 
   @Post()
@@ -68,5 +73,21 @@ export class MonitoringTargetsController {
   @Post(':id/collect')
   async collect(@Param('id', new ParseUUIDPipe()) id: string) {
     return this.collectTargetMetricsUseCase.execute(id);
+  }
+
+  @Get(':assetId/metrics')
+  async queryMetric(
+    @Param('assetId', new ParseUUIDPipe())
+    assetId: string,
+
+    @Query()
+    query: QueryMetricDto,
+  ) {
+    return this.queryMetricUseCase.execute({
+      assetId,
+      measurement: query.measurement,
+      start: new Date(query.start),
+      end: new Date(query.end),
+    });
   }
 }
