@@ -14,6 +14,8 @@ import { PrometheusTextParser } from './infrastructure/collectors/prometheus-tex
 import { CollectTargetMetricsUseCase } from './application/use-cases/collect-target-metrics.use-case';
 import { METRICS_STORAGE } from './domain/ports/metrics-storage.port';
 import { InfluxMetricsStorage } from './infrastructure/persistence/influx-metrics.storage';
+import { CollectEnabledTargetsUseCase } from './application/use-cases/collect-enabled-targets.use-case';
+import { MonitoringScheduler } from './infrastructure/collectors/monitoring.scheduler';
 
 @Module({
   controllers: [MonitoringTargetsController],
@@ -23,6 +25,8 @@ import { InfluxMetricsStorage } from './infrastructure/persistence/influx-metric
     EnableMonitoringUseCase,
     DisableMonitoringUseCase,
     CollectTargetMetricsUseCase,
+    CollectEnabledTargetsUseCase,
+    MonitoringScheduler,
     {
       provide: MONITORING_TARGET_REPOSITORY,
       useClass: DrizzleMonitoringTargetRepository,
