@@ -21,6 +21,7 @@ import { InfluxMetricsQuery } from './infrastructure/persistence/influx-metrics.
 import { QueryMetricUseCase } from './application/use-cases/query-metric.use-case';
 import { QueryMemoryUsageUseCase } from './application/use-cases/query-memory-usage.use-case';
 import { QueryDiskUsageUseCase } from './application/use-cases/query-disk-usage.use-case';
+import { QueryNetworkRateUseCase } from './application/use-cases/query-network-rate.use-case';
 @Module({
   controllers: [MonitoringTargetsController],
   providers: [
@@ -34,6 +35,7 @@ import { QueryDiskUsageUseCase } from './application/use-cases/query-disk-usage.
     QueryMetricUseCase,
     QueryMemoryUsageUseCase,
     QueryDiskUsageUseCase,
+    QueryNetworkRateUseCase,
     {
       provide: MONITORING_TARGET_REPOSITORY,
       useClass: DrizzleMonitoringTargetRepository,

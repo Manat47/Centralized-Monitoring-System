@@ -21,6 +21,7 @@ import { QueryMetricDto } from './dto/query-metric.dto';
 import { QueryMemoryUsageUseCase } from '../application/use-cases/query-memory-usage.use-case';
 import { QueryTimeRangeDto } from './dto/query-time-range.dto';
 import { QueryDiskUsageUseCase } from '../application/use-cases/query-disk-usage.use-case';
+import { QueryNetworkRateUseCase } from '../application/use-cases/query-network-rate.use-case';
 
 @Controller('monitoring-targets')
 export class MonitoringTargetsController {
@@ -33,6 +34,7 @@ export class MonitoringTargetsController {
     private readonly queryMetricUseCase: QueryMetricUseCase,
     private readonly queryMemoryUsageUseCase: QueryMemoryUsageUseCase,
     private readonly queryDiskUsageUseCase: QueryDiskUsageUseCase,
+    private readonly queryNetworkRateUseCase: QueryNetworkRateUseCase,
   ) {}
 
   @Post()
@@ -120,6 +122,21 @@ export class MonitoringTargetsController {
     query: QueryTimeRangeDto,
   ) {
     return this.queryDiskUsageUseCase.execute({
+      assetId,
+      start: new Date(query.start),
+      end: new Date(query.end),
+    });
+  }
+
+  @Get(':assetId/metrics/network-rate')
+  async queryNetworkRate(
+    @Param('assetId', new ParseUUIDPipe())
+    assetId: string,
+
+    @Query()
+    query: QueryTimeRangeDto,
+  ) {
+    return this.queryNetworkRateUseCase.execute({
       assetId,
       start: new Date(query.start),
       end: new Date(query.end),
