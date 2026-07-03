@@ -20,6 +20,7 @@ import { METRICS_QUERY } from './domain/ports/metrics-query.port';
 import { InfluxMetricsQuery } from './infrastructure/persistence/influx-metrics.query';
 import { QueryMetricUseCase } from './application/use-cases/query-metric.use-case';
 import { QueryMemoryUsageUseCase } from './application/use-cases/query-memory-usage.use-case';
+import { QueryDiskUsageUseCase } from './application/use-cases/query-disk-usage.use-case';
 @Module({
   controllers: [MonitoringTargetsController],
   providers: [
@@ -32,6 +33,7 @@ import { QueryMemoryUsageUseCase } from './application/use-cases/query-memory-us
     MonitoringScheduler,
     QueryMetricUseCase,
     QueryMemoryUsageUseCase,
+    QueryDiskUsageUseCase,
     {
       provide: MONITORING_TARGET_REPOSITORY,
       useClass: DrizzleMonitoringTargetRepository,
