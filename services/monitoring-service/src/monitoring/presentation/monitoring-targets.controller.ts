@@ -18,6 +18,8 @@ import { DisableMonitoringUseCase } from '../application/use-cases/disable-monit
 import { CollectTargetMetricsUseCase } from '../application/use-cases/collect-target-metrics.use-case';
 import { QueryMetricUseCase } from '../application/use-cases/query-metric.use-case';
 import { QueryMetricDto } from './dto/query-metric.dto';
+import { QueryMemoryUsageUseCase } from '../application/use-cases/query-memory-usage.use-case';
+import { QueryTimeRangeDto } from './dto/query-time-range.dto';
 
 @Controller('monitoring-targets')
 export class MonitoringTargetsController {
@@ -28,6 +30,7 @@ export class MonitoringTargetsController {
     private readonly disableMonitoringUseCase: DisableMonitoringUseCase,
     private readonly collectTargetMetricsUseCase: CollectTargetMetricsUseCase,
     private readonly queryMetricUseCase: QueryMetricUseCase,
+    private readonly queryMemoryUsageUseCase: QueryMemoryUsageUseCase,
   ) {}
 
   @Post()
@@ -90,4 +93,20 @@ export class MonitoringTargetsController {
       end: new Date(query.end),
     });
   }
+
+  @Get(':assetId/metrics/memory-usage')
+  async queryMemoryUsage(
+    @Param('assetId', new ParseUUIDPipe())
+    assetId: string,
+
+    @Query()
+    query: QueryTimeRangeDto,
+  ) {
+    return this.queryMemoryUsageUseCase.execute({
+      assetId,
+      start: new Date(query.start),
+      end: new Date(query.end),
+    });
+  }
+
 }

@@ -19,7 +19,7 @@ import { MonitoringScheduler } from './infrastructure/collectors/monitoring.sche
 import { METRICS_QUERY } from './domain/ports/metrics-query.port';
 import { InfluxMetricsQuery } from './infrastructure/persistence/influx-metrics.query';
 import { QueryMetricUseCase } from './application/use-cases/query-metric.use-case';
-
+import { QueryMemoryUsageUseCase } from './application/use-cases/query-memory-usage.use-case';
 @Module({
   controllers: [MonitoringTargetsController],
   providers: [
@@ -31,6 +31,7 @@ import { QueryMetricUseCase } from './application/use-cases/query-metric.use-cas
     CollectEnabledTargetsUseCase,
     MonitoringScheduler,
     QueryMetricUseCase,
+    QueryMemoryUsageUseCase,
     {
       provide: MONITORING_TARGET_REPOSITORY,
       useClass: DrizzleMonitoringTargetRepository,
