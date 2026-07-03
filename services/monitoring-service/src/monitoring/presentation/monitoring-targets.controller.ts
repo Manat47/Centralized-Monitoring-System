@@ -18,6 +18,11 @@ import { DisableMonitoringUseCase } from '../application/use-cases/disable-monit
 import { CollectTargetMetricsUseCase } from '../application/use-cases/collect-target-metrics.use-case';
 import { QueryMetricUseCase } from '../application/use-cases/query-metric.use-case';
 import { QueryMetricDto } from './dto/query-metric.dto';
+import { QueryMemoryUsageUseCase } from '../application/use-cases/query-memory-usage.use-case';
+import { QueryTimeRangeDto } from './dto/query-time-range.dto';
+import { QueryDiskUsageUseCase } from '../application/use-cases/query-disk-usage.use-case';
+import { QueryNetworkRateUseCase } from '../application/use-cases/query-network-rate.use-case';
+import { QueryCpuUsageUseCase } from '../application/use-cases/query-cpu-usage.use-case';
 
 @Controller('monitoring-targets')
 export class MonitoringTargetsController {
@@ -28,6 +33,10 @@ export class MonitoringTargetsController {
     private readonly disableMonitoringUseCase: DisableMonitoringUseCase,
     private readonly collectTargetMetricsUseCase: CollectTargetMetricsUseCase,
     private readonly queryMetricUseCase: QueryMetricUseCase,
+    private readonly queryMemoryUsageUseCase: QueryMemoryUsageUseCase,
+    private readonly queryDiskUsageUseCase: QueryDiskUsageUseCase,
+    private readonly queryNetworkRateUseCase: QueryNetworkRateUseCase,
+    private readonly queryCpuUsageUseCase: QueryCpuUsageUseCase,
   ) {}
 
   @Post()
@@ -86,6 +95,66 @@ export class MonitoringTargetsController {
     return this.queryMetricUseCase.execute({
       assetId,
       measurement: query.measurement,
+      start: new Date(query.start),
+      end: new Date(query.end),
+    });
+  }
+
+  @Get(':assetId/metrics/memory-usage')
+  async queryMemoryUsage(
+    @Param('assetId', new ParseUUIDPipe())
+    assetId: string,
+
+    @Query()
+    query: QueryTimeRangeDto,
+  ) {
+    return this.queryMemoryUsageUseCase.execute({
+      assetId,
+      start: new Date(query.start),
+      end: new Date(query.end),
+    });
+  }
+
+  @Get(':assetId/metrics/disk-usage')
+  async queryDiskUsage(
+    @Param('assetId', new ParseUUIDPipe())
+    assetId: string,
+
+    @Query()
+    query: QueryTimeRangeDto,
+  ) {
+    return this.queryDiskUsageUseCase.execute({
+      assetId,
+      start: new Date(query.start),
+      end: new Date(query.end),
+    });
+  }
+
+  @Get(':assetId/metrics/network-rate')
+  async queryNetworkRate(
+    @Param('assetId', new ParseUUIDPipe())
+    assetId: string,
+
+    @Query()
+    query: QueryTimeRangeDto,
+  ) {
+    return this.queryNetworkRateUseCase.execute({
+      assetId,
+      start: new Date(query.start),
+      end: new Date(query.end),
+    });
+  }
+
+  @Get(':assetId/metrics/cpu-usage')
+  async queryCpuUsage(
+    @Param('assetId', new ParseUUIDPipe())
+    assetId: string,
+
+    @Query()
+    query: QueryTimeRangeDto,
+  ) {
+    return this.queryCpuUsageUseCase.execute({
+      assetId,
       start: new Date(query.start),
       end: new Date(query.end),
     });
