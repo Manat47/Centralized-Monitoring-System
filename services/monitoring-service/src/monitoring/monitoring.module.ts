@@ -22,6 +22,7 @@ import { QueryMetricUseCase } from './application/use-cases/query-metric.use-cas
 import { QueryMemoryUsageUseCase } from './application/use-cases/query-memory-usage.use-case';
 import { QueryDiskUsageUseCase } from './application/use-cases/query-disk-usage.use-case';
 import { QueryNetworkRateUseCase } from './application/use-cases/query-network-rate.use-case';
+import { QueryCpuUsageUseCase } from './application/use-cases/query-cpu-usage.use-case';
 @Module({
   controllers: [MonitoringTargetsController],
   providers: [
@@ -36,6 +37,7 @@ import { QueryNetworkRateUseCase } from './application/use-cases/query-network-r
     QueryMemoryUsageUseCase,
     QueryDiskUsageUseCase,
     QueryNetworkRateUseCase,
+    QueryCpuUsageUseCase,
     {
       provide: MONITORING_TARGET_REPOSITORY,
       useClass: DrizzleMonitoringTargetRepository,
