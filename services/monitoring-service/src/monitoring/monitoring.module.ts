@@ -23,7 +23,12 @@ import { QueryMemoryUsageUseCase } from './application/use-cases/query-memory-us
 import { QueryDiskUsageUseCase } from './application/use-cases/query-disk-usage.use-case';
 import { QueryNetworkRateUseCase } from './application/use-cases/query-network-rate.use-case';
 import { QueryCpuUsageUseCase } from './application/use-cases/query-cpu-usage.use-case';
+import { HttpModule } from '@nestjs/axios';
+import { ASSET_READER } from './domain/ports/asset-reader.port';
+import { AssetServiceClient } from './infrastructure/clients/asset-service.client';
+
 @Module({
+  imports: [HttpModule],
   controllers: [MonitoringTargetsController],
   providers: [
     CreateMonitoringTargetUseCase,
@@ -57,6 +62,10 @@ import { QueryCpuUsageUseCase } from './application/use-cases/query-cpu-usage.us
     {
       provide: METRICS_QUERY,
       useClass: InfluxMetricsQuery,
+    },
+    {
+      provide: ASSET_READER,
+      useClass: AssetServiceClient,
     },
   ],
 })

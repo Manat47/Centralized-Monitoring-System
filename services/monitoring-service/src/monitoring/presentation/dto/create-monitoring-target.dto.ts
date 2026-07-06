@@ -1,19 +1,8 @@
-import {
-  IsInt,
-  IsNotEmpty,
-  IsOptional,
-  IsString,
-  IsUUID,
-  Max,
-  Min,
-} from 'class-validator';
+import { IsInt, IsOptional, IsString, IsUUID, Max, Min } from 'class-validator';
+
 export class CreateMonitoringTargetDto {
   @IsUUID()
   assetId!: string;
-
-  @IsString()
-  @IsNotEmpty()
-  host!: string;
 
   @IsOptional()
   @IsInt()
