@@ -1,5 +1,5 @@
 import { HttpService } from '@nestjs/axios';
-import { Injectable } from '@nestjs/common';
+import { Injectable, ServiceUnavailableException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { firstValueFrom } from 'rxjs';
 
@@ -7,6 +7,7 @@ import type {
   AssetReader,
   AssetSnapshot,
 } from '../../domain/ports/asset-reader.port';
+import { AxiosError } from 'axios';
 
 interface AssetServiceResponse {
   id?: string;
@@ -66,16 +67,24 @@ export class AssetServiceClient implements AssetReader {
         status: asset.status as AssetSnapshot['status'],
       };
     } catch (error) {
-      if (typeof error === 'object' && error !== null && 'response' in error) {
-        const responseError = error as {
-          response?: {
-            status?: number;
-          };
-        };
-
-        if (responseError.response?.status === 404) {
+      if (error instanceof AxiosError) {
+        if (error.response?.status === 404) {
           return null;
         }
+
+        if (error.code === 'ECONNABORTED') {
+          throw new ServiceUnavailableException(
+            'Asset Service request timed out',
+          );
+        }
+
+        if (!error.response) {
+          throw new ServiceUnavailableException('Asset Service is unavailable');
+        }
+
+        throw new ServiceUnavailableException(
+          `Asset Service returned HTTP ${error.response.status}`,
+        );
       }
 
       throw error;
