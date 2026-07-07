@@ -23,6 +23,9 @@ import { QueryTimeRangeDto } from './dto/query-time-range.dto';
 import { QueryDiskUsageUseCase } from '../application/use-cases/query-disk-usage.use-case';
 import { QueryNetworkRateUseCase } from '../application/use-cases/query-network-rate.use-case';
 import { QueryCpuUsageUseCase } from '../application/use-cases/query-cpu-usage.use-case';
+import { QueryMetricsSummaryUseCase } from '../application/use-cases/query-metrics-summary.use-case';
+import { FindMonitoringTargetsUseCase } from '../application/use-cases/find-monitoring-targets.use-case';
+import { FindMonitoringTargetByIdUseCase } from '../application/use-cases/find-monitoring-target-by-id.use-case';
 
 @Controller('monitoring-targets')
 export class MonitoringTargetsController {
@@ -37,6 +40,9 @@ export class MonitoringTargetsController {
     private readonly queryDiskUsageUseCase: QueryDiskUsageUseCase,
     private readonly queryNetworkRateUseCase: QueryNetworkRateUseCase,
     private readonly queryCpuUsageUseCase: QueryCpuUsageUseCase,
+    private readonly queryMetricsSummaryUseCase: QueryMetricsSummaryUseCase,
+    private readonly findMonitoringTargetsUseCase: FindMonitoringTargetsUseCase,
+    private readonly findMonitoringTargetByIdUseCase: FindMonitoringTargetByIdUseCase,
   ) {}
 
   @Post()
@@ -82,6 +88,35 @@ export class MonitoringTargetsController {
   @Post(':id/collect')
   async collect(@Param('id', new ParseUUIDPipe()) id: string) {
     return this.collectTargetMetricsUseCase.execute(id);
+  }
+
+  @Get()
+  async findAll() {
+    const targets = await this.findMonitoringTargetsUseCase.execute();
+
+    return targets.map((target) => target.toObject());
+  }
+
+  @Get('target/:id')
+  async findById(@Param('id', new ParseUUIDPipe()) id: string) {
+    const target = await this.findMonitoringTargetByIdUseCase.execute(id);
+
+    return target.toObject();
+  }
+
+  @Get(':assetId/metrics/summary')
+  async queryMetricsSummary(
+    @Param('assetId', new ParseUUIDPipe())
+    assetId: string,
+
+    @Query()
+    query: QueryTimeRangeDto,
+  ) {
+    return this.queryMetricsSummaryUseCase.execute({
+      assetId,
+      start: new Date(query.start),
+      end: new Date(query.end),
+    });
   }
 
   @Get(':assetId/metrics')
