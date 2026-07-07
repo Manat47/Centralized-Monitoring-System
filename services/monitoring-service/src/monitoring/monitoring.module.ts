@@ -35,6 +35,7 @@ import { CreateMetricRuleUseCase } from './application/use-cases/create-metric-r
 import { MetricRulesController } from './presentation/metric-rules.controller';
 import { FindMetricRulesUseCase } from './application/use-cases/find-metric-rules.use-case';
 import { FindMetricRulesByAssetUseCase } from './application/use-cases/find-metric-rules-by-asset.use-case';
+import { EvaluateMetricRulesUseCase } from './application/use-cases/evaluate-metric-rules.use-case';
 
 @Module({
   imports: [HttpModule],
@@ -58,6 +59,7 @@ import { FindMetricRulesByAssetUseCase } from './application/use-cases/find-metr
     CreateMetricRuleUseCase,
     FindMetricRulesUseCase,
     FindMetricRulesByAssetUseCase,
+    EvaluateMetricRulesUseCase,
     {
       provide: MONITORING_TARGET_REPOSITORY,
       useClass: DrizzleMonitoringTargetRepository,

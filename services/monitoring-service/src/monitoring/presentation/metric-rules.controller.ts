@@ -11,6 +11,7 @@ import { CreateMetricRuleUseCase } from '../application/use-cases/create-metric-
 import { CreateMetricRuleDto } from './dto/create-metric-rule.dto';
 import { FindMetricRulesByAssetUseCase } from '../application/use-cases/find-metric-rules-by-asset.use-case';
 import { FindMetricRulesUseCase } from '../application/use-cases/find-metric-rules.use-case';
+import { EvaluateMetricRulesUseCase } from '../application/use-cases/evaluate-metric-rules.use-case';
 
 @Controller('metric-rules')
 export class MetricRulesController {
@@ -18,6 +19,7 @@ export class MetricRulesController {
     private readonly createMetricRuleUseCase: CreateMetricRuleUseCase,
     private readonly findMetricRulesUseCase: FindMetricRulesUseCase,
     private readonly findMetricRulesByAssetUseCase: FindMetricRulesByAssetUseCase,
+    private readonly evaluateMetricRulesUseCase: EvaluateMetricRulesUseCase,
   ) {}
 
   @Post()
@@ -25,6 +27,11 @@ export class MetricRulesController {
     const rule = await this.createMetricRuleUseCase.execute(dto);
 
     return rule.toObject();
+  }
+
+  @Post('evaluate')
+  async evaluateRules() {
+    return this.evaluateMetricRulesUseCase.execute();
   }
 
   @Get()
