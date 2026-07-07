@@ -29,10 +29,16 @@ import { FindMonitoringTargetByIdUseCase } from './application/use-cases/find-mo
 import { HttpModule } from '@nestjs/axios';
 import { ASSET_READER } from './domain/ports/asset-reader.port';
 import { AssetServiceClient } from './infrastructure/clients/asset-service.client';
+import { METRIC_RULE_REPOSITORY } from './domain/repositories/metric-rule.repository';
+import { DrizzleMetricRuleRepository } from './infrastructure/persistence/drizzle-metric-rule.repository';
+import { CreateMetricRuleUseCase } from './application/use-cases/create-metric-rule.use-case';
+import { MetricRulesController } from './presentation/metric-rules.controller';
+import { FindMetricRulesUseCase } from './application/use-cases/find-metric-rules.use-case';
+import { FindMetricRulesByAssetUseCase } from './application/use-cases/find-metric-rules-by-asset.use-case';
 
 @Module({
   imports: [HttpModule],
-  controllers: [MonitoringTargetsController],
+  controllers: [MonitoringTargetsController, MetricRulesController],
   providers: [
     CreateMonitoringTargetUseCase,
     VerifyMonitoringTargetUseCase,
@@ -49,6 +55,9 @@ import { AssetServiceClient } from './infrastructure/clients/asset-service.clien
     QueryMetricsSummaryUseCase,
     FindMonitoringTargetsUseCase,
     FindMonitoringTargetByIdUseCase,
+    CreateMetricRuleUseCase,
+    FindMetricRulesUseCase,
+    FindMetricRulesByAssetUseCase,
     {
       provide: MONITORING_TARGET_REPOSITORY,
       useClass: DrizzleMonitoringTargetRepository,
@@ -72,6 +81,10 @@ import { AssetServiceClient } from './infrastructure/clients/asset-service.clien
     {
       provide: ASSET_READER,
       useClass: AssetServiceClient,
+    },
+    {
+      provide: METRIC_RULE_REPOSITORY,
+      useClass: DrizzleMetricRuleRepository,
     },
   ],
 })
