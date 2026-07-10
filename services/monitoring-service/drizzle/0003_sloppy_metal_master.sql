@@ -1,0 +1,1 @@
+ALTER TABLE "metric_rule_evaluation_states" ALTER COLUMN "last_actual_value" SET DATA TYPE real;

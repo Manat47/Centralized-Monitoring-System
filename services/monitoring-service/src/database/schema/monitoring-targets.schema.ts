@@ -3,6 +3,7 @@ import {
   integer,
   pgEnum,
   pgTable,
+  real,
   text,
   timestamp,
   uuid,
@@ -30,6 +31,11 @@ export const metricRuleSeverityEnum = pgEnum('metric_rule_severity', [
   'WARNING',
   'CRITICAL',
 ]);
+
+export const metricRuleEvaluationStatusEnum = pgEnum(
+  'metric_rule_evaluation_status',
+  ['NORMAL', 'VIOLATING', 'ALERTED', 'RECOVERED'],
+);
 
 export const monitoringTargets = pgTable('monitoring_targets', {
   targetId: uuid('target_id').defaultRandom().primaryKey(),
@@ -112,3 +118,53 @@ export const metricRules = pgTable('metric_rules', {
 
 export type MetricRuleRow = typeof metricRules.$inferSelect;
 export type NewMetricRuleRow = typeof metricRules.$inferInsert;
+
+export const metricRuleEvaluationStates = pgTable(
+  'metric_rule_evaluation_states',
+  {
+    stateId: uuid('state_id').defaultRandom().primaryKey(),
+
+    ruleId: uuid('rule_id').notNull().unique(),
+
+    assetId: uuid('asset_id').notNull(),
+
+    status: metricRuleEvaluationStatusEnum('status')
+      .default('NORMAL')
+      .notNull(),
+
+    violatedSince: timestamp('violated_since', {
+      withTimezone: true,
+    }),
+
+    lastEvaluatedAt: timestamp('last_evaluated_at', {
+      withTimezone: true,
+    }),
+
+    lastActualValue: real('last_actual_value'),
+
+    lastTriggeredAt: timestamp('last_triggered_at', {
+      withTimezone: true,
+    }),
+
+    recoveredAt: timestamp('recovered_at', {
+      withTimezone: true,
+    }),
+
+    createdAt: timestamp('created_at', {
+      withTimezone: true,
+    })
+      .defaultNow()
+      .notNull(),
+
+    updatedAt: timestamp('updated_at', {
+      withTimezone: true,
+    })
+      .defaultNow()
+      .notNull(),
+  },
+);
+
+export type MetricRuleEvaluationStateRow =
+  typeof metricRuleEvaluationStates.$inferSelect;
+export type NewMetricRuleEvaluationStateRow =
+  typeof metricRuleEvaluationStates.$inferInsert;

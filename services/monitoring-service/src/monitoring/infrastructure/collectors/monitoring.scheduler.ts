@@ -25,9 +25,9 @@ export class MonitoringScheduler {
       }
       const evaluationResult = await this.evaluateMetricRulesUseCase.execute();
 
-      if (evaluationResult.violated > 0) {
+      if (evaluationResult.triggered > 0 || evaluationResult.recovered > 0) {
         this.logger.warn(
-          `Threshold: Checked=${evaluationResult.checked}, Violated=${evaluationResult.violated}`,
+          `Threshold: Checked=${evaluationResult.checked}, Triggered=${evaluationResult.triggered}, Recovered=${evaluationResult.recovered}`,
         );
       }
     } catch (error) {
