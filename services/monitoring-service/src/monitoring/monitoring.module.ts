@@ -36,6 +36,8 @@ import { MetricRulesController } from './presentation/metric-rules.controller';
 import { FindMetricRulesUseCase } from './application/use-cases/find-metric-rules.use-case';
 import { FindMetricRulesByAssetUseCase } from './application/use-cases/find-metric-rules-by-asset.use-case';
 import { EvaluateMetricRulesUseCase } from './application/use-cases/evaluate-metric-rules.use-case';
+import { METRIC_RULE_EVALUATION_STATE_REPOSITORY } from './domain/repositories/metric-rule-evaluation-state.repository';
+import { DrizzleMetricRuleEvaluationStateRepository } from './infrastructure/persistence/drizzle-metric-rule-evaluation-state.repository';
 
 @Module({
   imports: [HttpModule],
@@ -87,6 +89,10 @@ import { EvaluateMetricRulesUseCase } from './application/use-cases/evaluate-met
     {
       provide: METRIC_RULE_REPOSITORY,
       useClass: DrizzleMetricRuleRepository,
+    },
+    {
+      provide: METRIC_RULE_EVALUATION_STATE_REPOSITORY,
+      useClass: DrizzleMetricRuleEvaluationStateRepository,
     },
   ],
 })

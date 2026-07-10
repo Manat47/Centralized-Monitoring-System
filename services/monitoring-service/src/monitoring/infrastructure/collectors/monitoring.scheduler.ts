@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 
 import { CollectEnabledTargetsUseCase } from '../../application/use-cases/collect-enabled-targets.use-case';
+import { EvaluateMetricRulesUseCase } from '../../application/use-cases/evaluate-metric-rules.use-case';
 
 @Injectable()
 export class MonitoringScheduler {
@@ -9,6 +10,7 @@ export class MonitoringScheduler {
 
   constructor(
     private readonly collectEnabledTargetsUseCase: CollectEnabledTargetsUseCase,
+    private readonly evaluateMetricRulesUseCase: EvaluateMetricRulesUseCase,
   ) {}
 
   @Cron('*/5 * * * * *')
@@ -19,6 +21,13 @@ export class MonitoringScheduler {
       if (result.collected > 0 || result.failed > 0) {
         this.logger.log(
           `Checked=${result.checked}, Collected=${result.collected}, Skipped=${result.skipped}, Failed=${result.failed}`,
+        );
+      }
+      const evaluationResult = await this.evaluateMetricRulesUseCase.execute();
+
+      if (evaluationResult.triggered > 0 || evaluationResult.recovered > 0) {
+        this.logger.warn(
+          `Threshold: Checked=${evaluationResult.checked}, Triggered=${evaluationResult.triggered}, Recovered=${evaluationResult.recovered}`,
         );
       }
     } catch (error) {
