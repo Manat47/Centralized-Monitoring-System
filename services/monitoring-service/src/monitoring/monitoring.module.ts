@@ -38,6 +38,8 @@ import { FindMetricRulesByAssetUseCase } from './application/use-cases/find-metr
 import { EvaluateMetricRulesUseCase } from './application/use-cases/evaluate-metric-rules.use-case';
 import { METRIC_RULE_EVALUATION_STATE_REPOSITORY } from './domain/repositories/metric-rule-evaluation-state.repository';
 import { DrizzleMetricRuleEvaluationStateRepository } from './infrastructure/persistence/drizzle-metric-rule-evaluation-state.repository';
+import { ALERT_EVENT_PUBLISHER } from './domain/ports/alert-event-publisher.port';
+import { ConsoleAlertEventPublisher } from './infrastructure/publishers/console-alert-event.publisher';
 
 @Module({
   imports: [HttpModule],
@@ -93,6 +95,10 @@ import { DrizzleMetricRuleEvaluationStateRepository } from './infrastructure/per
     {
       provide: METRIC_RULE_EVALUATION_STATE_REPOSITORY,
       useClass: DrizzleMetricRuleEvaluationStateRepository,
+    },
+    {
+      provide: ALERT_EVENT_PUBLISHER,
+      useClass: ConsoleAlertEventPublisher,
     },
   ],
 })

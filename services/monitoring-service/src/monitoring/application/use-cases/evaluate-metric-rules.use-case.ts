@@ -14,6 +14,12 @@ import {
   METRIC_RULE_REPOSITORY,
   type MetricRuleRepository,
 } from '../../domain/repositories/metric-rule.repository';
+import {
+  ALERT_EVENT_PUBLISHER,
+  type AlertEventPublisher,
+  type AlertEvent,
+} from '../../domain/ports/alert-event-publisher.port';
+
 import { QueryMetricsSummaryUseCase } from './query-metrics-summary.use-case';
 
 export interface MetricRuleViolation {
@@ -44,6 +50,9 @@ export class EvaluateMetricRulesUseCase {
 
     @Inject(METRIC_RULE_EVALUATION_STATE_REPOSITORY)
     private readonly stateRepository: MetricRuleEvaluationStateRepository,
+
+    @Inject(ALERT_EVENT_PUBLISHER)
+    private readonly alertEventPublisher: AlertEventPublisher,
 
     private readonly queryMetricsSummaryUseCase: QueryMetricsSummaryUseCase,
   ) {}
@@ -140,10 +149,25 @@ export class EvaluateMetricRulesUseCase {
       state.markNormal(now, actualValue);
       await this.stateRepository.update(state);
 
+      if (previousStatus === 'ALERTED') {
+        await this.alertEventPublisher.publish({
+          eventType: 'METRIC_THRESHOLD_RECOVERED',
+          ruleId: data.ruleId,
+          assetId: data.assetId,
+          metricType: data.metricType,
+          severity: data.severity,
+          thresholdValue: data.thresholdValue,
+          actualValue,
+          occurredAt: now,
+          message:
+            `${data.metricType} recovered for asset ${data.assetId}: ` +
+            `${actualValue}% is below ${data.thresholdValue}%`,
+        });
+      }
+
       return {
         triggeredEvent: null,
-        recovered:
-          previousStatus === 'VIOLATING' || previousStatus === 'ALERTED',
+        recovered: previousStatus === 'ALERTED',
       };
     }
 
@@ -179,6 +203,20 @@ export class EvaluateMetricRulesUseCase {
     state.markAlerted(now);
 
     await this.stateRepository.update(state);
+
+    const alertEvent: AlertEvent = {
+      eventType: 'METRIC_THRESHOLD_EXCEEDED',
+      ruleId: data.ruleId,
+      assetId: data.assetId,
+      metricType: data.metricType,
+      severity: data.severity,
+      thresholdValue: data.thresholdValue,
+      actualValue,
+      occurredAt: now,
+      message: event.message,
+    };
+
+    await this.alertEventPublisher.publish(alertEvent);
 
     return {
       triggeredEvent: event,
