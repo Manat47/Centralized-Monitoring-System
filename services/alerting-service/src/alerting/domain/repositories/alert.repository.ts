@@ -7,5 +7,9 @@ export interface AlertRepository {
 
   findActiveByRuleId(ruleId: string): Promise<Alert | null>;
 
+  findAll(): Promise<Alert[]>;
+
+  findById(alertId: string): Promise<Alert | null>;
+
   update(alert: Alert): Promise<Alert>;
 }
