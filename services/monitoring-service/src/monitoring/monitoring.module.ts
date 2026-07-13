@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
-
+import { ConfigModule, ConfigService } from '@nestjs/config';
+import { ClientsModule, Transport } from '@nestjs/microservices';
 import { CreateMonitoringTargetUseCase } from './application/use-cases/create-monitoring-target.use-case';
 import { MONITORING_TARGET_REPOSITORY } from './domain/repositories/monitoring-target.repository';
 import { DrizzleMonitoringTargetRepository } from './infrastructure/persistence/drizzle-monitoring-target.repository';
@@ -39,10 +40,42 @@ import { EvaluateMetricRulesUseCase } from './application/use-cases/evaluate-met
 import { METRIC_RULE_EVALUATION_STATE_REPOSITORY } from './domain/repositories/metric-rule-evaluation-state.repository';
 import { DrizzleMetricRuleEvaluationStateRepository } from './infrastructure/persistence/drizzle-metric-rule-evaluation-state.repository';
 import { ALERT_EVENT_PUBLISHER } from './domain/ports/alert-event-publisher.port';
-import { ConsoleAlertEventPublisher } from './infrastructure/publishers/console-alert-event.publisher';
+import { ALERT_EVENTS_CLIENT } from './infrastructure/messaging/rabbitmq.constants';
+import { RabbitMqAlertEventPublisher } from './infrastructure/publishers/rabbitmq-alert-event.publisher';
 
 @Module({
-  imports: [HttpModule],
+  imports: [
+    HttpModule,
+    ClientsModule.registerAsync([
+      {
+        name: ALERT_EVENTS_CLIENT,
+        imports: [ConfigModule],
+        inject: [ConfigService],
+        useFactory: (configService: ConfigService) => {
+          const rabbitMqUrl = configService.get<string>('RABBITMQ_URL');
+
+          const queue = configService.get<string>('RABBITMQ_ALERT_QUEUE');
+
+          if (!rabbitMqUrl || !queue) {
+            throw new Error(
+              'RABBITMQ_URL or RABBITMQ_ALERT_QUEUE is not defined',
+            );
+          }
+
+          return {
+            transport: Transport.RMQ,
+            options: {
+              urls: [rabbitMqUrl],
+              queue,
+              queueOptions: {
+                durable: true,
+              },
+            },
+          };
+        },
+      },
+    ]),
+  ],
   controllers: [MonitoringTargetsController, MetricRulesController],
   providers: [
     CreateMonitoringTargetUseCase,
@@ -98,7 +131,7 @@ import { ConsoleAlertEventPublisher } from './infrastructure/publishers/console-
     },
     {
       provide: ALERT_EVENT_PUBLISHER,
-      useClass: ConsoleAlertEventPublisher,
+      useClass: RabbitMqAlertEventPublisher,
     },
   ],
 })
