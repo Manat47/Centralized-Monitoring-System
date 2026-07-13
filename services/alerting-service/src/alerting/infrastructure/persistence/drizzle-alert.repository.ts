@@ -51,6 +51,25 @@ export class DrizzleAlertRepository implements AlertRepository {
     return row ? this.toDomain(row) : null;
   }
 
+  async findAll(): Promise<Alert[]> {
+    const rows = await this.db
+      .select()
+      .from(alerts)
+      .orderBy(desc(alerts.triggeredAt));
+
+    return rows.map((row) => this.toDomain(row));
+  }
+
+  async findById(alertId: string): Promise<Alert | null> {
+    const [row] = await this.db
+      .select()
+      .from(alerts)
+      .where(eq(alerts.alertId, alertId))
+      .limit(1);
+
+    return row ? this.toDomain(row) : null;
+  }
+
   async update(alert: Alert): Promise<Alert> {
     const data = alert.toObject();
 
