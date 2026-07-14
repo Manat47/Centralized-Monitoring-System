@@ -1,4 +1,4 @@
-export type AlertStatus = 'TRIGGERED' | 'RESOLVED';
+export type AlertStatus = 'TRIGGERED' | 'ACKNOWLEDGED' | 'RESOLVED' | 'CLOSED';
 
 export type AlertSeverity = 'WARNING' | 'CRITICAL';
 
@@ -14,6 +14,8 @@ export interface AlertProps {
   message: string;
   triggeredAt: Date;
   resolvedAt: Date | null;
+  acknowledgedAt: Date | null;
+  closedAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -47,6 +49,8 @@ export class Alert {
       message: input.message,
       triggeredAt: input.triggeredAt,
       resolvedAt: null,
+      acknowledgedAt: null,
+      closedAt: null,
       createdAt: now,
       updatedAt: now,
     });
@@ -57,7 +61,7 @@ export class Alert {
   }
 
   resolve(actualValue: number | null, resolvedAt: Date): void {
-    if (this.props.status === 'RESOLVED') {
+    if (this.props.status === 'RESOLVED' || this.props.status === 'CLOSED') {
       return;
     }
 
@@ -65,6 +69,27 @@ export class Alert {
     this.props.actualValue = actualValue;
     this.props.resolvedAt = resolvedAt;
     this.props.updatedAt = resolvedAt;
+  }
+  acknowledge(now: Date = new Date()): void {
+    if (this.props.status !== 'TRIGGERED') {
+      throw new Error(
+        `Cannot acknowledge alert with status ${this.props.status}`,
+      );
+    }
+
+    this.props.status = 'ACKNOWLEDGED';
+    this.props.acknowledgedAt = now;
+    this.props.updatedAt = now;
+  }
+
+  close(now: Date = new Date()): void {
+    if (this.props.status !== 'RESOLVED') {
+      throw new Error(`Cannot close alert with status ${this.props.status}`);
+    }
+
+    this.props.status = 'CLOSED';
+    this.props.closedAt = now;
+    this.props.updatedAt = now;
   }
 
   toObject(): AlertProps {

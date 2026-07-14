@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { and, desc, eq } from 'drizzle-orm';
+import { and, desc, eq, inArray } from 'drizzle-orm';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 
 import { Alert } from '../../domain/entities/alert.entity';
@@ -31,7 +31,9 @@ export class DrizzleAlertRepository implements AlertRepository {
         actualValue: data.actualValue,
         message: data.message,
         triggeredAt: data.triggeredAt,
+        acknowledgedAt: data.acknowledgedAt,
         resolvedAt: data.resolvedAt,
+        closedAt: data.closedAt,
         createdAt: data.createdAt,
         updatedAt: data.updatedAt,
       })
@@ -44,7 +46,12 @@ export class DrizzleAlertRepository implements AlertRepository {
     const [row] = await this.db
       .select()
       .from(alerts)
-      .where(and(eq(alerts.ruleId, ruleId), eq(alerts.status, 'TRIGGERED')))
+      .where(
+        and(
+          eq(alerts.ruleId, ruleId),
+          inArray(alerts.status, ['TRIGGERED', 'ACKNOWLEDGED']),
+        ),
+      )
       .orderBy(desc(alerts.triggeredAt))
       .limit(1);
 
@@ -77,9 +84,11 @@ export class DrizzleAlertRepository implements AlertRepository {
       .update(alerts)
       .set({
         status: data.status,
+        acknowledgedAt: data.acknowledgedAt,
         actualValue: data.actualValue,
         message: data.message,
         resolvedAt: data.resolvedAt,
+        closedAt: data.closedAt,
         updatedAt: data.updatedAt,
       })
       .where(eq(alerts.alertId, data.alertId))
@@ -104,7 +113,9 @@ export class DrizzleAlertRepository implements AlertRepository {
       actualValue: row.actualValue,
       message: row.message,
       triggeredAt: row.triggeredAt,
+      acknowledgedAt: row.acknowledgedAt,
       resolvedAt: row.resolvedAt,
+      closedAt: row.closedAt,
       createdAt: row.createdAt,
       updatedAt: row.updatedAt,
     });

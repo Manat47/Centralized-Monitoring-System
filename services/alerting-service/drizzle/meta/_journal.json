@@ -8,6 +8,20 @@
       "when": 1783914419177,
       "tag": "0000_grey_doctor_octopus",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1783998245470,
+      "tag": "0001_third_sinister_six",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1784003237075,
+      "tag": "0002_public_dust",
+      "breakpoints": true
     }
   ]
 }
