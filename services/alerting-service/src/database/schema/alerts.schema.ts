@@ -9,7 +9,9 @@ import {
 
 export const alertStatusEnum = pgEnum('alert_status', [
   'TRIGGERED',
+  'ACKNOWLEDGED',
   'RESOLVED',
+  'CLOSED',
 ]);
 
 export const alertSeverityEnum = pgEnum('alert_severity', [
@@ -30,7 +32,13 @@ export const alerts = pgTable('alerts', {
   triggeredAt: timestamp('triggered_at', {
     withTimezone: true,
   }).notNull(),
+  acknowledgedAt: timestamp('acknowledged_at', {
+    withTimezone: true,
+  }),
   resolvedAt: timestamp('resolved_at', {
+    withTimezone: true,
+  }),
+  closedAt: timestamp('closed_at', {
     withTimezone: true,
   }),
   createdAt: timestamp('created_at', {
