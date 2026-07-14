@@ -1,98 +1,288 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# Alerting Service
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+Alerting Service เป็น microservice สำหรับรับเหตุการณ์แจ้งเตือนจาก Monitoring Service ผ่าน RabbitMQ และจัดการ lifecycle ของ Alert ตั้งแต่เริ่มเกิดเหตุจนปิดเคส
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+## Responsibilities
 
-## Description
+- รับ `METRIC_THRESHOLD_EXCEEDED` และ `METRIC_THRESHOLD_RECOVERED`
+- สร้าง Alert ใหม่เมื่อ metric เกิน threshold
+- ป้องกันการสร้าง active Alert ซ้ำจาก rule เดิม
+- อัปเดต Alert เป็น `RESOLVED` เมื่อ metric กลับสู่ค่าปกติ
+- รองรับการ acknowledge และ close โดย operator
+- ให้บริการ Alert Query API พร้อม filtering, validation และ pagination
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+## Architecture
 
-## Project setup
+Service ใช้แนวทาง Hexagonal Architecture
 
-```bash
-$ npm install
+```text
+Presentation
+├── HTTP Controllers
+└── RabbitMQ Consumer
+
+Application
+└── Use Cases
+
+Domain
+├── Alert Entity
+└── Alert Repository Port
+
+Infrastructure
+├── Drizzle Alert Repository
+├── PostgreSQL
+└── RabbitMQ
 ```
 
-## Compile and run the project
+Event flow:
 
-```bash
-# development
-$ npm run start
-
-# watch mode
-$ npm run start:dev
-
-# production mode
-$ npm run start:prod
+```text
+Monitoring Service
+→ RabbitMQ
+→ AlertEventConsumer
+→ ProcessAlertEventUseCase
+→ AlertRepository
+→ PostgreSQL
 ```
 
-## Run tests
+## Alert Lifecycle
 
-```bash
-# unit tests
-$ npm run test
+```text
+TRIGGERED
+├── ACKNOWLEDGED
+└── RESOLVED
 
-# e2e tests
-$ npm run test:e2e
+ACKNOWLEDGED
+└── RESOLVED
 
-# test coverage
-$ npm run test:cov
+RESOLVED
+└── CLOSED
 ```
 
-## Deployment
+สถานะ:
 
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
+- `TRIGGERED` — ระบบตรวจพบ metric เกิน threshold
+- `ACKNOWLEDGED` — operator รับทราบ Alert แล้ว
+- `RESOLVED` — Monitoring Service ตรวจพบว่า metric กลับสู่ค่าปกติ
+- `CLOSED` — operator ตรวจสอบและปิดเคสเรียบร้อย
 
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
+Timestamp ที่เกี่ยวข้อง:
 
-```bash
-$ npm install -g @nestjs/mau
-$ mau deploy
+- `triggeredAt`
+- `acknowledgedAt`
+- `resolvedAt`
+- `closedAt`
+
+## RabbitMQ
+
+Queue:
+
+```text
+alert_events
 ```
 
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
+Pattern:
 
-## Resources
+```text
+alert.threshold.changed
+```
 
-Check out a few resources that may come in handy when working with NestJS:
+Event types:
 
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
+```text
+METRIC_THRESHOLD_EXCEEDED
+METRIC_THRESHOLD_RECOVERED
+```
 
-## Support
+Active Alert หมายถึง Alert ที่มีสถานะ:
 
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
+```text
+TRIGGERED
+ACKNOWLEDGED
+```
 
-## Stay in touch
+เมื่อได้รับ exceeded event ซ้ำจาก rule เดิม ระบบจะไม่สร้าง active Alert ซ้ำ
 
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
+## API Endpoints
 
-## License
+### List Alerts
 
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+```http
+GET /alerts
+```
+
+รองรับ query parameters:
+
+| Parameter  | Description                                       |
+| ---------- | ------------------------------------------------- |
+| `status`   | `TRIGGERED`, `ACKNOWLEDGED`, `RESOLVED`, `CLOSED` |
+| `severity` | `WARNING`, `CRITICAL`                             |
+| `assetId`  | UUID ของ Asset                                    |
+| `page`     | หน้าที่ต้องการ เริ่มต้นที่ `1`                    |
+| `limit`    | จำนวนรายการต่อหน้า เริ่มต้น `20` สูงสุด `100`     |
+
+ตัวอย่าง:
+
+```http
+GET /alerts?status=RESOLVED&severity=WARNING&page=1&limit=20
+```
+
+Response:
+
+```json
+{
+  "items": [],
+  "total": 0,
+  "page": 1,
+  "limit": 20,
+  "totalPages": 0
+}
+```
+
+### Get Alert by ID
+
+```http
+GET /alerts/:id
+```
+
+ตอบ `404 Not Found` เมื่อไม่พบ Alert
+
+### Acknowledge Alert
+
+```http
+PATCH /alerts/:id/acknowledge
+```
+
+รองรับ transition:
+
+```text
+TRIGGERED → ACKNOWLEDGED
+```
+
+### Close Alert
+
+```http
+PATCH /alerts/:id/close
+```
+
+รองรับ transition:
+
+```text
+RESOLVED → CLOSED
+```
+
+### Internal Event Endpoint
+
+```http
+POST /internal/alert-events
+```
+
+ใช้สำหรับ manual testing ของ event processing โดย service-to-service communication หลักยังใช้ RabbitMQ
+
+## Validation
+
+ใช้:
+
+```text
+class-validator
+class-transformer
+```
+
+ค่าที่ไม่ถูกต้อง เช่น `status=ABC`, `page=0`, `limit=101` หรือ query field ที่ไม่ได้ประกาศ จะตอบ `400 Bad Request`
+
+## Database
+
+ใช้ PostgreSQL และ Drizzle ORM
+
+ตารางหลัก:
+
+```text
+alerts
+```
+
+ข้อมูลสำคัญ:
+
+- `alert_id`
+- `rule_id`
+- `asset_id`
+- `metric_type`
+- `severity`
+- `status`
+- `threshold_value`
+- `actual_value`
+- `message`
+- `triggered_at`
+- `acknowledged_at`
+- `resolved_at`
+- `closed_at`
+- `created_at`
+- `updated_at`
+
+## Environment Variables
+
+ตัวอย่าง:
+
+```env
+PORT=3002
+DATABASE_URL=postgresql://<user>:<password>@localhost:5435/<database>
+RABBITMQ_URL=amqp://<user>:<password>@localhost:5672
+RABBITMQ_ALERT_QUEUE=alert_events
+```
+
+## Development
+
+ติดตั้ง dependencies:
+
+```bash
+npm install
+```
+
+รัน development mode:
+
+```bash
+npm run start:dev
+```
+
+Build:
+
+```bash
+npm run build
+```
+
+สร้าง migration:
+
+```bash
+npm run db:generate
+```
+
+รัน migration:
+
+```bash
+npm run db:migrate
+```
+
+เปิด Drizzle Studio:
+
+```bash
+npm run db:studio
+```
+
+## Current Scope
+
+Alerting Service ตอนนี้รองรับ core flow แล้ว:
+
+```text
+Threshold exceeded
+→ Alert created
+→ Operator acknowledges
+→ Metric recovers
+→ Alert resolved
+→ Operator closes
+```
+
+สิ่งที่ยังอยู่นอก scope ปัจจุบัน:
+
+- Authentication และ RBAC
+- Tenant หรือ organization ownership
+- Notification delivery
+- Audit log
+- Alert escalation policy
