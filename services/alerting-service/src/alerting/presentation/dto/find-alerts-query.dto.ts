@@ -1,10 +1,18 @@
-import { IsIn, IsOptional, IsString, IsUUID } from 'class-validator';
+import {
+  IsIn,
+  IsInt,
+  IsOptional,
+  IsString,
+  IsUUID,
+  Max,
+  Min,
+} from 'class-validator';
 
 import type {
   AlertSeverity,
   AlertStatus,
 } from '../../domain/entities/alert.entity';
-
+import { Type } from 'class-transformer';
 const ALERT_STATUSES: AlertStatus[] = [
   'TRIGGERED',
   'ACKNOWLEDGED',
@@ -27,4 +35,17 @@ export class FindAlertsQueryDto {
   @IsString()
   @IsUUID()
   assetId?: string;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  page: number = 1;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(100)
+  limit: number = 20;
 }

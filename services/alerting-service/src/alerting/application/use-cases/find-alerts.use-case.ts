@@ -7,6 +7,14 @@ import {
   type FindAlertsFilters,
 } from '../../domain/repositories/alert.repository';
 
+export interface FindAlertsResponse {
+  items: AlertProps[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+
 @Injectable()
 export class FindAlertsUseCase {
   constructor(
@@ -14,9 +22,22 @@ export class FindAlertsUseCase {
     private readonly alertRepository: AlertRepository,
   ) {}
 
-  async execute(filters?: FindAlertsFilters): Promise<AlertProps[]> {
-    const alerts = await this.alertRepository.findAll(filters);
+  async execute(filters?: FindAlertsFilters): Promise<FindAlertsResponse> {
+    const page = filters?.page ?? 1;
+    const limit = filters?.limit ?? 20;
 
-    return alerts.map((alert) => alert.toObject());
+    const result = await this.alertRepository.findAll({
+      ...filters,
+      page,
+      limit,
+    });
+
+    return {
+      items: result.items.map((alert) => alert.toObject()),
+      total: result.total,
+      page,
+      limit,
+      totalPages: Math.ceil(result.total / limit),
+    };
   }
 }
