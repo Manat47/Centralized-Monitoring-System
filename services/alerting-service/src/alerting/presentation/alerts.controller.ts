@@ -1,10 +1,10 @@
-import { Controller, Get, Param, Patch } from '@nestjs/common';
+import { Controller, Get, Param, Patch, Query } from '@nestjs/common';
 
 import { FindAlertsUseCase } from '../application/use-cases/find-alerts.use-case';
 import { FindAlertByIdUseCase } from '../application/use-cases/find-alert-by-id.use-case';
 import { AcknowledgeAlertUseCase } from '../application/use-cases/acknowledge-alert.use-case';
 import { CloseAlertUseCase } from '../application/use-cases/close-alert.use-case';
-
+import { FindAlertsQueryDto } from './dto/find-alerts-query.dto';
 @Controller('alerts')
 export class AlertsController {
   constructor(
@@ -15,8 +15,8 @@ export class AlertsController {
   ) {}
 
   @Get()
-  async findAll() {
-    return this.findAlertsUseCase.execute();
+  async findAll(@Query() query: FindAlertsQueryDto) {
+    return this.findAlertsUseCase.execute(query);
   }
 
   @Get(':id')

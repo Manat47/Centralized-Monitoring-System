@@ -1,9 +1,12 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { and, desc, eq, inArray } from 'drizzle-orm';
+import { and, desc, eq, inArray, SQL } from 'drizzle-orm';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 
 import { Alert } from '../../domain/entities/alert.entity';
-import { AlertRepository } from '../../domain/repositories/alert.repository';
+import {
+  AlertRepository,
+  type FindAlertsFilters,
+} from '../../domain/repositories/alert.repository';
 import { DRIZZLE_DB } from '../../../database/database.provider';
 import { alerts, type AlertRow } from '../../../database/schema/alerts.schema';
 import * as schema from '../../../database/schema/alerts.schema';
@@ -58,10 +61,25 @@ export class DrizzleAlertRepository implements AlertRepository {
     return row ? this.toDomain(row) : null;
   }
 
-  async findAll(): Promise<Alert[]> {
+  async findAll(filters?: FindAlertsFilters): Promise<Alert[]> {
+    const conditions: SQL[] = [];
+
+    if (filters?.status) {
+      conditions.push(eq(alerts.status, filters.status));
+    }
+
+    if (filters?.severity) {
+      conditions.push(eq(alerts.severity, filters.severity));
+    }
+
+    if (filters?.assetId) {
+      conditions.push(eq(alerts.assetId, filters.assetId));
+    }
+
     const rows = await this.db
       .select()
       .from(alerts)
+      .where(conditions.length > 0 ? and(...conditions) : undefined)
       .orderBy(desc(alerts.triggeredAt));
 
     return rows.map((row) => this.toDomain(row));
