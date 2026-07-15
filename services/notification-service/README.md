@@ -1,64 +1,62 @@
 ## Summary
 
-เพิ่มความสามารถสำหรับจัดการและค้นหา Alert ใน Alerting Service โดยครอบคลุม Alert lifecycle, query filtering, validation และ pagination
+Bootstrap Notification Service สำหรับรับ alert events จาก Alerting Service ผ่าน RabbitMQ และส่งต่อผ่าน `NotificationSender` port รอบนี้ใช้ `ConsoleNotificationSender` เพื่อพิสูจน์ event flow ก่อนเชื่อม provider จริง
 
 ## Changes
 
-- เพิ่มสถานะ `ACKNOWLEDGED` และ `CLOSED` ใน Alert lifecycle
-- เพิ่ม endpoints สำหรับจัดการสถานะ Alert
-  - `PATCH /alerts/:id/acknowledge`
-  - `PATCH /alerts/:id/close`
-- เพิ่มการค้นหา Alert ด้วย query parameters
-  - `status`
-  - `severity`
-  - `assetId`
-- เพิ่ม query validation ด้วย `class-validator`
-- เพิ่ม pagination ด้วย `page` และ `limit`
-- ปรับ `GET /alerts` ให้คืนข้อมูลในรูปแบบ paginated response
+- Bootstrap `notification-service` โครงสร้างตาม hexagonal architecture
+- เพิ่ม `NotificationEventConsumer` สำหรับรับ event จาก RabbitMQ
+- เพิ่ม `SendNotificationUseCase`
+- เพิ่ม `NotificationSender` outbound port
+- เพิ่ม `ConsoleNotificationSender` adapter
+- เพิ่ม manual acknowledgement หลังประมวลผลสำเร็จ
+- รองรับ event types `ALERT_TRIGGERED` และ `ALERT_RESOLVED`
 
-## Alert Lifecycle
+## Architecture
 
 ```text
-TRIGGERED → ACKNOWLEDGED → RESOLVED → CLOSED
+RabbitMQ
+→ NotificationEventConsumer
+→ SendNotificationUseCase
+→ NotificationSender (port)
+→ ConsoleNotificationSender (adapter)
 ```
 
-## API
+## RabbitMQ
 
-**Acknowledge Alert**
+| Config      | Value                               |
+| ----------- | ----------------------------------- |
+| Queue       | `notification_events`               |
+| Pattern     | `notification.alert.changed`        |
+| Event Types | `ALERT_TRIGGERED`, `ALERT_RESOLVED` |
 
-```
-PATCH /alerts/:id/acknowledge
-```
+## Event Contract
 
-**Close Alert**
-
-```
-PATCH /alerts/:id/close
-```
-
-**List Alerts**
-
-```
-GET /alerts?status=TRIGGERED&severity=HIGH&assetId=xxx&page=1&limit=20
-```
-
-Response
-
-```json
-{
-  "items": [],
-  "total": 0,
-  "page": 1,
-  "limit": 20,
-  "totalPages": 0
+```typescript
+interface NotificationEvent {
+  eventType: 'ALERT_TRIGGERED' | 'ALERT_RESOLVED';
+  alertId: string;
+  ruleId: string;
+  assetId: string;
+  metricType: string;
+  severity: 'WARNING' | 'CRITICAL';
+  message: string;
+  occurredAt: string;
 }
 ```
 
-## Testing
+## Tested Flow
 
-- [x] `TRIGGERED → ACKNOWLEDGED`
-- [x] `RESOLVED → CLOSED`
-- [x] Invalid lifecycle transition ถูก reject
-- [x] Filter ทั้งแบบเงื่อนไขเดียวและหลายเงื่อนไขพร้อมกัน
-- [x] Query validation ทำงานถูกต้อง
-- [x] Pagination และ pagination metadata ถูกต้อง
+```text
+Alerting Service → publish ALERT_TRIGGERED → RabbitMQ → Notification Service → Console log
+Alerting Service → publish ALERT_RESOLVED  → RabbitMQ → Notification Service → Console log
+```
+
+- [x] `ALERT_TRIGGERED` ผ่าน RabbitMQ แล้ว log ออก console
+- [x] `ALERT_RESOLVED` ผ่าน RabbitMQ แล้ว log ออก console
+- [x] Unit test `SendNotificationUseCase` ผ่าน
+- [x] Message ถูก acknowledge หลังประมวลผลสำเร็จ
+
+## Current Scope
+
+Service รอบนี้เป็น stateless ยังไม่มี database สิ่งที่ยังอยู่นอก scope ได้แก่ Email/LINE/Webhook provider, delivery history, retry policy, delivery status, recipient preferences และ deduplication
