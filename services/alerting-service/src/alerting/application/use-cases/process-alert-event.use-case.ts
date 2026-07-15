@@ -3,6 +3,10 @@ import { randomUUID } from 'node:crypto';
 
 import { Alert } from '../../domain/entities/alert.entity';
 import {
+  NOTIFICATION_EVENT_PUBLISHER,
+  type NotificationEventPublisher,
+} from '../../domain/port/notification-event-publisher.port';
+import {
   ALERT_REPOSITORY,
   type AlertRepository,
 } from '../../domain/repositories/alert.repository';
@@ -13,6 +17,9 @@ export class ProcessAlertEventUseCase {
   constructor(
     @Inject(ALERT_REPOSITORY)
     private readonly alertRepository: AlertRepository,
+
+    @Inject(NOTIFICATION_EVENT_PUBLISHER)
+    private readonly notificationEventPublisher: NotificationEventPublisher,
   ) {}
 
   async execute(event: AlertEvent): Promise<Alert | null> {
@@ -36,7 +43,20 @@ export class ProcessAlertEventUseCase {
         triggeredAt: new Date(event.occurredAt),
       });
 
-      return this.alertRepository.create(alert);
+      const createdAlert = await this.alertRepository.create(alert);
+      const data = createdAlert.toObject();
+
+      await this.notificationEventPublisher.publish({
+        eventType: 'ALERT_RESOLVED',
+        alertId: data.alertId,
+        ruleId: data.ruleId,
+        assetId: data.assetId,
+        metricType: data.metricType,
+        severity: data.severity,
+        message: event.message,
+        occurredAt: data.resolvedAt?.toISOString() ?? event.occurredAt,
+      });
+      return createdAlert;
     }
 
     const activeAlert = await this.alertRepository.findActiveByRuleId(
@@ -49,6 +69,21 @@ export class ProcessAlertEventUseCase {
 
     activeAlert.resolve(event.actualValue, new Date(event.occurredAt));
 
-    return this.alertRepository.update(activeAlert);
+    const updatedAlert = await this.alertRepository.update(activeAlert);
+
+    const data = updatedAlert.toObject();
+
+    await this.notificationEventPublisher.publish({
+      eventType: 'ALERT_RESOLVED',
+      alertId: data.alertId,
+      ruleId: data.ruleId,
+      assetId: data.assetId,
+      metricType: data.metricType,
+      severity: data.severity,
+      message: data.message,
+      occurredAt: data.resolvedAt?.toISOString() ?? event.occurredAt,
+    });
+
+    return updatedAlert;
   }
 }
