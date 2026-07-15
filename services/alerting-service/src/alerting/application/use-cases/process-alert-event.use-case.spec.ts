@@ -1,11 +1,13 @@
 import { randomUUID } from 'node:crypto';
 
 import { Alert } from '../../domain/entities/alert.entity';
+import type { NotificationEventPublisher } from '../../domain/port/notification-event-publisher.port';
 import type { AlertRepository } from '../../domain/repositories/alert.repository';
 import { ProcessAlertEventUseCase } from './process-alert-event.use-case';
 
 describe('ProcessAlertEventUseCase', () => {
   let alertRepository: jest.Mocked<AlertRepository>;
+  let notificationEventPublisher: jest.Mocked<NotificationEventPublisher>;
   let useCase: ProcessAlertEventUseCase;
 
   beforeEach(() => {
@@ -17,7 +19,14 @@ describe('ProcessAlertEventUseCase', () => {
       update: jest.fn(),
     };
 
-    useCase = new ProcessAlertEventUseCase(alertRepository);
+    notificationEventPublisher = {
+      publish: jest.fn(),
+    };
+
+    useCase = new ProcessAlertEventUseCase(
+      alertRepository,
+      notificationEventPublisher,
+    );
   });
 
   it('should create a TRIGGERED alert from an exceeded event', async () => {
@@ -44,6 +53,16 @@ describe('ProcessAlertEventUseCase', () => {
 
     // eslint-disable-next-line @typescript-eslint/unbound-method
     expect(alertRepository.create).toHaveBeenCalledTimes(1);
+
+    // eslint-disable-next-line @typescript-eslint/unbound-method
+    expect(notificationEventPublisher.publish).toHaveBeenCalledWith(
+      expect.objectContaining({
+        eventType: 'ALERT_TRIGGERED',
+        ruleId: 'rule-1',
+        assetId: 'asset-1',
+      }),
+    );
+
     expect(result?.toObject().status).toBe('TRIGGERED');
   });
 
@@ -75,6 +94,10 @@ describe('ProcessAlertEventUseCase', () => {
 
     // eslint-disable-next-line @typescript-eslint/unbound-method
     expect(alertRepository.create).not.toHaveBeenCalled();
+
+    // eslint-disable-next-line @typescript-eslint/unbound-method
+    expect(notificationEventPublisher.publish).not.toHaveBeenCalled();
+
     expect(result).toBe(existingAlert);
   });
 
@@ -91,6 +114,7 @@ describe('ProcessAlertEventUseCase', () => {
     });
 
     alertRepository.findActiveByRuleId.mockResolvedValue(existingAlert);
+
     alertRepository.update.mockImplementation((alert) =>
       Promise.resolve(alert),
     );
@@ -109,6 +133,15 @@ describe('ProcessAlertEventUseCase', () => {
 
     // eslint-disable-next-line @typescript-eslint/unbound-method
     expect(alertRepository.update).toHaveBeenCalledTimes(1);
+
+    // eslint-disable-next-line @typescript-eslint/unbound-method
+    expect(notificationEventPublisher.publish).toHaveBeenCalledWith(
+      expect.objectContaining({
+        eventType: 'ALERT_RESOLVED',
+        message: 'CPU usage recovered',
+      }),
+    );
+
     expect(result?.toObject().status).toBe('RESOLVED');
     expect(result?.toObject().actualValue).toBe(40);
   });
@@ -130,6 +163,10 @@ describe('ProcessAlertEventUseCase', () => {
 
     // eslint-disable-next-line @typescript-eslint/unbound-method
     expect(alertRepository.update).not.toHaveBeenCalled();
+
+    // eslint-disable-next-line @typescript-eslint/unbound-method
+    expect(notificationEventPublisher.publish).not.toHaveBeenCalled();
+
     expect(result).toBeNull();
   });
 });
