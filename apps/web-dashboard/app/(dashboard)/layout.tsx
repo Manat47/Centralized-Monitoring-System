@@ -19,7 +19,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
       <aside className="fixed inset-y-0 left-0 w-64 border-r bg-background">
         <div className="flex h-16 items-center border-b px-6">
           <Link href="/dashboard" className="text-lg font-semibold">
-            Monitoring System
+            Banatnaa Monitoring
           </Link>
         </div>
 

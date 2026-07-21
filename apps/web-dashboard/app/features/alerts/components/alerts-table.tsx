@@ -18,6 +18,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
+import { useAcknowledgeAlert, useCloseAlert } from "../api/use-alert-actions";
 import { useAlerts } from "../api/use-alerts";
 import type { AlertSeverity, AlertStatus } from "../types/alert";
 import { useState } from "react";
@@ -58,6 +59,8 @@ export function AlertsTable() {
   const [page, setPage] = useState(1);
   const [status, setStatus] = useState<"ALL" | AlertStatus>("ALL");
   const [severity, setSeverity] = useState<"ALL" | AlertSeverity>("ALL");
+  const acknowledgeMutation = useAcknowledgeAlert();
+  const closeMutation = useCloseAlert();
 
   const { data, isLoading, isError, error, isFetching } = useAlerts({
     page,
@@ -157,6 +160,21 @@ export function AlertsTable() {
             <span className="text-sm text-muted-foreground">Updating...</span>
           )}
         </div>
+        {acknowledgeMutation.isError && (
+          <p className="mb-4 text-sm text-destructive">
+            {acknowledgeMutation.error instanceof Error
+              ? acknowledgeMutation.error.message
+              : "Failed to acknowledge alert"}
+          </p>
+        )}
+
+        {closeMutation.isError && (
+          <p className="mb-4 text-sm text-destructive">
+            {closeMutation.error instanceof Error
+              ? closeMutation.error.message
+              : "Failed to close alert"}
+          </p>
+        )}
         <Table>
           <TableHeader>
             <TableRow>
@@ -166,7 +184,8 @@ export function AlertsTable() {
               <TableHead>Metric</TableHead>
               <TableHead>Actual</TableHead>
               <TableHead>Threshold</TableHead>
-              <TableHead>Triggered at</TableHead>
+              <TableHead>Triggered At</TableHead>
+              <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
 
@@ -174,7 +193,7 @@ export function AlertsTable() {
             {data?.items.length === 0 ? (
               <TableRow>
                 <TableCell
-                  colSpan={7}
+                  colSpan={8}
                   className="h-24 text-center text-muted-foreground"
                 >
                   No alerts found.
@@ -206,6 +225,56 @@ export function AlertsTable() {
                   <TableCell>{alert.thresholdValue}</TableCell>
 
                   <TableCell>{formatDate(alert.triggeredAt)}</TableCell>
+                  <TableCell className="text-right">
+                    <div className="flex justify-end gap-2">
+                      {alert.status === "TRIGGERED" && (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          disabled={
+                            acknowledgeMutation.isPending ||
+                            closeMutation.isPending
+                          }
+                          onClick={() => {
+                            acknowledgeMutation.mutate(alert.alertId);
+                          }}
+                        >
+                          {acknowledgeMutation.isPending &&
+                          acknowledgeMutation.variables === alert.alertId
+                            ? "Acknowledging..."
+                            : "Acknowledge"}
+                        </Button>
+                      )}
+
+                      {alert.status === "RESOLVED" && (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          disabled={
+                            acknowledgeMutation.isPending ||
+                            closeMutation.isPending
+                          }
+                          onClick={() => {
+                            closeMutation.mutate(alert.alertId);
+                          }}
+                        >
+                          {closeMutation.isPending &&
+                          closeMutation.variables === alert.alertId
+                            ? "Closing..."
+                            : "Close"}
+                        </Button>
+                      )}
+
+                      {(alert.status === "ACKNOWLEDGED" ||
+                        alert.status === "CLOSED") && (
+                        <span className="text-sm text-muted-foreground">
+                          No action
+                        </span>
+                      )}
+                    </div>
+                  </TableCell>
                 </TableRow>
               ))
             )}
