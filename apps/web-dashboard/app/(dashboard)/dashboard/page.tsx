@@ -1,4 +1,6 @@
 import { DashboardSummaryCards } from "@/app/features/dashboard/components/dashboard-summary-cards";
+import { RecentAlerts } from "@/app/features/dashboard/components/recent-alerts";
+import { SystemStatusCard } from "@/app/features/system-status/components/system-status-card";
 
 export default function DashboardPage() {
   return (
@@ -12,6 +14,10 @@ export default function DashboardPage() {
       </div>
 
       <DashboardSummaryCards />
+
+      <SystemStatusCard />
+
+      <RecentAlerts />
     </section>
   );
 }
