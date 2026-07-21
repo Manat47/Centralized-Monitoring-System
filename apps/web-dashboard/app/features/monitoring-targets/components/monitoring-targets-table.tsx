@@ -24,7 +24,6 @@ import {
 } from "@/components/ui/table";
 
 import {
-  useCollectMonitoringTarget,
   useDisableMonitoringTarget,
   useEnableMonitoringTarget,
   useVerifyMonitoringTarget,
@@ -34,6 +33,7 @@ import type {
   MonitoringTarget,
   VerificationStatus,
 } from "../types/monitoring-target";
+import Link from "next/link";
 
 function getVerificationVariant(
   status: VerificationStatus,
@@ -91,7 +91,6 @@ export function MonitoringTargetsTable() {
   const verifyMutation = useVerifyMonitoringTarget();
   const enableMutation = useEnableMonitoringTarget();
   const disableMutation = useDisableMonitoringTarget();
-  const collectMutation = useCollectMonitoringTarget();
 
   /*
    * 4. Derived values
@@ -134,10 +133,7 @@ export function MonitoringTargetsTable() {
   }, [targets, assetNameById, search, verificationStatus, monitoringStatus]);
 
   const actionError =
-    verifyMutation.error ??
-    enableMutation.error ??
-    disableMutation.error ??
-    collectMutation.error;
+    verifyMutation.error ?? enableMutation.error ?? disableMutation.error;
 
   /*
    * 5. Conditional rendering
@@ -303,9 +299,7 @@ export function MonitoringTargetsTable() {
                   (enableMutation.isPending &&
                     enableMutation.variables === target.targetId) ||
                   (disableMutation.isPending &&
-                    disableMutation.variables === target.targetId) ||
-                  (collectMutation.isPending &&
-                    collectMutation.variables === target.targetId);
+                    disableMutation.variables === target.targetId);
 
                 return (
                   <TableRow key={target.targetId}>
@@ -353,6 +347,13 @@ export function MonitoringTargetsTable() {
 
                     <TableCell className="text-right">
                       <div className="flex flex-wrap justify-end gap-2">
+                        <Link
+                          href={`/assets/${target.assetId}/metrics`}
+                          className="inline-flex h-8 items-center justify-center rounded-md border bg-background px-3 text-sm font-medium shadow-xs transition-colors hover:bg-accent hover:text-accent-foreground"
+                        >
+                          View metrics
+                        </Link>
+
                         <Button
                           type="button"
                           size="sm"
@@ -399,23 +400,6 @@ export function MonitoringTargetsTable() {
                               : "Enable"}
                           </Button>
                         )}
-
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="outline"
-                          disabled={
-                            isThisTargetPending || !target.monitoringEnabled
-                          }
-                          onClick={() =>
-                            collectMutation.mutate(target.targetId)
-                          }
-                        >
-                          {collectMutation.isPending &&
-                          collectMutation.variables === target.targetId
-                            ? "Collecting..."
-                            : "Collect now"}
-                        </Button>
                       </div>
 
                       {target.lastError && (
@@ -423,13 +407,6 @@ export function MonitoringTargetsTable() {
                           {target.lastError}
                         </p>
                       )}
-
-                      {collectMutation.isSuccess &&
-                        collectMutation.variables === target.targetId && (
-                          <p className="mt-2 text-right text-xs text-muted-foreground">
-                            Collected {collectMutation.data.length} metrics
-                          </p>
-                        )}
                     </TableCell>
                   </TableRow>
                 );
