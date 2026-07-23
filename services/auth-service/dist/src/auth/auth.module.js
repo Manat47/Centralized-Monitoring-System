@@ -13,11 +13,13 @@ const password_hasher_port_1 = require("./domain/ports/password-hasher.port");
 const user_repository_1 = require("./domain/repositories/user.repository");
 const drizzle_user_repository_1 = require("./infrastructure/persistence/drizzle-user.repository");
 const bcrypt_password_hasher_1 = require("./infrastructure/security/bcrypt-password-hasher");
+const users_controller_1 = require("./presentation/users.controller");
 let AuthModule = class AuthModule {
 };
 exports.AuthModule = AuthModule;
 exports.AuthModule = AuthModule = __decorate([
     (0, common_1.Module)({
+        controllers: [users_controller_1.UsersController],
         providers: [
             create_user_use_case_1.CreateUserUseCase,
             {
