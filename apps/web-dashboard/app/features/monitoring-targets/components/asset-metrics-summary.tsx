@@ -8,6 +8,14 @@ import { useAssets } from "@/app/features/assets/api/use-assets";
 
 import { useMetricsSummary } from "../api/use-metrics-summary";
 
+import { CpuUsageChart } from "./cpu-usage-chart";
+
+import { MemoryUsageChart } from "./memory-usage-chart";
+
+import { DiskUsageChart } from "./disk-usage-chart";
+
+import { NetworkRateChart } from "./network-rate-chart";
+
 function formatPercent(value: number | null | undefined): string {
   if (value == null || !Number.isFinite(value)) {
     return "-";
@@ -151,6 +159,13 @@ export function AssetMetricsSummary() {
                 </CardContent>
               </Card>
             ))}
+          </div>
+
+          <div className="grid gap-4 xl:grid-cols-2">
+            <CpuUsageChart assetId={assetId} />
+            <MemoryUsageChart assetId={assetId} />
+            <DiskUsageChart assetId={assetId} />
+            <NetworkRateChart assetId={assetId} />
           </div>
 
           <p className="text-right text-xs text-muted-foreground">
