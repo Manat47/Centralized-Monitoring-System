@@ -8,6 +8,13 @@
       "when": 1784777924447,
       "tag": "0000_careful_rocket_racer",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1784876452380,
+      "tag": "0001_vengeful_thena",
+      "breakpoints": true
     }
   ]
 }
