@@ -24,6 +24,8 @@ const users_controller_1 = require("./presentation/users.controller");
 const roles_guard_1 = require("./infrastructure/security/roles.guard");
 const get_user_by_id_use_case_1 = require("./application/use-cases/get-user-by-id.use-case");
 const list_users_use_case_1 = require("./application/use-cases/list-users.use-case");
+const update_user_status_use_case_1 = require("./application/use-cases/update-user-status.use-case");
+const update_user_use_case_1 = require("./application/use-cases/update-user.use-case");
 let AuthModule = class AuthModule {
 };
 exports.AuthModule = AuthModule;
@@ -39,6 +41,8 @@ exports.AuthModule = AuthModule = __decorate([
             roles_guard_1.RolesGuard,
             get_user_by_id_use_case_1.GetUserByIdUseCase,
             list_users_use_case_1.ListUsersUseCase,
+            update_user_status_use_case_1.UpdateUserStatusUseCase,
+            update_user_use_case_1.UpdateUserUseCase,
             {
                 provide: user_repository_1.USER_REPOSITORY,
                 useClass: drizzle_user_repository_1.DrizzleUserRepository,

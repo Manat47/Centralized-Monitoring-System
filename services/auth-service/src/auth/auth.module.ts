@@ -16,6 +16,8 @@ import { UsersController } from './presentation/users.controller';
 import { RolesGuard } from './infrastructure/security/roles.guard';
 import { GetUserByIdUseCase } from './application/use-cases/get-user-by-id.use-case';
 import { ListUsersUseCase } from './application/use-cases/list-users.use-case';
+import { UpdateUserStatusUseCase } from './application/use-cases/update-user-status.use-case';
+import { UpdateUserUseCase } from './application/use-cases/update-user.use-case';
 
 @Module({
   imports: [JwtModule.register({})],
@@ -30,6 +32,8 @@ import { ListUsersUseCase } from './application/use-cases/list-users.use-case';
     RolesGuard,
     GetUserByIdUseCase,
     ListUsersUseCase,
+    UpdateUserStatusUseCase,
+    UpdateUserUseCase,
 
     {
       provide: USER_REPOSITORY,
