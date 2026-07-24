@@ -21,6 +21,7 @@ const jwt_access_token_1 = require("./infrastructure/security/jwt-access-token")
 const jwt_auth_guard_1 = require("./infrastructure/security/jwt-auth.guard");
 const auth_controller_1 = require("./presentation/auth.controller");
 const users_controller_1 = require("./presentation/users.controller");
+const roles_guard_1 = require("./infrastructure/security/roles.guard");
 let AuthModule = class AuthModule {
 };
 exports.AuthModule = AuthModule;
@@ -33,6 +34,7 @@ exports.AuthModule = AuthModule = __decorate([
             login_use_case_1.LoginUseCase,
             get_current_user_use_case_1.GetCurrentUserUseCase,
             jwt_auth_guard_1.JwtAuthGuard,
+            roles_guard_1.RolesGuard,
             {
                 provide: user_repository_1.USER_REPOSITORY,
                 useClass: drizzle_user_repository_1.DrizzleUserRepository,
@@ -46,7 +48,7 @@ exports.AuthModule = AuthModule = __decorate([
                 useClass: jwt_access_token_1.JwtAccessToken,
             },
         ],
-        exports: [user_repository_1.USER_REPOSITORY, password_hasher_port_1.PASSWORD_HASHER, access_token_port_1.ACCESS_TOKEN],
+        exports: [user_repository_1.USER_REPOSITORY, password_hasher_port_1.PASSWORD_HASHER, access_token_port_1.ACCESS_TOKEN, roles_guard_1.RolesGuard],
     })
 ], AuthModule);
 //# sourceMappingURL=auth.module.js.map

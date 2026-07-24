@@ -13,6 +13,7 @@ import { JwtAccessToken } from './infrastructure/security/jwt-access-token';
 import { JwtAuthGuard } from './infrastructure/security/jwt-auth.guard';
 import { AuthController } from './presentation/auth.controller';
 import { UsersController } from './presentation/users.controller';
+import { RolesGuard } from './infrastructure/security/roles.guard';
 
 @Module({
   imports: [JwtModule.register({})],
@@ -24,6 +25,7 @@ import { UsersController } from './presentation/users.controller';
     LoginUseCase,
     GetCurrentUserUseCase,
     JwtAuthGuard,
+    RolesGuard,
 
     {
       provide: USER_REPOSITORY,
@@ -41,6 +43,6 @@ import { UsersController } from './presentation/users.controller';
     },
   ],
 
-  exports: [USER_REPOSITORY, PASSWORD_HASHER, ACCESS_TOKEN],
+  exports: [USER_REPOSITORY, PASSWORD_HASHER, ACCESS_TOKEN, RolesGuard],
 })
 export class AuthModule {}
