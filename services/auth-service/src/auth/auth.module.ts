@@ -14,6 +14,8 @@ import { JwtAuthGuard } from './infrastructure/security/jwt-auth.guard';
 import { AuthController } from './presentation/auth.controller';
 import { UsersController } from './presentation/users.controller';
 import { RolesGuard } from './infrastructure/security/roles.guard';
+import { GetUserByIdUseCase } from './application/use-cases/get-user-by-id.use-case';
+import { ListUsersUseCase } from './application/use-cases/list-users.use-case';
 
 @Module({
   imports: [JwtModule.register({})],
@@ -26,6 +28,8 @@ import { RolesGuard } from './infrastructure/security/roles.guard';
     GetCurrentUserUseCase,
     JwtAuthGuard,
     RolesGuard,
+    GetUserByIdUseCase,
+    ListUsersUseCase,
 
     {
       provide: USER_REPOSITORY,
