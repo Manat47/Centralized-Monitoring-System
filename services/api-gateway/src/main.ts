@@ -20,6 +20,25 @@ async function bootstrap() {
   const monitoringServiceUrl =
     process.env.MONITORING_SERVICE_URL ?? 'http://localhost:3001';
 
+  const authServiceUrl =
+    process.env.AUTH_SERVICE_URL ?? 'http://localhost:3004';
+
+  app.use(
+    '/api/auth',
+    createProxyMiddleware({
+      target: `${authServiceUrl}/auth`,
+      changeOrigin: true,
+    }),
+  );
+
+  app.use(
+    '/api/users',
+    createProxyMiddleware({
+      target: `${authServiceUrl}/users`,
+      changeOrigin: true,
+    }),
+  );
+
   app.use(
     '/api/alerts',
     createProxyMiddleware({
@@ -27,6 +46,7 @@ async function bootstrap() {
       changeOrigin: true,
     }),
   );
+
   app.use(
     '/api/assets',
     createProxyMiddleware({
@@ -34,6 +54,7 @@ async function bootstrap() {
       changeOrigin: true,
     }),
   );
+
   app.use(
     createProxyMiddleware({
       target: monitoringServiceUrl,
