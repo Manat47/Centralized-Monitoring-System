@@ -22,6 +22,8 @@ import { REFRESH_TOKEN } from './domain/ports/refresh-token.port';
 import { REFRESH_SESSION_REPOSITORY } from './domain/repositories/refresh-session.repository';
 import { DrizzleRefreshSessionRepository } from './infrastructure/persistence/drizzle-refresh-session.repository';
 import { CryptoRefreshToken } from './infrastructure/security/crypto-refresh-token';
+import { RefreshAccessTokenUseCase } from './application/use-cases/refresh-access-token.use-case';
+import { LogoutUseCase } from './application/use-cases/logout.use-case';
 
 @Module({
   imports: [JwtModule.register({})],
@@ -38,6 +40,8 @@ import { CryptoRefreshToken } from './infrastructure/security/crypto-refresh-tok
     ListUsersUseCase,
     UpdateUserStatusUseCase,
     UpdateUserUseCase,
+    RefreshAccessTokenUseCase,
+    LogoutUseCase,
 
     {
       provide: USER_REPOSITORY,
