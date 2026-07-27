@@ -5,7 +5,7 @@ import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 
 import { DRIZZLE_DB } from '../../../database/database.provider';
 import { users, type UserRow } from '../../../database/schema/users.schema';
-import * as schema from '../../../database/schema/users.schema';
+import * as schema from '../../../database/schema/database.schema';
 
 import { User } from '../../domain/entities/user.entity';
 import {

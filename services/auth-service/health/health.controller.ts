@@ -8,7 +8,7 @@ import { sql } from 'drizzle-orm';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 
 import { DRIZZLE_DB } from '../src/database/database.provider';
-import * as schema from '../src/database/schema/users.schema';
+import * as schema from '../src/database/schema/database.schema';
 
 @Controller('health')
 export class HealthController {

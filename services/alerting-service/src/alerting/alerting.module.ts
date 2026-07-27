@@ -5,7 +5,7 @@ import { ClientsModule, Transport } from '@nestjs/microservices';
 import {
   NOTIFICATION_EVENTS_CLIENT,
   RabbitMqNotificationEventPublisher,
-} from './infrastructure/messaging/rabbitmq-notification-event.publisher';
+} from './infrastructure/publishers/rabbitmq-notification-event.publisher';
 import { NOTIFICATION_EVENT_PUBLISHER } from './domain/port/notification-event-publisher.port';
 
 import { ALERT_REPOSITORY } from './domain/repositories/alert.repository';
