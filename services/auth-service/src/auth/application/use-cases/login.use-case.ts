@@ -1,5 +1,8 @@
 import { Inject, Injectable, UnauthorizedException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import { randomUUID } from 'node:crypto';
 
+import { RefreshSession } from '../../domain/entities/refresh-session.entity';
 import {
   ACCESS_TOKEN,
   type AccessToken,
@@ -8,6 +11,14 @@ import {
   PASSWORD_HASHER,
   type PasswordHasher,
 } from '../../domain/ports/password-hasher.port';
+import {
+  REFRESH_TOKEN,
+  type RefreshToken,
+} from '../../domain/ports/refresh-token.port';
+import {
+  REFRESH_SESSION_REPOSITORY,
+  type RefreshSessionRepository,
+} from '../../domain/repositories/refresh-session.repository';
 import {
   USER_REPOSITORY,
   type UserRepository,
@@ -20,7 +31,10 @@ export interface LoginInput {
 
 export interface LoginOutput {
   accessToken: string;
+  refreshToken: string;
+  refreshTokenExpiresAt: Date;
   tokenType: 'Bearer';
+
   user: {
     userId: string;
     email: string;
@@ -40,6 +54,14 @@ export class LoginUseCase {
 
     @Inject(ACCESS_TOKEN)
     private readonly accessToken: AccessToken,
+
+    @Inject(REFRESH_TOKEN)
+    private readonly refreshToken: RefreshToken,
+
+    @Inject(REFRESH_SESSION_REPOSITORY)
+    private readonly refreshSessionRepository: RefreshSessionRepository,
+
+    private readonly configService: ConfigService,
   ) {}
 
   async execute(input: LoginInput): Promise<LoginOutput> {
@@ -78,9 +100,27 @@ export class LoginUseCase {
       role: updatedData.role,
     });
 
+    const sessionId = randomUUID();
+    const refreshSecret = this.refreshToken.generateSecret();
+
+    const rawRefreshToken = this.refreshToken.build(sessionId, refreshSecret);
+
+    const refreshTokenExpiresAt = this.createRefreshTokenExpiration();
+
+    const refreshSession = RefreshSession.create(sessionId, {
+      userId: updatedData.userId,
+      tokenHash: this.refreshToken.hash(refreshSecret),
+      expiresAt: refreshTokenExpiresAt,
+    });
+
+    await this.refreshSessionRepository.create(refreshSession);
+
     return {
       accessToken,
+      refreshToken: rawRefreshToken,
+      refreshTokenExpiresAt,
       tokenType: 'Bearer',
+
       user: {
         userId: updatedData.userId,
         email: updatedData.email,
@@ -88,5 +128,19 @@ export class LoginUseCase {
         role: updatedData.role,
       },
     };
+  }
+
+  private createRefreshTokenExpiration(): Date {
+    const expiresInDays = Number(
+      this.configService.get<string>('REFRESH_TOKEN_EXPIRES_IN_DAYS') ?? '7',
+    );
+
+    if (!Number.isInteger(expiresInDays) || expiresInDays <= 0) {
+      throw new Error(
+        'REFRESH_TOKEN_EXPIRES_IN_DAYS must be a positive integer',
+      );
+    }
+
+    return new Date(Date.now() + expiresInDays * 24 * 60 * 60 * 1000);
   }
 }
