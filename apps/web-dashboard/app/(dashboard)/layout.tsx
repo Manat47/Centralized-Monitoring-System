@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 
 import { ProtectedDashboard } from "@/app/features/auth/components/protected-dashboard";
+import { UserMenu } from "@/app/features/auth/components/user-menu";
 
 interface DashboardLayoutProps {
   children: ReactNode;
@@ -46,10 +47,12 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
         </aside>
 
         <div className="pl-64">
-          <header className="flex h-16 items-center border-b bg-background px-6">
+          <header className="flex h-16 items-center justify-between border-b bg-background px-6">
             <p className="text-sm text-muted-foreground">
               Centralized Infrastructure Monitoring
             </p>
+
+            <UserMenu />
           </header>
 
           <main className="p-6">{children}</main>
