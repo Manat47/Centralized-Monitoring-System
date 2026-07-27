@@ -6,13 +6,10 @@ const API_GATEWAY_URL =
 export async function login(input: LoginInput): Promise<LoginResponse> {
   const response = await fetch(`${API_GATEWAY_URL}/auth/login`, {
     method: "POST",
-
     headers: {
       "Content-Type": "application/json",
     },
-
     credentials: "include",
-
     body: JSON.stringify(input),
   });
 
