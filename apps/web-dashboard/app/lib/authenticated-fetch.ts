@@ -51,7 +51,7 @@ export async function authenticatedFetch(
 ): Promise<Response> {
   const accessToken = getAccessToken();
 
-  const response = await fetch(input, {
+  const response = await authenticatedFetch(input, {
     ...init,
     credentials: "include",
     headers: createHeaders(init.headers, accessToken),

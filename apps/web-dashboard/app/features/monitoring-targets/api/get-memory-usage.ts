@@ -19,7 +19,7 @@ export async function getMemoryUsage({
     end,
   });
 
-  const response = await fetch(
+  const response = await authenticatedFetch(
     `${API_GATEWAY_URL}/monitoring-targets/${assetId}/metrics/memory-usage?${searchParams.toString()}`,
   );
 

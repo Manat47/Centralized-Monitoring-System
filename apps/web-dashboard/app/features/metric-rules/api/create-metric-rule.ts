@@ -6,7 +6,7 @@ const API_GATEWAY_URL =
 export async function createMetricRule(
   input: CreateMetricRuleInput,
 ): Promise<MetricRule> {
-  const response = await fetch(`${API_GATEWAY_URL}/metric-rules`, {
+  const response = await authenticatedFetch(`${API_GATEWAY_URL}/metric-rules`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",

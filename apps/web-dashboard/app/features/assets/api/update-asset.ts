@@ -1,4 +1,5 @@
 import type { Asset, UpdateAssetInput } from "../types/asset";
+import { authenticatedFetch } from "@/app/lib/authenticated-fetch";
 
 const API_GATEWAY_URL =
   process.env.NEXT_PUBLIC_API_GATEWAY_URL ?? "http://localhost:3005/api";
@@ -12,13 +13,16 @@ export async function updateAsset({
   assetId,
   input,
 }: UpdateAssetVariables): Promise<Asset> {
-  const response = await fetch(`${API_GATEWAY_URL}/assets/${assetId}`, {
-    method: "PATCH",
-    headers: {
-      "Content-Type": "application/json",
+  const response = await authenticatedFetch(
+    `${API_GATEWAY_URL}/assets/${assetId}`,
+    {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(input),
     },
-    body: JSON.stringify(input),
-  });
+  );
 
   if (!response.ok) {
     const message = await response.text();
