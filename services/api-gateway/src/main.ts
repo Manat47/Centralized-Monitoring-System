@@ -20,11 +20,6 @@ async function bootstrap() {
 
   app.use('/api', createGatewayAuthMiddleware(jwtService, configService));
 
-  app.enableCors({
-    origin: process.env.FRONTEND_URL ?? 'http://localhost:3010',
-    credentials: true,
-  });
-
   const alertingServiceUrl =
     process.env.ALERTING_SERVICE_URL ?? 'http://localhost:3002';
 
