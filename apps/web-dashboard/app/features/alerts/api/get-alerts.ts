@@ -1,4 +1,5 @@
 import type { AlertListParams, AlertListResponse } from "../types/alert";
+import { authenticatedFetch } from "@/app/lib/authenticated-fetch";
 
 const API_GATEWAY_URL =
   process.env.NEXT_PUBLIC_API_GATEWAY_URL ?? "http://localhost:3005/api";
@@ -23,7 +24,7 @@ export async function getAlerts(
   searchParams.set("page", String(params.page ?? 1));
   searchParams.set("limit", String(params.limit ?? 20));
 
-  const response = await fetch(
+  const response = await authenticatedFetch(
     `${API_GATEWAY_URL}/alerts?${searchParams.toString()}`,
   );
 

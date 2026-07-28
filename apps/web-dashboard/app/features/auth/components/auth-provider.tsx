@@ -85,6 +85,20 @@ export function AuthProvider({ children }: AuthProviderProps) {
     };
   }, []);
 
+  useEffect(() => {
+    function handleSessionExpired(): void {
+      clearAccessToken();
+      setUser(null);
+      setStatus("unauthenticated");
+    }
+
+    window.addEventListener("auth:session-expired", handleSessionExpired);
+
+    return () => {
+      window.removeEventListener("auth:session-expired", handleSessionExpired);
+    };
+  }, []);
+
   const login = useCallback(async (input: LoginInput): Promise<void> => {
     const response = await loginRequest(input);
 
