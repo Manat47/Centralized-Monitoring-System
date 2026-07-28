@@ -19,7 +19,7 @@ export async function getMetricsSummary({
     end,
   });
 
-  const response = await fetch(
+  const response = await authenticatedFetch(
     `${API_GATEWAY_URL}/monitoring-targets/${assetId}/metrics/summary?${searchParams.toString()}`,
   );
 

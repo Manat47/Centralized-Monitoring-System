@@ -1,4 +1,5 @@
 import type { NetworkRateResponse } from "../types/network-rate";
+import { authenticatedFetch } from "@/app/lib/authenticated-fetch";
 
 const API_GATEWAY_URL =
   process.env.NEXT_PUBLIC_API_GATEWAY_URL ?? "http://localhost:3005/api";
@@ -19,7 +20,7 @@ export async function getNetworkRate({
     end,
   });
 
-  const response = await fetch(
+  const response = await authenticatedFetch(
     `${API_GATEWAY_URL}/monitoring-targets/${assetId}/metrics/network-rate?${searchParams.toString()}`,
   );
 

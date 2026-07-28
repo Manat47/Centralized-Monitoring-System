@@ -1,10 +1,11 @@
 import type { Asset } from "../types/asset";
+import { authenticatedFetch } from "@/app/lib/authenticated-fetch";
 
 const API_GATEWAY_URL =
   process.env.NEXT_PUBLIC_API_GATEWAY_URL ?? "http://localhost:3005/api";
 
 export async function deactivateAsset(assetId: string): Promise<Asset> {
-  const response = await fetch(
+  const response = await authenticatedFetch(
     `${API_GATEWAY_URL}/assets/${assetId}/deactivate`,
     {
       method: "PATCH",

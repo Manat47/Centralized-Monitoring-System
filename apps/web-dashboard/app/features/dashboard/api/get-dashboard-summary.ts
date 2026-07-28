@@ -1,10 +1,13 @@
 import type { DashboardSummary } from "../types/dashboard-summary";
+import { authenticatedFetch } from "@/app/lib/authenticated-fetch";
 
 const API_GATEWAY_URL =
   process.env.NEXT_PUBLIC_API_GATEWAY_URL ?? "http://localhost:3005/api";
 
 export async function getDashboardSummary(): Promise<DashboardSummary> {
-  const response = await fetch(`${API_GATEWAY_URL}/dashboard/summary`);
+  const response = await authenticatedFetch(
+    `${API_GATEWAY_URL}/dashboard/summary`,
+  );
 
   if (!response.ok) {
     throw new Error(

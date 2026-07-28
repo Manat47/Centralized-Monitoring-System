@@ -12,7 +12,7 @@ async function runMonitoringTargetAction(
   targetId: string,
   action: MonitoringTargetAction,
 ): Promise<MonitoringTarget> {
-  const response = await fetch(
+  const response = await authenticatedFetch(
     `${API_GATEWAY_URL}/monitoring-targets/${targetId}/${action}`,
     {
       method: "POST",
@@ -34,7 +34,7 @@ async function runMonitoringTargetAction(
 export async function collectMonitoringTarget(
   targetId: string,
 ): Promise<CollectMetricsResponse> {
-  const response = await fetch(
+  const response = await authenticatedFetch(
     `${API_GATEWAY_URL}/monitoring-targets/${targetId}/collect`,
     {
       method: "POST",

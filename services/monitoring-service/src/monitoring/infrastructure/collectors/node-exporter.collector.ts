@@ -10,7 +10,7 @@ import type {
 export class NodeExporterCollector implements MetricsCollector {
   async verify(url: string): Promise<VerifyMetricsEndpointResult> {
     try {
-      const response = await fetch(url, {
+      const response = await authenticatedFetch(url, {
         method: 'GET',
         signal: AbortSignal.timeout(5000),
       });
@@ -53,7 +53,7 @@ export class NodeExporterCollector implements MetricsCollector {
     const collectedAt = new Date();
 
     try {
-      const response = await fetch(url, {
+      const response = await authenticatedFetch(url, {
         method: 'GET',
         signal: AbortSignal.timeout(5000),
       });

@@ -1,10 +1,11 @@
 import type { Asset, CreateAssetInput } from "../types/asset";
+import { authenticatedFetch } from "@/app/lib/authenticated-fetch";
 
 const API_GATEWAY_URL =
   process.env.NEXT_PUBLIC_API_GATEWAY_URL ?? "http://localhost:3005/api";
 
 export async function createAsset(input: CreateAssetInput): Promise<Asset> {
-  const response = await fetch(`${API_GATEWAY_URL}/assets`, {
+  const response = await authenticatedFetch(`${API_GATEWAY_URL}/assets`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",

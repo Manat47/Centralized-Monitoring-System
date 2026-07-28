@@ -1,4 +1,5 @@
 import type { Alert } from "../types/alert";
+import { authenticatedFetch } from "@/app/lib/authenticated-fetch";
 
 const API_GATEWAY_URL =
   process.env.NEXT_PUBLIC_API_GATEWAY_URL ?? "http://localhost:3005/api";
@@ -7,13 +8,10 @@ async function updateAlertStatus(
   alertId: string,
   action: "acknowledge" | "close",
 ): Promise<Alert> {
-  const response = await fetch(
-    `${API_GATEWAY_URL}/alerts/${alertId}/${action}`,
+  const response = await authenticatedFetch(
+    `${API_GATEWAY_URL}/alerts/${alertId}/acknowledge`,
     {
       method: "PATCH",
-      headers: {
-        "Content-Type": "application/json",
-      },
     },
   );
 
