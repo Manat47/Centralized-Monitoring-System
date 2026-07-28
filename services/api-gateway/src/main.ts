@@ -1,10 +1,24 @@
+import { ConfigService } from '@nestjs/config';
+import { JwtService } from '@nestjs/jwt';
 import { NestFactory } from '@nestjs/core';
 import { createProxyMiddleware } from 'http-proxy-middleware';
 
 import { AppModule } from './app.module';
+import { createGatewayAuthMiddleware } from './auth/gateway-auth.middleware';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+
+  const configService = app.get(ConfigService);
+
+  const jwtService = app.get(JwtService);
+
+  app.enableCors({
+    origin: process.env.FRONTEND_URL ?? 'http://localhost:3010',
+    credentials: true,
+  });
+
+  app.use('/api', createGatewayAuthMiddleware(jwtService, configService));
 
   app.enableCors({
     origin: process.env.FRONTEND_URL ?? 'http://localhost:3010',
