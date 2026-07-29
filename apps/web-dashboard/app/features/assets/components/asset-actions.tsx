@@ -8,6 +8,7 @@ import {
 } from "../api/use-asset-actions";
 import type { Asset } from "../types/asset";
 import { EditAssetDialog } from "./edit-asset-dialog";
+import { AdminOnly } from "@/app/features/auth/components/admin-only";
 
 interface AssetActionsProps {
   asset: Asset;
@@ -49,71 +50,73 @@ export function AssetActions({ asset }: AssetActionsProps) {
   }
 
   return (
-    <div className="flex flex-col items-end gap-2">
-      <div className="flex flex-wrap justify-end gap-2">
-        <EditAssetDialog asset={asset} />
+    <AdminOnly>
+      <div className="flex flex-col items-end gap-2">
+        <div className="flex flex-wrap justify-end gap-2">
+          <EditAssetDialog asset={asset} />
 
-        {asset.status !== "ACTIVATE" && (
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            disabled={isPending}
-            onClick={() => void changeStatus("ACTIVATE")}
-          >
-            {statusMutation.isPending &&
-            statusMutation.variables?.assetId === asset.assetId
-              ? "Updating..."
-              : "Activate"}
-          </Button>
+          {asset.status !== "ACTIVATE" && (
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              disabled={isPending}
+              onClick={() => void changeStatus("ACTIVATE")}
+            >
+              {statusMutation.isPending &&
+              statusMutation.variables?.assetId === asset.assetId
+                ? "Updating..."
+                : "Activate"}
+            </Button>
+          )}
+
+          {asset.status === "ACTIVATE" && (
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              disabled={isPending}
+              onClick={() => void changeStatus("INACTIVATE")}
+            >
+              {statusMutation.isPending &&
+              statusMutation.variables?.assetId === asset.assetId
+                ? "Updating..."
+                : "Inactivate"}
+            </Button>
+          )}
+
+          {asset.status !== "DEACTIVATE" && (
+            <Button
+              type="button"
+              size="sm"
+              variant="destructive"
+              disabled={isPending}
+              onClick={() => void handleDeactivate()}
+            >
+              {deactivateMutation.isPending &&
+              deactivateMutation.variables === asset.assetId
+                ? "Deactivating..."
+                : "Deactivate"}
+            </Button>
+          )}
+        </div>
+
+        {statusMutation.isError && (
+          <p className="max-w-80 text-right text-xs text-destructive">
+            {statusMutation.error instanceof Error
+              ? statusMutation.error.message
+              : "Failed to update asset status"}
+          </p>
         )}
 
-        {asset.status === "ACTIVATE" && (
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            disabled={isPending}
-            onClick={() => void changeStatus("INACTIVATE")}
-          >
-            {statusMutation.isPending &&
-            statusMutation.variables?.assetId === asset.assetId
-              ? "Updating..."
-              : "Inactivate"}
-          </Button>
-        )}
-
-        {asset.status !== "DEACTIVATE" && (
-          <Button
-            type="button"
-            size="sm"
-            variant="destructive"
-            disabled={isPending}
-            onClick={() => void handleDeactivate()}
-          >
-            {deactivateMutation.isPending &&
-            deactivateMutation.variables === asset.assetId
-              ? "Deactivating..."
-              : "Deactivate"}
-          </Button>
+        {deactivateMutation.isError && (
+          <p className="max-w-80 text-right text-xs text-destructive">
+            {deactivateMutation.error instanceof Error
+              ? deactivateMutation.error.message
+              : "Failed to deactivate asset"}
+          </p>
         )}
       </div>
-
-      {statusMutation.isError && (
-        <p className="max-w-80 text-right text-xs text-destructive">
-          {statusMutation.error instanceof Error
-            ? statusMutation.error.message
-            : "Failed to update asset status"}
-        </p>
-      )}
-
-      {deactivateMutation.isError && (
-        <p className="max-w-80 text-right text-xs text-destructive">
-          {deactivateMutation.error instanceof Error
-            ? deactivateMutation.error.message
-            : "Failed to deactivate asset"}
-        </p>
-      )}
-    </div>
+    </AdminOnly>
   );
 }

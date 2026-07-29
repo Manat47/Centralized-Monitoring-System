@@ -3,24 +3,11 @@ import type { ReactNode } from "react";
 
 import { ProtectedDashboard } from "@/app/features/auth/components/protected-dashboard";
 import { UserMenu } from "@/app/features/auth/components/user-menu";
+import { DashboardNavigation } from "@/app/features/auth/components/dashboard-navigation";
 
 interface DashboardLayoutProps {
   children: ReactNode;
 }
-
-const navigation = [
-  { href: "/dashboard", label: "Dashboard" },
-  { href: "/alerts", label: "Alerts" },
-  { href: "/assets", label: "Assets" },
-  {
-    href: "/monitoring-targets",
-    label: "Monitoring Targets",
-  },
-  {
-    href: "/metric-rules",
-    label: "Metric Rules",
-  },
-];
 
 export default function DashboardLayout({ children }: DashboardLayoutProps) {
   return (
@@ -33,17 +20,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
             </Link>
           </div>
 
-          <nav className="space-y-1 p-4">
-            {navigation.map((item) => (
-              <Link
-                key={item.href}
-                href={item.href}
-                className="block rounded-md px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground"
-              >
-                {item.label}
-              </Link>
-            ))}
-          </nav>
+          <DashboardNavigation />
         </aside>
 
         <div className="pl-64">

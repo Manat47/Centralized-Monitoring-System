@@ -44,7 +44,7 @@ function isSharedRoute(method: string, path: string): boolean {
 
   if (
     method === 'GET' &&
-    (path === '/api/system-status' || path.startsWith('/api/system-status/'))
+    (path === '/api/system/status' || path.startsWith('/api/system/status/'))
   ) {
     return true;
   }
