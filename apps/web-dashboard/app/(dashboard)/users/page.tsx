@@ -1,3 +1,5 @@
+import { UsersTable } from "@/app/features/users/components/users-table";
+
 export default function UsersPage() {
   return (
     <section className="space-y-6">
@@ -7,6 +9,8 @@ export default function UsersPage() {
           Manage administrator and operator accounts.
         </p>
       </div>
+
+      <UsersTable />
     </section>
   );
 }
