@@ -32,6 +32,7 @@ import type {
   MetricRuleSeverity,
   MetricRuleType,
 } from "../types/metric-rule";
+import { AdminOnly } from "@/app/features/auth/components/admin-only";
 
 const initialForm: CreateMetricRuleInput = {
   assetId: "",
@@ -95,197 +96,199 @@ export function CreateMetricRuleDialog() {
   }
 
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogTrigger render={<Button type="button" />}>
-        Create rule
-      </DialogTrigger>
+    <AdminOnly>
+      <Dialog open={open} onOpenChange={handleOpenChange}>
+        <DialogTrigger render={<Button type="button" />}>
+          Create rule
+        </DialogTrigger>
 
-      <DialogContent className="sm:max-w-lg">
-        <form onSubmit={handleSubmit}>
-          <DialogHeader>
-            <DialogTitle>Create metric rule</DialogTitle>
-            <DialogDescription>
-              Create a threshold rule for a monitored server.
-            </DialogDescription>
-          </DialogHeader>
+        <DialogContent className="sm:max-w-lg">
+          <form onSubmit={handleSubmit}>
+            <DialogHeader>
+              <DialogTitle>Create metric rule</DialogTitle>
+              <DialogDescription>
+                Create a threshold rule for a monitored server.
+              </DialogDescription>
+            </DialogHeader>
 
-          <div className="grid gap-4 py-6">
-            <div className="grid gap-2">
-              <Label>Asset</Label>
+            <div className="grid gap-4 py-6">
+              <div className="grid gap-2">
+                <Label>Asset</Label>
 
-              <Select
-                value={form.assetId}
-                onValueChange={(value) =>
-                  setForm((current) => ({
-                    ...current,
-                    assetId: value ?? "",
-                  }))
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select monitored server" />
-                </SelectTrigger>
+                <Select
+                  value={form.assetId}
+                  onValueChange={(value) =>
+                    setForm((current) => ({
+                      ...current,
+                      assetId: value ?? "",
+                    }))
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select monitored server" />
+                  </SelectTrigger>
 
-                <SelectContent>
-                  {availableAssets.map((asset) => (
-                    <SelectItem key={asset.assetId} value={asset.assetId}>
-                      {asset.name}
+                  <SelectContent>
+                    {availableAssets.map((asset) => (
+                      <SelectItem key={asset.assetId} value={asset.assetId}>
+                        {asset.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                {availableAssets.length === 0 && (
+                  <p className="text-xs text-muted-foreground">
+                    No active and enabled server targets are available.
+                  </p>
+                )}
+              </div>
+
+              <div className="grid gap-2">
+                <Label>Metric type</Label>
+
+                <Select
+                  value={form.metricType}
+                  onValueChange={(value) =>
+                    setForm((current) => ({
+                      ...current,
+                      metricType: (value ?? "CPU_USAGE") as MetricRuleType,
+                    }))
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+
+                  <SelectContent>
+                    <SelectItem value="CPU_USAGE">CPU Usage</SelectItem>
+                    <SelectItem value="MEMORY_USAGE">Memory Usage</SelectItem>
+                    <SelectItem value="DISK_USAGE">Disk Usage</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="grid gap-2">
+                <Label>Operator</Label>
+
+                <Select
+                  value={form.operator ?? "GREATER_THAN_OR_EQUAL"}
+                  onValueChange={(value) =>
+                    setForm((current) => ({
+                      ...current,
+                      operator: (value ??
+                        "GREATER_THAN_OR_EQUAL") as MetricRuleOperator,
+                    }))
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+
+                  <SelectContent>
+                    <SelectItem value="GREATER_THAN">
+                      Greater than (&gt;)
                     </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                    <SelectItem value="GREATER_THAN_OR_EQUAL">
+                      Greater than or equal (≥)
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
 
-              {availableAssets.length === 0 && (
-                <p className="text-xs text-muted-foreground">
-                  No active and enabled server targets are available.
+              <div className="grid gap-2">
+                <Label htmlFor="rule-threshold">Threshold (%)</Label>
+
+                <Input
+                  id="rule-threshold"
+                  type="number"
+                  min={0}
+                  max={100}
+                  value={form.thresholdValue}
+                  required
+                  onChange={(event) =>
+                    setForm((current) => ({
+                      ...current,
+                      thresholdValue: Number(event.target.value),
+                    }))
+                  }
+                />
+              </div>
+
+              <div className="grid gap-2">
+                <Label htmlFor="rule-duration">Duration (seconds)</Label>
+
+                <Input
+                  id="rule-duration"
+                  type="number"
+                  min={0}
+                  value={form.durationSeconds ?? 300}
+                  required
+                  onChange={(event) =>
+                    setForm((current) => ({
+                      ...current,
+                      durationSeconds: Number(event.target.value),
+                    }))
+                  }
+                />
+              </div>
+
+              <div className="grid gap-2">
+                <Label>Severity</Label>
+
+                <Select
+                  value={form.severity}
+                  onValueChange={(value) =>
+                    setForm((current) => ({
+                      ...current,
+                      severity: (value ?? "WARNING") as MetricRuleSeverity,
+                    }))
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+
+                  <SelectContent>
+                    <SelectItem value="WARNING">Warning</SelectItem>
+                    <SelectItem value="CRITICAL">Critical</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {createMutation.isError && (
+                <p className="text-sm text-destructive">
+                  {createMutation.error instanceof Error
+                    ? createMutation.error.message
+                    : "Failed to create metric rule"}
                 </p>
               )}
             </div>
 
-            <div className="grid gap-2">
-              <Label>Metric type</Label>
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                disabled={createMutation.isPending}
+                onClick={() => handleOpenChange(false)}
+              >
+                Cancel
+              </Button>
 
-              <Select
-                value={form.metricType}
-                onValueChange={(value) =>
-                  setForm((current) => ({
-                    ...current,
-                    metricType: (value ?? "CPU_USAGE") as MetricRuleType,
-                  }))
+              <Button
+                type="submit"
+                disabled={
+                  createMutation.isPending ||
+                  !form.assetId ||
+                  availableAssets.length === 0
                 }
               >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-
-                <SelectContent>
-                  <SelectItem value="CPU_USAGE">CPU Usage</SelectItem>
-                  <SelectItem value="MEMORY_USAGE">Memory Usage</SelectItem>
-                  <SelectItem value="DISK_USAGE">Disk Usage</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="grid gap-2">
-              <Label>Operator</Label>
-
-              <Select
-                value={form.operator ?? "GREATER_THAN_OR_EQUAL"}
-                onValueChange={(value) =>
-                  setForm((current) => ({
-                    ...current,
-                    operator: (value ??
-                      "GREATER_THAN_OR_EQUAL") as MetricRuleOperator,
-                  }))
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-
-                <SelectContent>
-                  <SelectItem value="GREATER_THAN">
-                    Greater than (&gt;)
-                  </SelectItem>
-                  <SelectItem value="GREATER_THAN_OR_EQUAL">
-                    Greater than or equal (≥)
-                  </SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="grid gap-2">
-              <Label htmlFor="rule-threshold">Threshold (%)</Label>
-
-              <Input
-                id="rule-threshold"
-                type="number"
-                min={0}
-                max={100}
-                value={form.thresholdValue}
-                required
-                onChange={(event) =>
-                  setForm((current) => ({
-                    ...current,
-                    thresholdValue: Number(event.target.value),
-                  }))
-                }
-              />
-            </div>
-
-            <div className="grid gap-2">
-              <Label htmlFor="rule-duration">Duration (seconds)</Label>
-
-              <Input
-                id="rule-duration"
-                type="number"
-                min={0}
-                value={form.durationSeconds ?? 300}
-                required
-                onChange={(event) =>
-                  setForm((current) => ({
-                    ...current,
-                    durationSeconds: Number(event.target.value),
-                  }))
-                }
-              />
-            </div>
-
-            <div className="grid gap-2">
-              <Label>Severity</Label>
-
-              <Select
-                value={form.severity}
-                onValueChange={(value) =>
-                  setForm((current) => ({
-                    ...current,
-                    severity: (value ?? "WARNING") as MetricRuleSeverity,
-                  }))
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-
-                <SelectContent>
-                  <SelectItem value="WARNING">Warning</SelectItem>
-                  <SelectItem value="CRITICAL">Critical</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            {createMutation.isError && (
-              <p className="text-sm text-destructive">
-                {createMutation.error instanceof Error
-                  ? createMutation.error.message
-                  : "Failed to create metric rule"}
-              </p>
-            )}
-          </div>
-
-          <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              disabled={createMutation.isPending}
-              onClick={() => handleOpenChange(false)}
-            >
-              Cancel
-            </Button>
-
-            <Button
-              type="submit"
-              disabled={
-                createMutation.isPending ||
-                !form.assetId ||
-                availableAssets.length === 0
-              }
-            >
-              {createMutation.isPending ? "Creating..." : "Create rule"}
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
+                {createMutation.isPending ? "Creating..." : "Create rule"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+    </AdminOnly>
   );
 }

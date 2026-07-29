@@ -34,6 +34,7 @@ import type {
   VerificationStatus,
 } from "../types/monitoring-target";
 import Link from "next/link";
+import { AdminOnly } from "@/app/features/auth/components/admin-only";
 
 function getVerificationVariant(
   status: VerificationStatus,
@@ -354,52 +355,58 @@ export function MonitoringTargetsTable() {
                           View metrics
                         </Link>
 
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="outline"
-                          disabled={isThisTargetPending}
-                          onClick={() => verifyMutation.mutate(target.targetId)}
-                        >
-                          {verifyMutation.isPending &&
-                          verifyMutation.variables === target.targetId
-                            ? "Verifying..."
-                            : "Verify"}
-                        </Button>
+                        <AdminOnly>
+                          <div className="flex flex-wrap justify-end gap-2">
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              disabled={isThisTargetPending}
+                              onClick={() =>
+                                verifyMutation.mutate(target.targetId)
+                              }
+                            >
+                              {verifyMutation.isPending &&
+                              verifyMutation.variables === target.targetId
+                                ? "Verifying..."
+                                : "Verify"}
+                            </Button>
 
-                        {target.monitoringEnabled ? (
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="outline"
-                            disabled={isThisTargetPending}
-                            onClick={() =>
-                              disableMutation.mutate(target.targetId)
-                            }
-                          >
-                            {disableMutation.isPending &&
-                            disableMutation.variables === target.targetId
-                              ? "Disabling..."
-                              : "Disable"}
-                          </Button>
-                        ) : (
-                          <Button
-                            type="button"
-                            size="sm"
-                            disabled={
-                              isThisTargetPending ||
-                              target.verificationStatus !== "VERIFIED"
-                            }
-                            onClick={() =>
-                              enableMutation.mutate(target.targetId)
-                            }
-                          >
-                            {enableMutation.isPending &&
-                            enableMutation.variables === target.targetId
-                              ? "Enabling..."
-                              : "Enable"}
-                          </Button>
-                        )}
+                            {target.monitoringEnabled ? (
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                disabled={isThisTargetPending}
+                                onClick={() =>
+                                  disableMutation.mutate(target.targetId)
+                                }
+                              >
+                                {disableMutation.isPending &&
+                                disableMutation.variables === target.targetId
+                                  ? "Disabling..."
+                                  : "Disable"}
+                              </Button>
+                            ) : (
+                              <Button
+                                type="button"
+                                size="sm"
+                                disabled={
+                                  isThisTargetPending ||
+                                  target.verificationStatus !== "VERIFIED"
+                                }
+                                onClick={() =>
+                                  enableMutation.mutate(target.targetId)
+                                }
+                              >
+                                {enableMutation.isPending &&
+                                enableMutation.variables === target.targetId
+                                  ? "Enabling..."
+                                  : "Enable"}
+                              </Button>
+                            )}
+                          </div>
+                        </AdminOnly>
                       </div>
 
                       {target.lastError && (

@@ -65,13 +65,10 @@ export class HealthService {
     }
 
     try {
-      const response = await authenticatedFetch(
-        `${influxUrl.replace(/\/$/, '')}/health`,
-        {
-          method: 'GET',
-          signal: AbortSignal.timeout(3000),
-        },
-      );
+      const response = await fetch(`${influxUrl.replace(/\/$/, '')}/health`, {
+        method: 'GET',
+        signal: AbortSignal.timeout(3000),
+      });
 
       return response.ok ? 'up' : 'down';
     } catch {

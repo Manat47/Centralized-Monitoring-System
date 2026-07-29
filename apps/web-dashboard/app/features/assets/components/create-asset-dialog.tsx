@@ -28,6 +28,7 @@ import type {
   AssetTargetType,
   CreateAssetInput,
 } from "../types/asset";
+import { AdminOnly } from "@/app/features/auth/components/admin-only";
 
 const initialForm: CreateAssetInput = {
   name: "",
@@ -121,140 +122,142 @@ export function CreateAssetDialog() {
   const isServer = form.targetType === "SERVER";
 
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogTrigger render={<Button type="button" />}>
-        Create asset
-      </DialogTrigger>
+    <AdminOnly>
+      <Dialog open={open} onOpenChange={handleOpenChange}>
+        <DialogTrigger render={<Button type="button" />}>
+          Create asset
+        </DialogTrigger>
 
-      <DialogContent className="sm:max-w-lg">
-        <form onSubmit={handleSubmit}>
-          <DialogHeader>
-            <DialogTitle>Create asset</DialogTitle>
-            <DialogDescription>
-              Register a new infrastructure asset.
-            </DialogDescription>
-          </DialogHeader>
+        <DialogContent className="sm:max-w-lg">
+          <form onSubmit={handleSubmit}>
+            <DialogHeader>
+              <DialogTitle>Create asset</DialogTitle>
+              <DialogDescription>
+                Register a new infrastructure asset.
+              </DialogDescription>
+            </DialogHeader>
 
-          <div className="grid gap-4 py-6">
-            <div className="grid gap-2">
-              <Label htmlFor="asset-name">Name</Label>
-              <Input
-                id="asset-name"
-                value={form.name}
-                maxLength={255}
-                required
-                onChange={(event) => updateField("name", event.target.value)}
-              />
-            </div>
-
-            <div className="grid gap-2">
-              <Label htmlFor="asset-hostname">Hostname (optional)</Label>
-              <Input
-                id="asset-hostname"
-                value={form.hostname ?? ""}
-                maxLength={255}
-                onChange={(event) =>
-                  updateField("hostname", event.target.value)
-                }
-              />
-            </div>
-
-            <div className="grid gap-2">
-              <Label>Target type</Label>
-
-              <Select
-                value={form.targetType}
-                onValueChange={(value) =>
-                  handleTargetTypeChange(value as AssetTargetType)
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-
-                <SelectContent>
-                  <SelectItem value="SERVER">Server</SelectItem>
-                  <SelectItem value="APPLICATION">Application</SelectItem>
-                  <SelectItem value="SERVICE">Service</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            {isServer ? (
+            <div className="grid gap-4 py-6">
               <div className="grid gap-2">
-                <Label htmlFor="asset-ip">IP address</Label>
+                <Label htmlFor="asset-name">Name</Label>
                 <Input
-                  id="asset-ip"
-                  value={form.ipAddress ?? ""}
-                  placeholder="192.168.1.10"
+                  id="asset-name"
+                  value={form.name}
+                  maxLength={255}
                   required
+                  onChange={(event) => updateField("name", event.target.value)}
+                />
+              </div>
+
+              <div className="grid gap-2">
+                <Label htmlFor="asset-hostname">Hostname (optional)</Label>
+                <Input
+                  id="asset-hostname"
+                  value={form.hostname ?? ""}
+                  maxLength={255}
                   onChange={(event) =>
-                    updateField("ipAddress", event.target.value)
+                    updateField("hostname", event.target.value)
                   }
                 />
               </div>
-            ) : (
+
               <div className="grid gap-2">
-                <Label htmlFor="asset-endpoint">Endpoint</Label>
-                <Input
-                  id="asset-endpoint"
-                  value={form.endpoint ?? ""}
-                  placeholder="https://service.example.com"
-                  maxLength={2048}
-                  required
-                  onChange={(event) =>
-                    updateField("endpoint", event.target.value)
+                <Label>Target type</Label>
+
+                <Select
+                  value={form.targetType}
+                  onValueChange={(value) =>
+                    handleTargetTypeChange(value as AssetTargetType)
                   }
-                />
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+
+                  <SelectContent>
+                    <SelectItem value="SERVER">Server</SelectItem>
+                    <SelectItem value="APPLICATION">Application</SelectItem>
+                    <SelectItem value="SERVICE">Service</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
-            )}
 
-            <div className="grid gap-2">
-              <Label>Environment</Label>
+              {isServer ? (
+                <div className="grid gap-2">
+                  <Label htmlFor="asset-ip">IP address</Label>
+                  <Input
+                    id="asset-ip"
+                    value={form.ipAddress ?? ""}
+                    placeholder="192.168.1.10"
+                    required
+                    onChange={(event) =>
+                      updateField("ipAddress", event.target.value)
+                    }
+                  />
+                </div>
+              ) : (
+                <div className="grid gap-2">
+                  <Label htmlFor="asset-endpoint">Endpoint</Label>
+                  <Input
+                    id="asset-endpoint"
+                    value={form.endpoint ?? ""}
+                    placeholder="https://service.example.com"
+                    maxLength={2048}
+                    required
+                    onChange={(event) =>
+                      updateField("endpoint", event.target.value)
+                    }
+                  />
+                </div>
+              )}
 
-              <Select
-                value={form.environment}
-                onValueChange={(value) =>
-                  updateField("environment", value as AssetEnvironment)
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
+              <div className="grid gap-2">
+                <Label>Environment</Label>
 
-                <SelectContent>
-                  <SelectItem value="PRODUCTION">Production</SelectItem>
-                  <SelectItem value="STAGING">Staging</SelectItem>
-                  <SelectItem value="DEVELOPMENT">Development</SelectItem>
-                </SelectContent>
-              </Select>
+                <Select
+                  value={form.environment}
+                  onValueChange={(value) =>
+                    updateField("environment", value as AssetEnvironment)
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+
+                  <SelectContent>
+                    <SelectItem value="PRODUCTION">Production</SelectItem>
+                    <SelectItem value="STAGING">Staging</SelectItem>
+                    <SelectItem value="DEVELOPMENT">Development</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {createMutation.isError && (
+                <p className="text-sm text-destructive">
+                  {createMutation.error instanceof Error
+                    ? createMutation.error.message
+                    : "Failed to create asset"}
+                </p>
+              )}
             </div>
 
-            {createMutation.isError && (
-              <p className="text-sm text-destructive">
-                {createMutation.error instanceof Error
-                  ? createMutation.error.message
-                  : "Failed to create asset"}
-              </p>
-            )}
-          </div>
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                disabled={createMutation.isPending}
+                onClick={() => setOpen(false)}
+              >
+                Cancel
+              </Button>
 
-          <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              disabled={createMutation.isPending}
-              onClick={() => setOpen(false)}
-            >
-              Cancel
-            </Button>
-
-            <Button type="submit" disabled={createMutation.isPending}>
-              {createMutation.isPending ? "Creating..." : "Create asset"}
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
+              <Button type="submit" disabled={createMutation.isPending}>
+                {createMutation.isPending ? "Creating..." : "Create asset"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+    </AdminOnly>
   );
 }
