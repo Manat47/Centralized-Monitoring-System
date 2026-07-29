@@ -23,6 +23,7 @@ import {
 
 import { useUsers } from "../api/use-users";
 import type { UserRole, UserStatus } from "../types/user";
+import { UserActions } from "./user-actions";
 
 function formatDate(value: string | null): string {
   if (!value) {
@@ -137,6 +138,7 @@ export function UsersTable() {
               <TableHead>Status</TableHead>
               <TableHead>Last login</TableHead>
               <TableHead>Created at</TableHead>
+              <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
 
@@ -144,7 +146,7 @@ export function UsersTable() {
             {users.length === 0 ? (
               <TableRow>
                 <TableCell
-                  colSpan={6}
+                  colSpan={7}
                   className="h-24 text-center text-muted-foreground"
                 >
                   No users found.
@@ -174,7 +176,12 @@ export function UsersTable() {
                   </TableCell>
 
                   <TableCell>{formatDate(user.lastLoginAt)}</TableCell>
+
                   <TableCell>{formatDate(user.createdAt)}</TableCell>
+
+                  <TableCell className="text-right">
+                    <UserActions user={user} />
+                  </TableCell>
                 </TableRow>
               ))
             )}
