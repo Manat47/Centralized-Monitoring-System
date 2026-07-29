@@ -5,12 +5,12 @@ import { createProxyMiddleware } from 'http-proxy-middleware';
 
 import { AppModule } from './app.module';
 import { createGatewayAuthMiddleware } from './auth/gateway-auth.middleware';
+import { gatewayAuthorizationMiddleware } from './auth/gateway-authorization.middleware';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
   const configService = app.get(ConfigService);
-
   const jwtService = app.get(JwtService);
 
   app.enableCors({
@@ -19,6 +19,8 @@ async function bootstrap() {
   });
 
   app.use('/api', createGatewayAuthMiddleware(jwtService, configService));
+
+  app.use('/api', gatewayAuthorizationMiddleware);
 
   const alertingServiceUrl =
     process.env.ALERTING_SERVICE_URL ?? 'http://localhost:3002';
@@ -69,11 +71,7 @@ async function bootstrap() {
       target: monitoringServiceUrl,
       changeOrigin: true,
 
-      pathFilter: [
-        '/api/monitoring-targets',
-        '/api/metric-rules',
-        '/api/metrics',
-      ],
+      pathFilter: ['/api/monitoring-targets', '/api/metric-rules'],
 
       pathRewrite: {
         '^/api': '',
