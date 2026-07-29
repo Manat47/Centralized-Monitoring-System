@@ -21,7 +21,7 @@ export function AdminRoute({ children }: AdminRouteProps) {
 
   if (status === "loading") {
     return (
-      <div className="flex min-h-[300px] items-center justify-center">
+      <div className="flex min-h-80 items-center justify-center">
         <p className="text-sm text-muted-foreground">Checking permission...</p>
       </div>
     );
