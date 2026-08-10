@@ -1,4 +1,5 @@
 import type { CpuUsageResponse } from "../types/cpu-usage";
+import { authenticatedFetch } from "@/app/lib/authenticated-fetch";
 
 const API_GATEWAY_URL =
   process.env.NEXT_PUBLIC_API_GATEWAY_URL ?? "http://localhost:3005/api";

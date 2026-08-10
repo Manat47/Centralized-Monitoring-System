@@ -47,14 +47,14 @@ export class ProcessAlertEventUseCase {
       const data = createdAlert.toObject();
 
       await this.notificationEventPublisher.publish({
-        eventType: 'ALERT_RESOLVED',
+        eventType: 'ALERT_TRIGGERED',
         alertId: data.alertId,
         ruleId: data.ruleId,
         assetId: data.assetId,
         metricType: data.metricType,
         severity: data.severity,
         message: event.message,
-        occurredAt: data.resolvedAt?.toISOString() ?? event.occurredAt,
+        occurredAt: data.triggeredAt?.toISOString(),
       });
       return createdAlert;
     }
