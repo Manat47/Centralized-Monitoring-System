@@ -38,12 +38,18 @@ export class UsersController {
   ) {}
 
   @Post()
-  createUser(@Body() dto: CreateUserDto) {
+  createUser(
+    @Body() dto: CreateUserDto,
+    @CurrentUser() currentUser: AuthenticatedUser,
+  ) {
     return this.createUserUseCase.execute({
       email: dto.email,
       password: dto.password,
       displayName: dto.displayName,
       role: dto.role,
+
+      actorUserId: currentUser.userId,
+      actorRole: currentUser.role,
     });
   }
 

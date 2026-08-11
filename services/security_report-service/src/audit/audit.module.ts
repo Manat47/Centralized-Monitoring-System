@@ -1,10 +1,13 @@
 import { Module } from '@nestjs/common';
 
-import { AUDIT_LOG_REPOSITORY } from './domain/repositories/audit-log.repository';
-import { DrizzleAuditLogRepository } from './infrastructure/persistence/drizzle-audit-log.repository';
 import { RecordAuditLogUseCase } from './application/use-cases/record-audit-log.use-case';
+import { AUDIT_LOG_REPOSITORY } from './domain/repositories/audit-log.repository';
+import { AuditEventConsumer } from './infrastructure/messaging/audit-event.consumer';
+import { DrizzleAuditLogRepository } from './infrastructure/persistence/drizzle-audit-log.repository';
 
 @Module({
+  controllers: [AuditEventConsumer],
+
   providers: [
     RecordAuditLogUseCase,
     {
@@ -12,6 +15,7 @@ import { RecordAuditLogUseCase } from './application/use-cases/record-audit-log.
       useClass: DrizzleAuditLogRepository,
     },
   ],
-  exports: [AUDIT_LOG_REPOSITORY],
+
+  exports: [RecordAuditLogUseCase],
 })
 export class AuditModule {}
