@@ -34,6 +34,9 @@ async function bootstrap() {
   const authServiceUrl =
     process.env.AUTH_SERVICE_URL ?? 'http://localhost:3004';
 
+  const securityReportServiceUrl =
+    process.env.SECURITY_REPORT_SERVICE_URL ?? 'http://localhost:3006';
+
   app.use(
     '/api/auth',
     createProxyMiddleware({
@@ -76,6 +79,14 @@ async function bootstrap() {
       pathRewrite: {
         '^/api': '',
       },
+    }),
+  );
+
+  app.use(
+    '/api/audit-logs',
+    createProxyMiddleware({
+      target: `${securityReportServiceUrl}/audit-logs`,
+      changeOrigin: true,
     }),
   );
 

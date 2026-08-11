@@ -115,6 +115,13 @@ function isAdminRoute(method: string, path: string): boolean {
     return true;
   }
 
+  if (
+    method === 'GET' &&
+    (path === '/api/audit-logs' || path.startsWith('/api/audit-logs/'))
+  ) {
+    return true;
+  }
+
   return false;
 }
 

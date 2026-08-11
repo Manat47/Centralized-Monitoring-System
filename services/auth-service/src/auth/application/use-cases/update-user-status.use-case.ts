@@ -5,16 +5,21 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 
-import type { UserStatus } from '../../domain/entities/user.entity';
+import type { UserRole, UserStatus } from '../../domain/entities/user.entity';
 import {
   USER_REPOSITORY,
   type UserRepository,
 } from '../../domain/repositories/user.repository';
+import {
+  AUDIT_EVENT_PUBLISHER,
+  type AuditEventPublisher,
+} from '../../domain/ports/audit-event-publisher.port';
 
 export interface UpdateUserStatusInput {
   userId: string;
   status: UserStatus;
   currentUserId: string;
+  actorRole: UserRole;
 }
 
 export interface UpdateUserStatusOutput {
@@ -31,6 +36,8 @@ export class UpdateUserStatusUseCase {
   constructor(
     @Inject(USER_REPOSITORY)
     private readonly userRepository: UserRepository,
+    @Inject(AUDIT_EVENT_PUBLISHER)
+    private readonly auditEventPublisher: AuditEventPublisher,
   ) {}
 
   async execute(input: UpdateUserStatusInput): Promise<UpdateUserStatusOutput> {
@@ -53,6 +60,16 @@ export class UpdateUserStatusUseCase {
     const updatedUser = await this.userRepository.update(user);
 
     const data = updatedUser.toObject();
+
+    await this.auditEventPublisher.publish({
+      actorUserId: input.currentUserId,
+      actorRole: input.actorRole,
+      action: 'USER_STATUS_CHANGED',
+      resourceType: 'USER',
+      resourceId: data.userId,
+      result: 'SUCCESS',
+      occurredAt: new Date(),
+    });
 
     return {
       userId: data.userId,
