@@ -6,17 +6,21 @@ import { createProxyMiddleware } from 'http-proxy-middleware';
 import { AppModule } from './app.module';
 import { createGatewayAuthMiddleware } from './auth/gateway-auth.middleware';
 import { gatewayAuthorizationMiddleware } from './auth/gateway-authorization.middleware';
+import { HttpMetricsMiddleware } from './metrics/http-metrics.middleware';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
   const configService = app.get(ConfigService);
   const jwtService = app.get(JwtService);
+  const httpMetricsMiddleware = app.get(HttpMetricsMiddleware);
 
   app.enableCors({
     origin: process.env.FRONTEND_URL ?? 'http://localhost:3010',
     credentials: true,
   });
+
+  app.use('/api', httpMetricsMiddleware.use.bind(httpMetricsMiddleware));
 
   app.use('/api', createGatewayAuthMiddleware(jwtService, configService));
 

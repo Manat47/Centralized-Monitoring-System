@@ -6,6 +6,7 @@ const PUBLIC_ROUTES = new Set([
   'POST /api/auth/login',
   'POST /api/auth/refresh',
   'POST /api/auth/logout',
+  '/api/metrics',
 ]);
 
 function getRequestPath(request: Request): string {
@@ -27,6 +28,9 @@ function getUserRole(request: Request): UserRole | null {
 }
 
 function isPublicRoute(method: string, path: string): boolean {
+  if (method === 'GET' && path === '/api/metrics') {
+    return true;
+  }
   return PUBLIC_ROUTES.has(`${method} ${path}`);
 }
 
