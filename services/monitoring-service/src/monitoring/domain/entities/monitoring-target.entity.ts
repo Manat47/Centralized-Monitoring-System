@@ -1,8 +1,10 @@
 export type VerificationStatus = 'NOT_VERIFIED' | 'VERIFIED' | 'FAILED'; // ยังไม่เคยตรวจ | ตรวจสอบแล้วเชื่อมต่อได้ | ตรวจแล้วเชื่อมต่อไม่ได้
+export type MonitoringType = 'NODE_EXPORTER' | 'PROMETHEUS_APPLICATION'; // ประเภทของ Monitoring Target ว่าเป็น Node Exporter หรือ Prometheus Application
 export interface MonitoringTargetProps {
   // เปรียบเหมือนโครงสร้างภายในของ Entity
   targetId: string; // เก็บตัวตั้งค่าที่จะให้ระบบเข้าไปเก็บ metrics
   assetId: string; // เครื่องที่ต้องการให้ระบบไป monitor
+  monitoringType: MonitoringType; // ประเภทของ Monitoring Target
   host: string; // ที่อยู่ของเครื่องปลายทาง
   port: number; // port ที่ Metrics endpoint เปิดให้เข้าไปใช้ดึงข้อมูล
   path: string; // ตำแหน้งที่ endpoint ใช้ดึง metrics
@@ -19,6 +21,7 @@ export interface MonitoringTargetProps {
 export interface CreateMonitoringTargetProps {
   // ใช้ตอนสร้าง target ใหม่ เพราะตามหลักผู้ใช้ไม่จำเป็นต้องส่งทุกอย่างมาเอง ส่วนอื้่นก็ให้ domain กำหนด
   assetId: string;
+  monitoringType: MonitoringType;
   host: string;
   port?: number;
   path?: string;
@@ -49,8 +52,28 @@ export class MonitoringTarget {
       throw new Error('host is required');
     } // ถ้าไม่มี host ระบบก็ไม่สามารถเชื่อมต่อไปยังปลายทางได้
 
-    const port = input.port ?? 9100;
-    const path = input.path ?? '/metrics';
+    let port: number;
+    let path: string;
+
+    if (input.monitoringType === 'NODE_EXPORTER') {
+      port = input.port ?? 9100;
+      path = input.path ?? '/metrics';
+    } else {
+      if (input.port === undefined) {
+        throw new Error(
+          'port is required for PROMETHEUS_APPLICATION monitoring',
+        );
+      }
+
+      if (!input.path) {
+        throw new Error(
+          'path is required for PROMETHEUS_APPLICATION monitoring',
+        );
+      }
+
+      port = input.port;
+      path = input.path;
+    }
     const scrapeIntervalSeconds = input.scrapeIntervalSeconds ?? 15;
 
     if (port < 1 || port > 65535) {
@@ -73,6 +96,7 @@ export class MonitoringTarget {
     return new MonitoringTarget({
       targetId,
       assetId: input.assetId,
+      monitoringType: input.monitoringType,
       host: input.host,
       port,
       path,
@@ -138,6 +162,10 @@ export class MonitoringTarget {
   getScrapeUrl(): string {
     // ใช้ประกอบ URL สำหรับดึง Metrics
     return `http://${this.props.host}:${this.props.port}${this.props.path}`;
+  }
+
+  getMonitoringType(): MonitoringType {
+    return this.props.monitoringType;
   }
 
   toObject(): MonitoringTargetProps {

@@ -6,9 +6,9 @@ import {
 } from '@nestjs/common';
 
 import {
-  METRICS_COLLECTOR,
-  type MetricsCollector,
-} from '../../domain/ports/metrics-collector.port';
+  METRICS_COLLECTOR_RESOLVER,
+  type MetricsCollectorResolver,
+} from '../../domain/ports/metrics-collector-resolver.port';
 import {
   METRICS_PARSER,
   type MetricsParser,
@@ -23,7 +23,7 @@ import {
   type MetricsStorage,
 } from '../../domain/ports/metrics-storage.port';
 
-const SUPPORTED_METRICS = new Set([
+const NODE_EXPORTER_SUPPORTED_METRICS = new Set([
   'node_cpu_seconds_total',
 
   'node_memory_MemTotal_bytes',
@@ -36,14 +36,16 @@ const SUPPORTED_METRICS = new Set([
   'node_network_transmit_bytes_total',
 ]);
 
+const APPLICATION_SUPPORTED_METRICS = new Set(['http_requests_total']);
+
 @Injectable()
 export class CollectTargetMetricsUseCase {
   constructor(
     @Inject(MONITORING_TARGET_REPOSITORY)
     private readonly monitoringTargetRepository: MonitoringTargetRepository,
 
-    @Inject(METRICS_COLLECTOR)
-    private readonly metricsCollector: MetricsCollector,
+    @Inject(METRICS_COLLECTOR_RESOLVER)
+    private readonly metricsCollectorResolver: MetricsCollectorResolver,
 
     @Inject(METRICS_PARSER)
     private readonly metricsParser: MetricsParser,
@@ -67,9 +69,11 @@ export class CollectTargetMetricsUseCase {
       throw new BadRequestException('Monitoring target is not enabled');
     }
 
-    const collectionResult = await this.metricsCollector.collect(
-      target.getScrapeUrl(),
+    const collector = this.metricsCollectorResolver.resolve(
+      target.getMonitoringType(),
     );
+
+    const collectionResult = await collector.collect(target.getScrapeUrl());
 
     if (!collectionResult.success || !collectionResult.rawMetrics) {
       target.markCollectionFailed(
@@ -88,8 +92,13 @@ export class CollectTargetMetricsUseCase {
       collectionResult.collectedAt,
     );
 
+    const supportedMetricNames =
+      targetData.monitoringType === 'NODE_EXPORTER'
+        ? NODE_EXPORTER_SUPPORTED_METRICS
+        : APPLICATION_SUPPORTED_METRICS;
+
     const supportedMetrics = parsedMetrics.filter((metric) =>
-      SUPPORTED_METRICS.has(metric.name),
+      supportedMetricNames.has(metric.name),
     );
 
     await this.metricsStorage.writeMetrics({

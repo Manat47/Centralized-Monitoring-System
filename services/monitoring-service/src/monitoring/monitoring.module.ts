@@ -6,8 +6,8 @@ import { MONITORING_TARGET_REPOSITORY } from './domain/repositories/monitoring-t
 import { DrizzleMonitoringTargetRepository } from './infrastructure/persistence/drizzle-monitoring-target.repository';
 import { MonitoringTargetsController } from './presentation/monitoring-targets.controller';
 import { VerifyMonitoringTargetUseCase } from './application/use-cases/verify-monitoring-target.use-case';
-import { METRICS_COLLECTOR } from './domain/ports/metrics-collector.port';
-import { NodeExporterCollector } from './infrastructure/collectors/node-exporter.collector';
+import { METRICS_COLLECTOR_RESOLVER } from './domain/ports/metrics-collector-resolver.port';
+import { DefaultMetricsCollectorResolver } from './infrastructure/collectors/default-metrics-collector.resolver';
 import { EnableMonitoringUseCase } from './application/use-cases/enable-monitoring.use-case';
 import { DisableMonitoringUseCase } from './application/use-cases/disable-monitoring.use-case';
 import { METRICS_PARSER } from './domain/ports/metrics-parser.port';
@@ -42,6 +42,8 @@ import { DrizzleMetricRuleEvaluationStateRepository } from './infrastructure/per
 import { ALERT_EVENT_PUBLISHER } from './domain/ports/alert-event-publisher.port';
 import { ALERT_EVENTS_CLIENT } from './infrastructure/messaging/rabbitmq.constants';
 import { RabbitMqAlertEventPublisher } from './infrastructure/publishers/rabbitmq-alert-event.publisher';
+import { ApplicationMetricsCollector } from './infrastructure/collectors/application-metrics.collector';
+import { NodeExporterCollector } from './infrastructure/collectors/node-exporter.collector';
 
 @Module({
   imports: [
@@ -97,13 +99,15 @@ import { RabbitMqAlertEventPublisher } from './infrastructure/publishers/rabbitm
     FindMetricRulesUseCase,
     FindMetricRulesByAssetUseCase,
     EvaluateMetricRulesUseCase,
+    NodeExporterCollector,
+    ApplicationMetricsCollector,
     {
       provide: MONITORING_TARGET_REPOSITORY,
       useClass: DrizzleMonitoringTargetRepository,
     },
     {
-      provide: METRICS_COLLECTOR,
-      useClass: NodeExporterCollector,
+      provide: METRICS_COLLECTOR_RESOLVER,
+      useClass: DefaultMetricsCollectorResolver,
     },
     {
       provide: METRICS_PARSER,

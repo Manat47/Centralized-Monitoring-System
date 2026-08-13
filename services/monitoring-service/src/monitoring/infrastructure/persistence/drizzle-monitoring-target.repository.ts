@@ -1,10 +1,13 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
 
 import { DRIZZLE_DB } from '../../../database/database.provider';
 import * as schema from '../../../database/schema/monitoring-targets.schema';
-import { MonitoringTarget } from '../../domain/entities/monitoring-target.entity';
+import {
+  MonitoringTarget,
+  type MonitoringType,
+} from '../../domain/entities/monitoring-target.entity';
 import type { MonitoringTargetRepository } from '../../domain/repositories/monitoring-target.repository';
 
 type MonitoringTargetRow = typeof schema.monitoringTargets.$inferSelect;
@@ -24,6 +27,7 @@ export class DrizzleMonitoringTargetRepository implements MonitoringTargetReposi
       .values({
         targetId: data.targetId,
         assetId: data.assetId,
+        monitoringType: data.monitoringType,
         host: data.host,
         port: data.port,
         path: data.path,
@@ -57,11 +61,28 @@ export class DrizzleMonitoringTargetRepository implements MonitoringTargetReposi
     return row ? this.toDomain(row) : null;
   }
 
-  async findByAssetId(assetId: string): Promise<MonitoringTarget | null> {
+  async findAllByAssetId(assetId: string): Promise<MonitoringTarget[]> {
+    const rows = await this.db
+      .select()
+      .from(schema.monitoringTargets)
+      .where(eq(schema.monitoringTargets.assetId, assetId));
+
+    return rows.map((row) => this.toDomain(row));
+  }
+
+  async findByAssetIdAndMonitoringType(
+    assetId: string,
+    monitoringType: MonitoringType,
+  ): Promise<MonitoringTarget | null> {
     const [row] = await this.db
       .select()
       .from(schema.monitoringTargets)
-      .where(eq(schema.monitoringTargets.assetId, assetId))
+      .where(
+        and(
+          eq(schema.monitoringTargets.assetId, assetId),
+          eq(schema.monitoringTargets.monitoringType, monitoringType),
+        ),
+      )
       .limit(1);
 
     return row ? this.toDomain(row) : null;
@@ -103,6 +124,7 @@ export class DrizzleMonitoringTargetRepository implements MonitoringTargetReposi
     return MonitoringTarget.restore({
       targetId: row.targetId,
       assetId: row.assetId,
+      monitoringType: row.monitoringType,
       host: row.host,
       port: row.port,
       path: row.path,

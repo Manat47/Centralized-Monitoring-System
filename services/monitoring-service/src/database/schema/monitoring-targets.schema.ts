@@ -6,6 +6,7 @@ import {
   real,
   text,
   timestamp,
+  uniqueIndex,
   uuid,
   varchar,
 } from 'drizzle-orm/pg-core';
@@ -37,49 +38,67 @@ export const metricRuleEvaluationStatusEnum = pgEnum(
   ['NORMAL', 'VIOLATING', 'ALERTED', 'RECOVERED'],
 );
 
-export const monitoringTargets = pgTable('monitoring_targets', {
-  targetId: uuid('target_id').defaultRandom().primaryKey(),
+export const monitoringTypeEnum = pgEnum('monitoring_type', [
+  'NODE_EXPORTER',
+  'PROMETHEUS_APPLICATION',
+]);
 
-  assetId: uuid('asset_id').notNull().unique(),
+export const monitoringTargets = pgTable(
+  'monitoring_targets',
+  {
+    targetId: uuid('target_id').defaultRandom().primaryKey(),
 
-  host: varchar('host', { length: 255 }).notNull(),
+    assetId: uuid('asset_id').notNull(),
 
-  port: integer('port').default(9100).notNull(),
+    monitoringType: monitoringTypeEnum('monitoring_type')
+      .default('NODE_EXPORTER')
+      .notNull(),
 
-  path: varchar('path', { length: 255 }).default('/metrics').notNull(),
+    host: varchar('host', { length: 255 }).notNull(),
 
-  scrapeIntervalSeconds: integer('scrape_interval_seconds')
-    .default(15)
-    .notNull(),
+    port: integer('port').notNull(),
 
-  verificationStatus: verificationStatusEnum('verification_status')
-    .default('NOT_VERIFIED')
-    .notNull(),
+    path: varchar('path', { length: 255 }).notNull(),
 
-  monitoringEnabled: boolean('monitoring_enabled').default(false).notNull(),
+    scrapeIntervalSeconds: integer('scrape_interval_seconds')
+      .default(15)
+      .notNull(),
 
-  lastVerifiedAt: timestamp('last_verified_at', {
-    withTimezone: true,
-  }),
+    verificationStatus: verificationStatusEnum('verification_status')
+      .default('NOT_VERIFIED')
+      .notNull(),
 
-  lastCollectedAt: timestamp('last_collected_at', {
-    withTimezone: true,
-  }),
+    monitoringEnabled: boolean('monitoring_enabled').default(false).notNull(),
 
-  lastError: text('last_error'),
+    lastVerifiedAt: timestamp('last_verified_at', {
+      withTimezone: true,
+    }),
 
-  createdAt: timestamp('created_at', {
-    withTimezone: true,
-  })
-    .defaultNow()
-    .notNull(),
+    lastCollectedAt: timestamp('last_collected_at', {
+      withTimezone: true,
+    }),
 
-  updatedAt: timestamp('updated_at', {
-    withTimezone: true,
-  })
-    .defaultNow()
-    .notNull(),
-});
+    lastError: text('last_error'),
+
+    createdAt: timestamp('created_at', {
+      withTimezone: true,
+    })
+      .defaultNow()
+      .notNull(),
+
+    updatedAt: timestamp('updated_at', {
+      withTimezone: true,
+    })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    uniqueIndex('monitoring_targets_asset_type_unique').on(
+      table.assetId,
+      table.monitoringType,
+    ),
+  ],
+);
 
 export type MonitoringTargetRow = typeof monitoringTargets.$inferSelect;
 export type NewMonitoringTargetRow = typeof monitoringTargets.$inferInsert;
