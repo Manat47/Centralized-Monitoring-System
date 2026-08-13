@@ -44,6 +44,7 @@ import { ALERT_EVENTS_CLIENT } from './infrastructure/messaging/rabbitmq.constan
 import { RabbitMqAlertEventPublisher } from './infrastructure/publishers/rabbitmq-alert-event.publisher';
 import { ApplicationMetricsCollector } from './infrastructure/collectors/application-metrics.collector';
 import { NodeExporterCollector } from './infrastructure/collectors/node-exporter.collector';
+import { QueryHttpRequestRateUseCase } from './application/use-cases/query-http-request-rate.use-case';
 
 @Module({
   imports: [
@@ -101,6 +102,7 @@ import { NodeExporterCollector } from './infrastructure/collectors/node-exporter
     EvaluateMetricRulesUseCase,
     NodeExporterCollector,
     ApplicationMetricsCollector,
+    QueryHttpRequestRateUseCase,
     {
       provide: MONITORING_TARGET_REPOSITORY,
       useClass: DrizzleMonitoringTargetRepository,
