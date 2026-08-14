@@ -1,5 +1,7 @@
 import { Module } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
+import { ConfigService, ConfigModule } from '@nestjs/config';
+import { ClientsModule, Transport } from '@nestjs/microservices';
 
 import { CreateUserUseCase } from './application/use-cases/create-user.use-case';
 import { LoginUseCase } from './application/use-cases/login.use-case';
@@ -24,9 +26,45 @@ import { DrizzleRefreshSessionRepository } from './infrastructure/persistence/dr
 import { CryptoRefreshToken } from './infrastructure/security/crypto-refresh-token';
 import { RefreshAccessTokenUseCase } from './application/use-cases/refresh-access-token.use-case';
 import { LogoutUseCase } from './application/use-cases/logout.use-case';
+import { AUDIT_EVENTS_CLIENT } from './infrastructure/messaging/rabbitmq.constants';
+import { AUDIT_EVENT_PUBLISHER } from './domain/ports/audit-event-publisher.port';
+import { RabbitMqAuditEventPublisher } from './infrastructure/publishers/rabbitmq-audit-event.publisher';
 
 @Module({
-  imports: [JwtModule.register({})],
+  imports: [
+    JwtModule.register({}),
+
+    ClientsModule.registerAsync([
+      {
+        name: AUDIT_EVENTS_CLIENT,
+        imports: [ConfigModule],
+        inject: [ConfigService],
+
+        useFactory: (configService: ConfigService) => {
+          const rabbitMqUrl = configService.get<string>('RABBITMQ_URL');
+
+          const queue = configService.get<string>('RABBITMQ_AUDIT_QUEUE');
+
+          if (!rabbitMqUrl || !queue) {
+            throw new Error(
+              'RABBITMQ_URL or RABBITMQ_AUDIT_QUEUE is not defined',
+            );
+          }
+
+          return {
+            transport: Transport.RMQ,
+            options: {
+              urls: [rabbitMqUrl],
+              queue,
+              queueOptions: {
+                durable: true,
+              },
+            },
+          };
+        },
+      },
+    ]),
+  ],
 
   controllers: [AuthController, UsersController],
 
@@ -65,6 +103,10 @@ import { LogoutUseCase } from './application/use-cases/logout.use-case';
     {
       provide: REFRESH_TOKEN,
       useClass: CryptoRefreshToken,
+    },
+    {
+      provide: AUDIT_EVENT_PUBLISHER,
+      useClass: RabbitMqAuditEventPublisher,
     },
   ],
 

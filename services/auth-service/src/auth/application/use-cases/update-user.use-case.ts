@@ -10,11 +10,17 @@ import {
   USER_REPOSITORY,
   type UserRepository,
 } from '../../domain/repositories/user.repository';
-
+import {
+  AUDIT_EVENT_PUBLISHER,
+  type AuditEventPublisher,
+} from '../../domain/ports/audit-event-publisher.port';
 export interface UpdateUserInput {
   userId: string;
   displayName?: string;
   role?: UserRole;
+
+  actorUserId: string;
+  actorRole: UserRole;
 }
 
 export interface UpdateUserOutput {
@@ -31,6 +37,8 @@ export class UpdateUserUseCase {
   constructor(
     @Inject(USER_REPOSITORY)
     private readonly userRepository: UserRepository,
+    @Inject(AUDIT_EVENT_PUBLISHER)
+    private readonly auditEventPublisher: AuditEventPublisher,
   ) {}
 
   async execute(input: UpdateUserInput): Promise<UpdateUserOutput> {
@@ -55,6 +63,16 @@ export class UpdateUserUseCase {
     const updatedUser = await this.userRepository.update(user);
 
     const data = updatedUser.toObject();
+
+    await this.auditEventPublisher.publish({
+      actorUserId: input.actorUserId,
+      actorRole: input.actorRole,
+      action: 'USER_UPDATED',
+      resourceType: 'USER',
+      resourceId: data.userId,
+      result: 'SUCCESS',
+      occurredAt: new Date(),
+    });
 
     return {
       userId: data.userId,

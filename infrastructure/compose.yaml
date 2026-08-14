@@ -104,6 +104,28 @@ services:
       timeout: 5s
       retries: 10
 
+  security-report-db:
+    image: postgres:17-alpine
+    container_name: security-report-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${SECURITY_REPORT_DB_USER}
+      POSTGRES_PASSWORD: ${SECURITY_REPORT_DB_PASSWORD}
+      POSTGRES_DB: ${SECURITY_REPORT_DB_NAME}
+    ports:
+      - "${SECURITY_REPORT_DB_PORT}:5432"
+    volumes:
+      - security_report_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${SECURITY_REPORT_DB_USER} -d ${SECURITY_REPORT_DB_NAME}",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
 volumes:
   asset_db_data:
   influxdb_data:
@@ -111,3 +133,4 @@ volumes:
   monitoring_db_data:
   alerting_db_data:
   auth_db_data:
+  security_report_db_data:
