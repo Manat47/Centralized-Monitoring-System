@@ -1,4 +1,7 @@
-import { MonitoringTarget } from '../entities/monitoring-target.entity';
+import {
+  MonitoringTarget,
+  type MonitoringType,
+} from '../entities/monitoring-target.entity';
 
 export const MONITORING_TARGET_REPOSITORY = Symbol(
   'MONITORING_TARGET_REPOSITORY',
@@ -11,7 +14,12 @@ export interface MonitoringTargetRepository {
 
   findById(targetId: string): Promise<MonitoringTarget | null>;
 
-  findByAssetId(assetId: string): Promise<MonitoringTarget | null>;
+  findAllByAssetId(assetId: string): Promise<MonitoringTarget[]>;
+
+  findByAssetIdAndMonitoringType(
+    assetId: string,
+    monitoringType: MonitoringType,
+  ): Promise<MonitoringTarget | null>;
 
   findEnabled(): Promise<MonitoringTarget[]>;
 

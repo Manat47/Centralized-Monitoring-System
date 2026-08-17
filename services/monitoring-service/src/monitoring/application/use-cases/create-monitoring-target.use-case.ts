@@ -10,6 +10,7 @@ import { randomUUID } from 'node:crypto'; // ใช้สร้าง ID แบ�
 import {
   MonitoringTarget, // Entity
   type CreateMonitoringTargetProps, // เป็น Type ที่ Entity กำหนดว่าตอนสร้าง Target ต้องส่งข้อมูลอะไรเข้าไป
+  type MonitoringType,
 } from '../../domain/entities/monitoring-target.entity';
 import {
   ASSET_READER,
@@ -38,17 +39,6 @@ export class CreateMonitoringTargetUseCase {
   ) {}
 
   async execute(input: CreateMonitoringTargetInput): Promise<MonitoringTarget> {
-    const existingTarget = await this.monitoringTargetRepository.findByAssetId(
-      input.assetId,
-    ); //สั่ง Repository ค้นว่า Asset นี้มี Monitoring Target อยู่แล้วหรือไม่
-
-    if (existingTarget) {
-      //ถ้ามีค่า หมายถึงพบ Target เดิม
-      throw new ConflictException(
-        `Monitoring target for asset ${input.assetId} already exists`,
-      );
-    }
-
     const asset = await this.assetReader.findById(input.assetId);
     // หลังรู้ว่ายังไม่มี Target จึงไปหา Asset จาก AssetReader ว่ามีอยู่จริงหรือไม่
 
@@ -57,10 +47,27 @@ export class CreateMonitoringTargetUseCase {
       throw new NotFoundException(`Asset with ID ${input.assetId} not found`);
     }
 
-    if (asset.assetType !== 'SERVER') {
-      // ตรวจสอบว่า Asset ที่ส่งเข้ามาเป็น SERVER หรือไม่ เพราะ Node Exporter ใช้เก็บ Metrics ของ Server
+    let monitoringType: MonitoringType;
+
+    if (asset.assetType === 'SERVER') {
+      monitoringType = 'NODE_EXPORTER';
+    } else if (asset.assetType === 'APPLICATION') {
+      monitoringType = 'PROMETHEUS_APPLICATION';
+    } else {
       throw new BadRequestException(
-        'Only SERVER assets can be monitored with Node Exporter',
+        `Asset type ${asset.assetType} is not supported for monitoring`,
+      );
+    }
+
+    const existingTarget =
+      await this.monitoringTargetRepository.findByAssetIdAndMonitoringType(
+        input.assetId,
+        monitoringType,
+      );
+
+    if (existingTarget) {
+      throw new ConflictException(
+        `${monitoringType} monitoring target for asset ${input.assetId} already exists`,
       );
     }
 
@@ -71,22 +78,48 @@ export class CreateMonitoringTargetUseCase {
       );
     }
 
-    const host = asset.hostname?.trim() || asset.ipAddress?.trim(); // เลือก Host ที่จะใช้ Monitor ถ้าไม่มีหรือเป็นข้อความว่าง จะใช้ IP Address
+    let host: string;
+    let port = input.port;
+    const path = input.path;
 
-    if (!host) {
-      // ถ้าไม่มีทั้ง Hostname และ IP Address จะไม่สามารถสร้าง Monitoring Target ได้
-      throw new BadRequestException(
-        'Asset does not have a hostname or IP address',
-      );
+    if (asset.assetType === 'SERVER') {
+      const serverHost = asset.hostname?.trim() || asset.ipAddress?.trim();
+
+      if (!serverHost) {
+        throw new BadRequestException(
+          'SERVER asset does not have a hostname or IP address',
+        );
+      }
+
+      host = serverHost;
+    } else {
+      if (!asset.endpoint) {
+        throw new BadRequestException(
+          'APPLICATION asset does not have an endpoint',
+        );
+      }
+
+      const endpoint = new URL(asset.endpoint);
+
+      host = endpoint.hostname;
+
+      port = input.port ?? (endpoint.port ? Number(endpoint.port) : 80);
+
+      if (!path) {
+        throw new BadRequestException(
+          'Metrics path is required for APPLICATION monitoring',
+        );
+      }
     }
 
     const createProps: CreateMonitoringTargetProps = {
       // สร้าง Object สำหรับส่งไปสร้าง Monitoring Target
       //เอาข้อมูลจาก 2 แหล่งมารวมกัน
       assetId: asset.assetId, // Asset Service
+      monitoringType, // กำหนดจาก asset.assetType
       host, // Asset Service
-      port: input.port, // User Input
-      path: input.path, // User Input
+      port, // กำหนดจาก asset.endpoint หรือ User Input
+      path, // กำหนดจาก asset.endpoint หรือ User Input
       scrapeIntervalSeconds: input.scrapeIntervalSeconds, // User Input
     };
 

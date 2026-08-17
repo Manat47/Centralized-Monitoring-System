@@ -17,6 +17,7 @@ interface AssetServiceResponse {
   targetType?: string;
   ipAddress?: string | null;
   hostname?: string | null;
+  endpoint?: string | null;
   status?: string;
 }
 
@@ -64,6 +65,7 @@ export class AssetServiceClient implements AssetReader {
         assetType: resolvedAssetType as AssetSnapshot['assetType'],
         ipAddress: asset.ipAddress ?? null,
         hostname: asset.hostname ?? null,
+        endpoint: asset.endpoint ?? null,
         status: asset.status as AssetSnapshot['status'],
       };
     } catch (error) {

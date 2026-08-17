@@ -3,6 +3,7 @@ import { Cron } from '@nestjs/schedule';
 
 import { CollectEnabledTargetsUseCase } from '../../application/use-cases/collect-enabled-targets.use-case';
 import { EvaluateMetricRulesUseCase } from '../../application/use-cases/evaluate-metric-rules.use-case';
+import { CheckEnabledHealthTargetsUseCase } from '../../application/use-cases/check-enabled-health-targets.use-case';
 
 @Injectable()
 export class MonitoringScheduler {
@@ -11,6 +12,7 @@ export class MonitoringScheduler {
   constructor(
     private readonly collectEnabledTargetsUseCase: CollectEnabledTargetsUseCase,
     private readonly evaluateMetricRulesUseCase: EvaluateMetricRulesUseCase,
+    private readonly checkEnabledHealthTargetsUseCase: CheckEnabledHealthTargetsUseCase,
   ) {}
 
   @Cron('*/5 * * * * *')
@@ -23,6 +25,16 @@ export class MonitoringScheduler {
           `Checked=${result.checked}, Collected=${result.collected}, Skipped=${result.skipped}, Failed=${result.failed}`,
         );
       }
+
+      const healthResult =
+        await this.checkEnabledHealthTargetsUseCase.execute();
+
+      if (healthResult.performed > 0 || healthResult.failed > 0) {
+        this.logger.log(
+          `Health: Checked=${healthResult.checked}, Performed=${healthResult.performed}, Skipped=${healthResult.skipped}, Failed=${healthResult.failed}`,
+        );
+      }
+
       const evaluationResult = await this.evaluateMetricRulesUseCase.execute();
 
       if (evaluationResult.triggered > 0 || evaluationResult.recovered > 0) {

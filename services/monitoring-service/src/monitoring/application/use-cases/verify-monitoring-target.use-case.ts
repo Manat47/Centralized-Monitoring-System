@@ -2,9 +2,9 @@ import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 
 import { MonitoringTarget } from '../../domain/entities/monitoring-target.entity';
 import {
-  METRICS_COLLECTOR,
-  type MetricsCollector,
-} from '../../domain/ports/metrics-collector.port';
+  METRICS_COLLECTOR_RESOLVER,
+  type MetricsCollectorResolver,
+} from '../../domain/ports/metrics-collector-resolver.port';
 import {
   MONITORING_TARGET_REPOSITORY,
   type MonitoringTargetRepository,
@@ -16,8 +16,8 @@ export class VerifyMonitoringTargetUseCase {
     @Inject(MONITORING_TARGET_REPOSITORY)
     private readonly monitoringTargetRepository: MonitoringTargetRepository,
 
-    @Inject(METRICS_COLLECTOR)
-    private readonly metricsCollector: MetricsCollector,
+    @Inject(METRICS_COLLECTOR_RESOLVER)
+    private readonly metricsCollectorResolver: MetricsCollectorResolver,
   ) {}
 
   async execute(targetId: string): Promise<MonitoringTarget> {
@@ -29,7 +29,11 @@ export class VerifyMonitoringTargetUseCase {
       );
     }
 
-    const result = await this.metricsCollector.verify(target.getScrapeUrl());
+    const collector = this.metricsCollectorResolver.resolve(
+      target.getMonitoringType(),
+    );
+
+    const result = await collector.verify(target.getScrapeUrl());
 
     if (result.success) {
       target.markVerified();

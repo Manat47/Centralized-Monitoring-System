@@ -80,7 +80,7 @@ export class ProcessAlertEventUseCase {
       assetId: data.assetId,
       metricType: data.metricType,
       severity: data.severity,
-      message: data.message,
+      message: event.message,
       occurredAt: data.resolvedAt?.toISOString() ?? event.occurredAt,
     });
 

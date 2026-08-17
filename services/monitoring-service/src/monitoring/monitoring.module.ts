@@ -6,8 +6,8 @@ import { MONITORING_TARGET_REPOSITORY } from './domain/repositories/monitoring-t
 import { DrizzleMonitoringTargetRepository } from './infrastructure/persistence/drizzle-monitoring-target.repository';
 import { MonitoringTargetsController } from './presentation/monitoring-targets.controller';
 import { VerifyMonitoringTargetUseCase } from './application/use-cases/verify-monitoring-target.use-case';
-import { METRICS_COLLECTOR } from './domain/ports/metrics-collector.port';
-import { NodeExporterCollector } from './infrastructure/collectors/node-exporter.collector';
+import { METRICS_COLLECTOR_RESOLVER } from './domain/ports/metrics-collector-resolver.port';
+import { DefaultMetricsCollectorResolver } from './infrastructure/collectors/default-metrics-collector.resolver';
 import { EnableMonitoringUseCase } from './application/use-cases/enable-monitoring.use-case';
 import { DisableMonitoringUseCase } from './application/use-cases/disable-monitoring.use-case';
 import { METRICS_PARSER } from './domain/ports/metrics-parser.port';
@@ -42,6 +42,28 @@ import { DrizzleMetricRuleEvaluationStateRepository } from './infrastructure/per
 import { ALERT_EVENT_PUBLISHER } from './domain/ports/alert-event-publisher.port';
 import { ALERT_EVENTS_CLIENT } from './infrastructure/messaging/rabbitmq.constants';
 import { RabbitMqAlertEventPublisher } from './infrastructure/publishers/rabbitmq-alert-event.publisher';
+import { ApplicationMetricsCollector } from './infrastructure/collectors/application-metrics.collector';
+import { NodeExporterCollector } from './infrastructure/collectors/node-exporter.collector';
+import { QueryHttpRequestRateUseCase } from './application/use-cases/query-http-request-rate.use-case';
+import { CheckHealthEndpointUseCase } from './application/use-cases/check-health-endpoint.use-case';
+import { HttpHealthChecker } from './infrastructure/health-checkers/http-health.checker';
+import { HEALTH_CHECKER } from './domain/ports/health-checker.port';
+import { HEALTH_CHECK_TARGET_REPOSITORY } from './domain/repositories/health-check-target.repository';
+import { DrizzleHealthCheckTargetRepository } from './infrastructure/persistence/drizzle-health-check-target.repository';
+import { CreateHealthCheckTargetUseCase } from './application/use-cases/create-health-check-target.use-case';
+import { HealthCheckTargetsController } from './presentation/health-check-targets.controller';
+import { EnableHealthCheckTargetUseCase } from './application/use-cases/enable-health-check-target.use-case';
+import { DisableHealthCheckTargetUseCase } from './application/use-cases/disable-health-check-target.use-case';
+import { CheckHealthTargetUseCase } from './application/use-cases/check-health-target.use-case';
+import { CheckEnabledHealthTargetsUseCase } from './application/use-cases/check-enabled-health-targets.use-case';
+import { HEALTH_CHECK_STORAGE } from './domain/ports/health-check-storage.port';
+import { InfluxHealthCheckStorage } from './infrastructure/persistence/influx-health-check.storage';
+import { HEALTH_CHECK_QUERY } from './domain/ports/health-check-query.port';
+import { InfluxHealthCheckQuery } from './infrastructure/persistence/influx-health-check.query';
+import { QueryHealthCheckHistoryUseCase } from './application/use-cases/query-health-check-history.use-case';
+import { FindHealthCheckTargetByIdUseCase } from './application/use-cases/find-health-check-target-by-id.use-case';
+import { FindHealthCheckTargetsUseCase } from './application/use-cases/find-health-check-targets.use-case';
+import { QueryLatestHealthCheckUseCase } from './application/use-cases/query-latest-health-check.use-case';
 
 @Module({
   imports: [
@@ -76,7 +98,11 @@ import { RabbitMqAlertEventPublisher } from './infrastructure/publishers/rabbitm
       },
     ]),
   ],
-  controllers: [MonitoringTargetsController, MetricRulesController],
+  controllers: [
+    MonitoringTargetsController,
+    MetricRulesController,
+    HealthCheckTargetsController,
+  ],
   providers: [
     CreateMonitoringTargetUseCase,
     VerifyMonitoringTargetUseCase,
@@ -97,13 +123,26 @@ import { RabbitMqAlertEventPublisher } from './infrastructure/publishers/rabbitm
     FindMetricRulesUseCase,
     FindMetricRulesByAssetUseCase,
     EvaluateMetricRulesUseCase,
+    NodeExporterCollector,
+    ApplicationMetricsCollector,
+    QueryHttpRequestRateUseCase,
+    CreateHealthCheckTargetUseCase,
+    CheckHealthEndpointUseCase,
+    EnableHealthCheckTargetUseCase,
+    DisableHealthCheckTargetUseCase,
+    CheckHealthTargetUseCase,
+    CheckEnabledHealthTargetsUseCase,
+    QueryHealthCheckHistoryUseCase,
+    FindHealthCheckTargetByIdUseCase,
+    FindHealthCheckTargetsUseCase,
+    QueryLatestHealthCheckUseCase,
     {
       provide: MONITORING_TARGET_REPOSITORY,
       useClass: DrizzleMonitoringTargetRepository,
     },
     {
-      provide: METRICS_COLLECTOR,
-      useClass: NodeExporterCollector,
+      provide: METRICS_COLLECTOR_RESOLVER,
+      useClass: DefaultMetricsCollectorResolver,
     },
     {
       provide: METRICS_PARSER,
@@ -132,6 +171,22 @@ import { RabbitMqAlertEventPublisher } from './infrastructure/publishers/rabbitm
     {
       provide: ALERT_EVENT_PUBLISHER,
       useClass: RabbitMqAlertEventPublisher,
+    },
+    {
+      provide: HEALTH_CHECKER,
+      useClass: HttpHealthChecker,
+    },
+    {
+      provide: HEALTH_CHECK_TARGET_REPOSITORY,
+      useClass: DrizzleHealthCheckTargetRepository,
+    },
+    {
+      provide: HEALTH_CHECK_STORAGE,
+      useClass: InfluxHealthCheckStorage,
+    },
+    {
+      provide: HEALTH_CHECK_QUERY,
+      useClass: InfluxHealthCheckQuery,
     },
   ],
 })

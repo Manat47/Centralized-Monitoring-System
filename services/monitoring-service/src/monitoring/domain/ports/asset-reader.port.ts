@@ -7,6 +7,7 @@ export interface AssetSnapshot {
   assetType: AssetType;
   ipAddress: string | null;
   hostname: string | null;
+  endpoint: string | null;
   status: AssetStatus;
 }
 
