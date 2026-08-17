@@ -75,7 +75,11 @@ async function bootstrap() {
       target: monitoringServiceUrl,
       changeOrigin: true,
 
-      pathFilter: ['/api/monitoring-targets', '/api/metric-rules'],
+      pathFilter: [
+        '/api/monitoring-targets',
+        '/api/metric-rules',
+        '/api/health-check-targets',
+      ],
 
       pathRewrite: {
         '^/api': '',
