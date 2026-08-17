@@ -103,6 +103,39 @@ export const monitoringTargets = pgTable(
 export type MonitoringTargetRow = typeof monitoringTargets.$inferSelect;
 export type NewMonitoringTargetRow = typeof monitoringTargets.$inferInsert;
 
+export const healthCheckTargets = pgTable('health_check_targets', {
+  healthCheckTargetId: uuid('health_check_target_id')
+    .defaultRandom()
+    .primaryKey(),
+
+  assetId: uuid('asset_id').notNull(),
+
+  url: varchar('url', { length: 2048 }).notNull(),
+
+  checkIntervalSeconds: integer('check_interval_seconds').default(15).notNull(),
+
+  enabled: boolean('enabled').default(false).notNull(),
+
+  lastCheckedAt: timestamp('last_checked_at', {
+    withTimezone: true,
+  }),
+
+  createdAt: timestamp('created_at', {
+    withTimezone: true,
+  })
+    .defaultNow()
+    .notNull(),
+
+  updatedAt: timestamp('updated_at', {
+    withTimezone: true,
+  })
+    .defaultNow()
+    .notNull(),
+});
+
+export type HealthCheckTargetRow = typeof healthCheckTargets.$inferSelect;
+export type NewHealthCheckTargetRow = typeof healthCheckTargets.$inferInsert;
+
 export const metricRules = pgTable('metric_rules', {
   ruleId: uuid('rule_id').defaultRandom().primaryKey(),
 
