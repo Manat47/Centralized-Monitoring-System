@@ -20,12 +20,19 @@ import {
   MONITORING_TARGET_REPOSITORY,
   type MonitoringTargetRepository,
 } from '../../domain/repositories/monitoring-target.repository'; //เป็นช่องทางที่ Use Case ใช้คุยกับฐานข้อมูล
+import {
+  AUDIT_EVENT_PUBLISHER,
+  type AuditEventPublisher,
+} from '../../domain/ports/audit-event-publisher.port';
 
 export interface CreateMonitoringTargetInput {
   assetId: string;
   port?: number;
   path?: string;
   scrapeIntervalSeconds?: number;
+
+  actorUserId: string;
+  actorRole: 'ADMIN' | 'OPERATOR';
 }
 
 @Injectable()
@@ -36,6 +43,9 @@ export class CreateMonitoringTargetUseCase {
 
     @Inject(ASSET_READER)
     private readonly assetReader: AssetReader,
+
+    @Inject(AUDIT_EVENT_PUBLISHER)
+    private readonly auditEventPublisher: AuditEventPublisher,
   ) {}
 
   async execute(input: CreateMonitoringTargetInput): Promise<MonitoringTarget> {
@@ -125,6 +135,24 @@ export class CreateMonitoringTargetUseCase {
 
     const target = MonitoringTarget.create(randomUUID(), createProps); // เรียก Entity เพื่อสร้าง Monitoring Target ใหม่ โดยส่ง targetId ที่สร้างจาก randomUUID() และข้อมูลที่เตรียมไว้
 
-    return this.monitoringTargetRepository.create(target); // บันทึก Monitoring Target ใหม่ลงฐานข้อมูล และคืนค่า Monitoring Target ที่สร้างเสร็จแล้วกลับไป
+    const createdTarget = await this.monitoringTargetRepository.create(target);
+
+    const data = createdTarget.toObject();
+
+    await this.auditEventPublisher.publish({
+      actorUserId: input.actorUserId,
+      actorRole: input.actorRole,
+
+      action: 'MONITORING_TARGET_CREATED',
+
+      resourceType: 'MONITORING_TARGET',
+      resourceId: data.targetId,
+
+      result: 'SUCCESS',
+
+      occurredAt: new Date(),
+    });
+
+    return createdTarget;
   }
 }

@@ -8,6 +8,7 @@ import {
   ParseUUIDPipe,
   Get,
   Query,
+  Headers,
 } from '@nestjs/common';
 
 import { CreateMonitoringTargetUseCase } from '../application/use-cases/create-monitoring-target.use-case';
@@ -48,9 +49,17 @@ export class MonitoringTargetsController {
   ) {}
 
   @Post()
-  async create(@Body() dto: CreateMonitoringTargetDto) {
+  async create(
+    @Body() dto: CreateMonitoringTargetDto,
+    @Headers('x-user-id') actorUserId: string,
+    @Headers('x-user-role') actorRole: 'ADMIN' | 'OPERATOR',
+  ) {
     try {
-      const target = await this.createMonitoringTargetUseCase.execute(dto);
+      const target = await this.createMonitoringTargetUseCase.execute({
+        ...dto,
+        actorRole,
+        actorUserId,
+      });
 
       return target.toObject();
     } catch (error) {
@@ -67,22 +76,43 @@ export class MonitoringTargetsController {
   }
 
   @Post(':id/verify')
-  async verify(@Param('id', new ParseUUIDPipe()) id: string) {
-    const target = await this.verifyMonitoringTargetUseCase.execute(id);
+  async verify(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Headers('x-user-id') actorUserId: string,
+    @Headers('x-user-role') actorRole: 'ADMIN' | 'OPERATOR',
+  ) {
+    const target = await this.verifyMonitoringTargetUseCase.execute(id, {
+      actorUserId,
+      actorRole,
+    });
 
     return target.toObject();
   }
 
   @Post(':id/enable')
-  async enable(@Param('id', new ParseUUIDPipe()) id: string) {
-    const target = await this.enableMonitoringUseCase.execute(id);
+  async enable(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Headers('x-user-id') actorUserId: string,
+    @Headers('x-user-role') actorRole: 'ADMIN' | 'OPERATOR',
+  ) {
+    const target = await this.enableMonitoringUseCase.execute(id, {
+      actorUserId,
+      actorRole,
+    });
 
     return target.toObject();
   }
 
   @Post(':id/disable')
-  async disable(@Param('id', new ParseUUIDPipe()) id: string) {
-    const target = await this.disableMonitoringUseCase.execute(id);
+  async disable(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Headers('x-user-id') actorUserId: string,
+    @Headers('x-user-role') actorRole: 'ADMIN' | 'OPERATOR',
+  ) {
+    const target = await this.disableMonitoringUseCase.execute(id, {
+      actorUserId,
+      actorRole,
+    });
 
     return target.toObject();
   }

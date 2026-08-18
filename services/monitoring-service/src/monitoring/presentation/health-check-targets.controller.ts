@@ -6,6 +6,7 @@ import {
   ParseUUIDPipe,
   Param,
   Query,
+  Headers,
 } from '@nestjs/common';
 
 import { CreateHealthCheckTargetUseCase } from '../application/use-cases/create-health-check-target.use-case';
@@ -31,21 +32,44 @@ export class HealthCheckTargetsController {
   ) {}
 
   @Post()
-  async create(@Body() dto: CreateHealthCheckTargetDto) {
-    const target = await this.createHealthCheckTargetUseCase.execute(dto);
+  async create(
+    @Body() dto: CreateHealthCheckTargetDto,
+    @Headers('x-user-id') actorUserId: string,
+    @Headers('x-user-role') actorRole: 'ADMIN' | 'OPERATOR',
+  ) {
+    const target = await this.createHealthCheckTargetUseCase.execute({
+      ...dto,
+      actorUserId,
+      actorRole,
+    });
 
     return target.toObject();
   }
+
   @Post(':id/enable')
-  async enable(@Param('id', new ParseUUIDPipe()) id: string) {
-    const target = await this.enableHealthCheckTargetUseCase.execute(id);
+  async enable(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Headers('x-user-id') actorUserId: string,
+    @Headers('x-user-role') actorRole: 'ADMIN' | 'OPERATOR',
+  ) {
+    const target = await this.enableHealthCheckTargetUseCase.execute(id, {
+      actorUserId,
+      actorRole,
+    });
 
     return target.toObject();
   }
 
   @Post(':id/disable')
-  async disable(@Param('id', new ParseUUIDPipe()) id: string) {
-    const target = await this.disableHealthCheckTargetUseCase.execute(id);
+  async disable(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Headers('x-user-id') actorUserId: string,
+    @Headers('x-user-role') actorRole: 'ADMIN' | 'OPERATOR',
+  ) {
+    const target = await this.disableHealthCheckTargetUseCase.execute(id, {
+      actorUserId,
+      actorRole,
+    });
 
     return target.toObject();
   }

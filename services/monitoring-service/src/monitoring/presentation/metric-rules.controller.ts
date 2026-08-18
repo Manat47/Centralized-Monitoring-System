@@ -5,6 +5,7 @@ import {
   Get,
   ParseUUIDPipe,
   Param,
+  Headers,
 } from '@nestjs/common';
 
 import { CreateMetricRuleUseCase } from '../application/use-cases/create-metric-rule.use-case';
@@ -23,8 +24,16 @@ export class MetricRulesController {
   ) {}
 
   @Post()
-  async create(@Body() dto: CreateMetricRuleDto) {
-    const rule = await this.createMetricRuleUseCase.execute(dto);
+  async create(
+    @Body() dto: CreateMetricRuleDto,
+    @Headers('x-user-id') actorUserId: string,
+    @Headers('x-user-role') actorRole: 'ADMIN' | 'OPERATOR',
+  ) {
+    const rule = await this.createMetricRuleUseCase.execute({
+      ...dto,
+      actorUserId,
+      actorRole,
+    });
 
     return rule.toObject();
   }
