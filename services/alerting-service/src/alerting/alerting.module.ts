@@ -7,7 +7,11 @@ import {
   RabbitMqNotificationEventPublisher,
 } from './infrastructure/publishers/rabbitmq-notification-event.publisher';
 import { NOTIFICATION_EVENT_PUBLISHER } from './domain/port/notification-event-publisher.port';
-
+import {
+  AUDIT_EVENTS_CLIENT,
+  RabbitMqAuditEventPublisher,
+} from './infrastructure/publishers/rabbitmq-audit-event.publisher';
+import { AUDIT_EVENT_PUBLISHER } from './domain/port/audit-event-publisher.port';
 import { ALERT_REPOSITORY } from './domain/repositories/alert.repository';
 import { DrizzleAlertRepository } from './infrastructure/persistence/drizzle-alert.repository';
 import { ProcessAlertEventUseCase } from './application/use-cases/process-alert-event.use-case';
@@ -53,6 +57,34 @@ import { CloseAlertUseCase } from './application/use-cases/close-alert.use-case'
           };
         },
       },
+      {
+        name: AUDIT_EVENTS_CLIENT,
+        imports: [ConfigModule],
+        inject: [ConfigService],
+
+        useFactory: (configService: ConfigService) => {
+          const rabbitMqUrl = configService.get<string>('RABBITMQ_URL');
+
+          const queue = configService.get<string>('RABBITMQ_AUDIT_QUEUE');
+
+          if (!rabbitMqUrl || !queue) {
+            throw new Error(
+              'RABBITMQ_URL or RABBITMQ_AUDIT_QUEUE is not defined',
+            );
+          }
+
+          return {
+            transport: Transport.RMQ,
+            options: {
+              urls: [rabbitMqUrl],
+              queue,
+              queueOptions: {
+                durable: true,
+              },
+            },
+          };
+        },
+      },
     ]),
   ],
   controllers: [AlertEventsController, AlertEventConsumer, AlertsController],
@@ -69,6 +101,10 @@ import { CloseAlertUseCase } from './application/use-cases/close-alert.use-case'
     {
       provide: NOTIFICATION_EVENT_PUBLISHER,
       useClass: RabbitMqNotificationEventPublisher,
+    },
+    {
+      provide: AUDIT_EVENT_PUBLISHER,
+      useClass: RabbitMqAuditEventPublisher,
     },
   ],
 })

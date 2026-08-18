@@ -1,4 +1,4 @@
-import { Controller, Get, Param, Patch, Query } from '@nestjs/common';
+import { Controller, Get, Param, Patch, Query, Headers } from '@nestjs/common';
 
 import { FindAlertsUseCase } from '../application/use-cases/find-alerts.use-case';
 import { FindAlertByIdUseCase } from '../application/use-cases/find-alert-by-id.use-case';
@@ -25,12 +25,26 @@ export class AlertsController {
   }
 
   @Patch(':id/acknowledge')
-  async acknowledge(@Param('id') alertId: string) {
-    return this.acknowledgeAlertUseCase.execute(alertId);
+  async acknowledge(
+    @Param('id') alertId: string,
+    @Headers('x-user-id') actorUserId: string,
+    @Headers('x-user-role') actorRole: 'ADMIN' | 'OPERATOR',
+  ) {
+    return this.acknowledgeAlertUseCase.execute(alertId, {
+      actorUserId,
+      actorRole,
+    });
   }
 
   @Patch(':id/close')
-  async close(@Param('id') alertId: string) {
-    return this.closeAlertUseCase.execute(alertId);
+  async close(
+    @Param('id') alertId: string,
+    @Headers('x-user-id') actorUserId: string,
+    @Headers('x-user-role') actorRole: 'ADMIN' | 'OPERATOR',
+  ) {
+    return this.closeAlertUseCase.execute(alertId, {
+      actorUserId,
+      actorRole,
+    });
   }
 }
