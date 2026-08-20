@@ -153,6 +153,13 @@ function isAdminRoute(method: string, path: string): boolean {
     return true;
   }
 
+  if (
+    path === '/api/notification-recipients' ||
+    path.startsWith('/api/notification-recipients/')
+  ) {
+    return true;
+  }
+
   return false;
 }
 

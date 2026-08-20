@@ -11,21 +11,16 @@ import type {
 export class GmailSmtpNotificationSender implements NotificationSender {
   private readonly transporter: nodemailer.Transporter;
   private readonly senderEmail: string;
-  private readonly recipientEmail: string;
 
   constructor(private readonly configService: ConfigService) {
     const smtpUser = this.configService.get<string>('SMTP_USER');
     const smtpPass = this.configService.get<string>('SMTP_PASS');
-    const recipientEmail = this.configService.get<string>(
-      'NOTIFICATION_RECIPIENT_EMAIL',
-    );
 
-    if (!smtpUser || !smtpPass || !recipientEmail) {
+    if (!smtpUser || !smtpPass) {
       throw new Error('SMTP configuration is incomplete');
     }
 
     this.senderEmail = smtpUser;
-    this.recipientEmail = recipientEmail;
 
     this.transporter = nodemailer.createTransport({
       service: 'gmail',
@@ -39,7 +34,7 @@ export class GmailSmtpNotificationSender implements NotificationSender {
   async send(input: SendNotificationInput): Promise<void> {
     await this.transporter.sendMail({
       from: this.senderEmail,
-      to: this.recipientEmail,
+      to: input.recipientEmail,
       subject: input.title,
       text: [
         input.title,
