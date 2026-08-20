@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { and, count, desc, eq, inArray } from 'drizzle-orm';
+import { and, count, desc, eq, inArray, gte, lte } from 'drizzle-orm';
 import type { SQL } from 'drizzle-orm';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 
@@ -7,6 +7,7 @@ import { Alert } from '../../domain/entities/alert.entity';
 import {
   type AlertRepository,
   type FindAlertsFilters,
+  type FindAlertsForReportFilters,
   type FindAlertsResult,
 } from '../../domain/repositories/alert.repository';
 import { DRIZZLE_DB } from '../../../database/database.provider';
@@ -78,6 +79,14 @@ export class DrizzleAlertRepository implements AlertRepository {
       conditions.push(eq(alerts.assetId, filters.assetId));
     }
 
+    if (filters?.from) {
+      conditions.push(gte(alerts.triggeredAt, filters.from));
+    }
+
+    if (filters?.to) {
+      conditions.push(lte(alerts.triggeredAt, filters.to));
+    }
+
     const whereCondition =
       conditions.length > 0 ? and(...conditions) : undefined;
 
@@ -101,6 +110,25 @@ export class DrizzleAlertRepository implements AlertRepository {
       items: rows.map((row) => this.toDomain(row)),
       total: totalRows[0]?.total ?? 0,
     };
+  }
+
+  async findForReport(filters: FindAlertsForReportFilters): Promise<Alert[]> {
+    const conditions: SQL[] = [
+      gte(alerts.triggeredAt, filters.from),
+      lte(alerts.triggeredAt, filters.to),
+    ];
+
+    if (filters.assetId) {
+      conditions.push(eq(alerts.assetId, filters.assetId));
+    }
+
+    const rows = await this.db
+      .select()
+      .from(alerts)
+      .where(and(...conditions))
+      .orderBy(alerts.triggeredAt);
+
+    return rows.map((row) => this.toDomain(row));
   }
 
   async findById(alertId: string): Promise<Alert | null> {

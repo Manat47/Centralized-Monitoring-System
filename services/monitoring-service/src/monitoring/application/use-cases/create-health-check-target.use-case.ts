@@ -21,10 +21,18 @@ import {
   type HealthCheckTargetRepository,
 } from '../../domain/repositories/health-check-target.repository';
 
+import {
+  AUDIT_EVENT_PUBLISHER,
+  type AuditEventPublisher,
+} from '../../domain/ports/audit-event-publisher.port';
+
 export interface CreateHealthCheckTargetInput {
   assetId: string;
   url: string;
   checkIntervalSeconds?: number;
+
+  actorUserId: string;
+  actorRole: 'ADMIN' | 'OPERATOR';
 }
 
 @Injectable()
@@ -35,6 +43,9 @@ export class CreateHealthCheckTargetUseCase {
 
     @Inject(ASSET_READER)
     private readonly assetReader: AssetReader,
+
+    @Inject(AUDIT_EVENT_PUBLISHER)
+    private readonly auditEventPublisher: AuditEventPublisher,
   ) {}
 
   async execute(
@@ -58,8 +69,26 @@ export class CreateHealthCheckTargetUseCase {
       checkIntervalSeconds: input.checkIntervalSeconds,
     };
 
-    const target = HealthCheckTarget.create(randomUUID(), createProps);
+    const healthCheckTargetId = randomUUID();
 
-    return this.healthCheckTargetRepository.create(target);
+    const target = HealthCheckTarget.create(healthCheckTargetId, createProps);
+
+    const createdTarget = await this.healthCheckTargetRepository.create(target);
+
+    await this.auditEventPublisher.publish({
+      actorUserId: input.actorUserId,
+      actorRole: input.actorRole,
+
+      action: 'HEALTH_CHECK_TARGET_CREATED',
+
+      resourceType: 'HEALTH_CHECK_TARGET',
+      resourceId: healthCheckTargetId,
+
+      result: 'SUCCESS',
+
+      occurredAt: new Date(),
+    });
+
+    return createdTarget;
   }
 }

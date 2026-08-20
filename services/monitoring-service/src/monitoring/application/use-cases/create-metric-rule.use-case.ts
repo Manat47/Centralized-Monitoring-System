@@ -18,6 +18,15 @@ import {
   METRIC_RULE_REPOSITORY,
   type MetricRuleRepository,
 } from '../../domain/repositories/metric-rule.repository';
+import {
+  AUDIT_EVENT_PUBLISHER,
+  type AuditEventPublisher,
+} from '../../domain/ports/audit-event-publisher.port';
+
+export interface CreateMetricRuleInput extends CreateMetricRuleProps {
+  actorUserId: string;
+  actorRole: 'ADMIN' | 'OPERATOR';
+}
 
 @Injectable()
 export class CreateMetricRuleUseCase {
@@ -27,13 +36,20 @@ export class CreateMetricRuleUseCase {
 
     @Inject(ASSET_READER)
     private readonly assetReader: AssetReader,
+
+    @Inject(AUDIT_EVENT_PUBLISHER)
+    private readonly auditEventPublisher: AuditEventPublisher,
   ) {}
 
-  async execute(input: CreateMetricRuleProps): Promise<MetricRule> {
-    const asset = await this.assetReader.findById(input.assetId);
+  async execute(input: CreateMetricRuleInput): Promise<MetricRule> {
+    const { actorUserId, actorRole, ...ruleData } = input;
+
+    const asset = await this.assetReader.findById(ruleData.assetId);
 
     if (!asset) {
-      throw new NotFoundException(`Asset with ID ${input.assetId} not found`);
+      throw new NotFoundException(
+        `Asset with ID ${ruleData.assetId} not found`,
+      );
     }
 
     if (asset.assetType !== 'SERVER') {
@@ -48,8 +64,26 @@ export class CreateMetricRuleUseCase {
       );
     }
 
-    const rule = MetricRule.create(randomUUID(), input);
+    const ruleId = randomUUID();
 
-    return this.metricRuleRepository.create(rule);
+    const rule = MetricRule.create(ruleId, ruleData);
+
+    const createdRule = await this.metricRuleRepository.create(rule);
+
+    await this.auditEventPublisher.publish({
+      actorUserId,
+      actorRole,
+
+      action: 'METRIC_RULE_CREATED',
+
+      resourceType: 'METRIC_RULE',
+      resourceId: ruleId,
+
+      result: 'SUCCESS',
+
+      occurredAt: new Date(),
+    });
+
+    return createdRule;
   }
 }

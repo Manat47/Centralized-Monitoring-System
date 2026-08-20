@@ -8,6 +8,7 @@ import {
   ParseUUIDPipe,
   Get,
   Query,
+  Headers,
 } from '@nestjs/common';
 
 import { CreateMonitoringTargetUseCase } from '../application/use-cases/create-monitoring-target.use-case';
@@ -27,6 +28,7 @@ import { QueryMetricsSummaryUseCase } from '../application/use-cases/query-metri
 import { FindMonitoringTargetsUseCase } from '../application/use-cases/find-monitoring-targets.use-case';
 import { FindMonitoringTargetByIdUseCase } from '../application/use-cases/find-monitoring-target-by-id.use-case';
 import { QueryHttpRequestRateUseCase } from '../application/use-cases/query-http-request-rate.use-case';
+import { QueryMetricsReportSummaryUseCase } from '../application/use-cases/query-metrics-report-summary.use-case';
 
 @Controller('monitoring-targets')
 export class MonitoringTargetsController {
@@ -45,12 +47,21 @@ export class MonitoringTargetsController {
     private readonly findMonitoringTargetsUseCase: FindMonitoringTargetsUseCase,
     private readonly findMonitoringTargetByIdUseCase: FindMonitoringTargetByIdUseCase,
     private readonly queryHttpRequestRateUseCase: QueryHttpRequestRateUseCase,
+    private readonly queryMetricsReportSummaryUseCase: QueryMetricsReportSummaryUseCase,
   ) {}
 
   @Post()
-  async create(@Body() dto: CreateMonitoringTargetDto) {
+  async create(
+    @Body() dto: CreateMonitoringTargetDto,
+    @Headers('x-user-id') actorUserId: string,
+    @Headers('x-user-role') actorRole: 'ADMIN' | 'OPERATOR',
+  ) {
     try {
-      const target = await this.createMonitoringTargetUseCase.execute(dto);
+      const target = await this.createMonitoringTargetUseCase.execute({
+        ...dto,
+        actorRole,
+        actorUserId,
+      });
 
       return target.toObject();
     } catch (error) {
@@ -67,22 +78,43 @@ export class MonitoringTargetsController {
   }
 
   @Post(':id/verify')
-  async verify(@Param('id', new ParseUUIDPipe()) id: string) {
-    const target = await this.verifyMonitoringTargetUseCase.execute(id);
+  async verify(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Headers('x-user-id') actorUserId: string,
+    @Headers('x-user-role') actorRole: 'ADMIN' | 'OPERATOR',
+  ) {
+    const target = await this.verifyMonitoringTargetUseCase.execute(id, {
+      actorUserId,
+      actorRole,
+    });
 
     return target.toObject();
   }
 
   @Post(':id/enable')
-  async enable(@Param('id', new ParseUUIDPipe()) id: string) {
-    const target = await this.enableMonitoringUseCase.execute(id);
+  async enable(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Headers('x-user-id') actorUserId: string,
+    @Headers('x-user-role') actorRole: 'ADMIN' | 'OPERATOR',
+  ) {
+    const target = await this.enableMonitoringUseCase.execute(id, {
+      actorUserId,
+      actorRole,
+    });
 
     return target.toObject();
   }
 
   @Post(':id/disable')
-  async disable(@Param('id', new ParseUUIDPipe()) id: string) {
-    const target = await this.disableMonitoringUseCase.execute(id);
+  async disable(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Headers('x-user-id') actorUserId: string,
+    @Headers('x-user-role') actorRole: 'ADMIN' | 'OPERATOR',
+  ) {
+    const target = await this.disableMonitoringUseCase.execute(id, {
+      actorUserId,
+      actorRole,
+    });
 
     return target.toObject();
   }
@@ -115,6 +147,21 @@ export class MonitoringTargetsController {
     query: QueryTimeRangeDto,
   ) {
     return this.queryMetricsSummaryUseCase.execute({
+      assetId,
+      start: new Date(query.start),
+      end: new Date(query.end),
+    });
+  }
+
+  @Get(':assetId/metrics/report-summary')
+  async queryMetricsReportSummary(
+    @Param('assetId', new ParseUUIDPipe())
+    assetId: string,
+
+    @Query()
+    query: QueryTimeRangeDto,
+  ) {
+    return this.queryMetricsReportSummaryUseCase.execute({
       assetId,
       start: new Date(query.start),
       end: new Date(query.end),

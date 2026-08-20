@@ -6,6 +6,7 @@ import {
   ParseUUIDPipe,
   Param,
   Query,
+  Headers,
 } from '@nestjs/common';
 
 import { CreateHealthCheckTargetUseCase } from '../application/use-cases/create-health-check-target.use-case';
@@ -17,6 +18,7 @@ import { QueryTimeRangeDto } from './dto/query-time-range.dto';
 import { FindHealthCheckTargetByIdUseCase } from '../application/use-cases/find-health-check-target-by-id.use-case';
 import { FindHealthCheckTargetsUseCase } from '../application/use-cases/find-health-check-targets.use-case';
 import { QueryLatestHealthCheckUseCase } from '../application/use-cases/query-latest-health-check.use-case';
+import { QueryHealthReportSummaryUseCase } from '../application/use-cases/query-health-report-summary.use-case';
 
 @Controller('health-check-targets')
 export class HealthCheckTargetsController {
@@ -28,24 +30,48 @@ export class HealthCheckTargetsController {
     private readonly findHealthCheckTargetByIdUseCase: FindHealthCheckTargetByIdUseCase,
     private readonly findHealthCheckTargetsUseCase: FindHealthCheckTargetsUseCase,
     private readonly queryLatestHealthCheckUseCase: QueryLatestHealthCheckUseCase,
+    private readonly queryHealthReportSummaryUseCase: QueryHealthReportSummaryUseCase,
   ) {}
 
   @Post()
-  async create(@Body() dto: CreateHealthCheckTargetDto) {
-    const target = await this.createHealthCheckTargetUseCase.execute(dto);
+  async create(
+    @Body() dto: CreateHealthCheckTargetDto,
+    @Headers('x-user-id') actorUserId: string,
+    @Headers('x-user-role') actorRole: 'ADMIN' | 'OPERATOR',
+  ) {
+    const target = await this.createHealthCheckTargetUseCase.execute({
+      ...dto,
+      actorUserId,
+      actorRole,
+    });
 
     return target.toObject();
   }
+
   @Post(':id/enable')
-  async enable(@Param('id', new ParseUUIDPipe()) id: string) {
-    const target = await this.enableHealthCheckTargetUseCase.execute(id);
+  async enable(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Headers('x-user-id') actorUserId: string,
+    @Headers('x-user-role') actorRole: 'ADMIN' | 'OPERATOR',
+  ) {
+    const target = await this.enableHealthCheckTargetUseCase.execute(id, {
+      actorUserId,
+      actorRole,
+    });
 
     return target.toObject();
   }
 
   @Post(':id/disable')
-  async disable(@Param('id', new ParseUUIDPipe()) id: string) {
-    const target = await this.disableHealthCheckTargetUseCase.execute(id);
+  async disable(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Headers('x-user-id') actorUserId: string,
+    @Headers('x-user-role') actorRole: 'ADMIN' | 'OPERATOR',
+  ) {
+    const target = await this.disableHealthCheckTargetUseCase.execute(id, {
+      actorUserId,
+      actorRole,
+    });
 
     return target.toObject();
   }
@@ -56,6 +82,18 @@ export class HealthCheckTargetsController {
     @Query() query: QueryTimeRangeDto,
   ) {
     return this.queryHealthCheckHistoryUseCase.execute({
+      healthCheckTargetId: id,
+      start: new Date(query.start),
+      end: new Date(query.end),
+    });
+  }
+
+  @Get(':id/report-summary')
+  async getReportSummary(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Query() query: QueryTimeRangeDto,
+  ) {
+    return this.queryHealthReportSummaryUseCase.execute({
       healthCheckTargetId: id,
       start: new Date(query.start),
       end: new Date(query.end),

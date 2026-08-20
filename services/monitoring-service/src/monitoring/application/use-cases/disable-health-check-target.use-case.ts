@@ -7,14 +7,30 @@ import {
 
 import { HealthCheckTarget } from '../../domain/entities/health-check-target.entity';
 
+import {
+  AUDIT_EVENT_PUBLISHER,
+  type AuditEventPublisher,
+} from '../../domain/ports/audit-event-publisher.port';
+
+export interface DisableHealthCheckTargetInput {
+  actorUserId: string;
+  actorRole: 'ADMIN' | 'OPERATOR';
+}
+
 @Injectable()
 export class DisableHealthCheckTargetUseCase {
   constructor(
     @Inject(HEALTH_CHECK_TARGET_REPOSITORY)
     private readonly healthCheckTargetRepository: HealthCheckTargetRepository,
+
+    @Inject(AUDIT_EVENT_PUBLISHER)
+    private readonly auditEventPublisher: AuditEventPublisher,
   ) {}
 
-  async execute(healthCheckTargetId: string): Promise<HealthCheckTarget> {
+  async execute(
+    healthCheckTargetId: string,
+    input: DisableHealthCheckTargetInput,
+  ): Promise<HealthCheckTarget> {
     const target =
       await this.healthCheckTargetRepository.findById(healthCheckTargetId);
 
@@ -26,6 +42,22 @@ export class DisableHealthCheckTargetUseCase {
 
     target.disable();
 
-    return this.healthCheckTargetRepository.update(target);
+    const updatedTarget = await this.healthCheckTargetRepository.update(target);
+
+    await this.auditEventPublisher.publish({
+      actorUserId: input.actorUserId,
+      actorRole: input.actorRole,
+
+      action: 'HEALTH_CHECK_TARGET_DISABLED',
+
+      resourceType: 'HEALTH_CHECK_TARGET',
+      resourceId: healthCheckTargetId,
+
+      result: 'SUCCESS',
+
+      occurredAt: new Date(),
+    });
+
+    return updatedTarget;
   }
 }

@@ -89,6 +89,21 @@ function isSharedRoute(method: string, path: string): boolean {
     return true;
   }
 
+  if (
+    method === 'GET' &&
+    (path === '/api/health-check-targets' ||
+      path.startsWith('/api/health-check-targets/'))
+  ) {
+    return true;
+  }
+
+  if (
+    method === 'GET' &&
+    (path === '/api/reports' || path.startsWith('/api/reports/'))
+  ) {
+    return true;
+  }
+
   return false;
 }
 
@@ -123,6 +138,18 @@ function isAdminRoute(method: string, path: string): boolean {
     method === 'GET' &&
     (path === '/api/audit-logs' || path.startsWith('/api/audit-logs/'))
   ) {
+    return true;
+  }
+
+  if (
+    method !== 'GET' &&
+    (path === '/api/health-check-targets' ||
+      path.startsWith('/api/health-check-targets/'))
+  ) {
+    return true;
+  }
+
+  if (method === 'POST' && path === '/api/reports/generate') {
     return true;
   }
 

@@ -8,6 +8,7 @@ import {
   ParseUUIDPipe,
   BadRequestException,
   HttpException,
+  Headers,
 } from '@nestjs/common';
 import { CreateAssetDto } from './dto/create-asset.dto';
 import { UpdateAssetDto } from './dto/update-asset.dto';
@@ -31,9 +32,17 @@ export class AssetsController {
   ) {}
 
   @Post()
-  async create(@Body() dto: CreateAssetDto) {
+  async create(
+    @Body() dto: CreateAssetDto,
+    @Headers('x-user-id') actorUserId: string,
+    @Headers('x-user-role') actorRole: 'ADMIN' | 'OPERATOR',
+  ) {
     try {
-      const asset = await this.createAssetUseCase.execute(dto);
+      const asset = await this.createAssetUseCase.execute({
+        ...dto,
+        actorUserId,
+        actorRole,
+      });
 
       return asset.toObject();
     } catch (error) {
@@ -63,16 +72,29 @@ export class AssetsController {
   async updateStatus(
     @Param('id', new ParseUUIDPipe()) id: string,
     @Body() dto: UpdateAssetStatusDto,
+    @Headers('x-user-id') actorUserId: string,
+    @Headers('x-user-role') actorRole: 'ADMIN' | 'OPERATOR',
   ) {
-    const asset = await this.updateAssetStatusUseCase.execute(id, dto.status);
+    const asset = await this.updateAssetStatusUseCase.execute(id, {
+      status: dto.status,
+      actorUserId,
+      actorRole,
+    });
 
     return asset.toObject();
   }
 
   @Patch(':id/deactivate')
-  async deactivate(@Param('id', new ParseUUIDPipe()) id: string) {
+  async deactivate(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Headers('x-user-id') actorUserId: string,
+    @Headers('x-user-role') actorRole: 'ADMIN' | 'OPERATOR',
+  ) {
     try {
-      const asset = await this.deactivateAssetUseCase.execute(id);
+      const asset = await this.deactivateAssetUseCase.execute(id, {
+        actorUserId,
+        actorRole,
+      });
 
       return asset.toObject();
     } catch (error) {
@@ -92,9 +114,15 @@ export class AssetsController {
   async update(
     @Param('id', new ParseUUIDPipe()) id: string,
     @Body() dto: UpdateAssetDto,
+    @Headers('x-user-id') actorUserId: string,
+    @Headers('x-user-role') actorRole: 'ADMIN' | 'OPERATOR',
   ) {
     try {
-      const asset = await this.updateAssetUseCase.execute(id, dto);
+      const asset = await this.updateAssetUseCase.execute(id, {
+        ...dto,
+        actorUserId,
+        actorRole,
+      });
 
       return asset.toObject();
     } catch (error) {

@@ -8,6 +8,10 @@ export interface FindAlertsFilters {
   status?: AlertStatus;
   severity?: AlertSeverity;
   assetId?: string;
+
+  from?: Date;
+  to?: Date;
+
   page?: number;
   limit?: number;
 }
@@ -15,6 +19,11 @@ export interface FindAlertsFilters {
 export interface FindAlertsResult {
   items: Alert[];
   total: number;
+}
+export interface FindAlertsForReportFilters {
+  assetId?: string;
+  from: Date;
+  to: Date;
 }
 
 export const ALERT_REPOSITORY = Symbol('ALERT_REPOSITORY');
@@ -25,6 +34,8 @@ export interface AlertRepository {
   findActiveByRuleId(ruleId: string): Promise<Alert | null>;
 
   findAll(filters?: FindAlertsFilters): Promise<FindAlertsResult>;
+
+  findForReport(filters: FindAlertsForReportFilters): Promise<Alert[]>;
 
   findById(alertId: string): Promise<Alert | null>;
 

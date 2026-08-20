@@ -23,10 +23,17 @@ export interface FindAuditLogsResult {
   total: number;
 }
 
+export interface FindAuditLogsForReportInput {
+  from: Date;
+  to: Date;
+}
+
 export interface AuditLogRepository {
   create(auditLog: AuditLog): Promise<void>;
 
   findMany(input: FindAuditLogsInput): Promise<FindAuditLogsResult>;
+
+  findForReport(input: FindAuditLogsForReportInput): Promise<AuditLog[]>;
 }
 
 export const AUDIT_LOG_REPOSITORY = Symbol('AUDIT_LOG_REPOSITORY');

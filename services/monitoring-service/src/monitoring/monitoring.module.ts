@@ -42,6 +42,9 @@ import { DrizzleMetricRuleEvaluationStateRepository } from './infrastructure/per
 import { ALERT_EVENT_PUBLISHER } from './domain/ports/alert-event-publisher.port';
 import { ALERT_EVENTS_CLIENT } from './infrastructure/messaging/rabbitmq.constants';
 import { RabbitMqAlertEventPublisher } from './infrastructure/publishers/rabbitmq-alert-event.publisher';
+import { AUDIT_EVENT_PUBLISHER } from './domain/ports/audit-event-publisher.port';
+import { AUDIT_EVENTS_CLIENT } from './infrastructure/messaging/rabbitmq.constants';
+import { RabbitMqAuditEventPublisher } from './infrastructure/publishers/rabbitmq-audit-event.publisher';
 import { ApplicationMetricsCollector } from './infrastructure/collectors/application-metrics.collector';
 import { NodeExporterCollector } from './infrastructure/collectors/node-exporter.collector';
 import { QueryHttpRequestRateUseCase } from './application/use-cases/query-http-request-rate.use-case';
@@ -64,7 +67,8 @@ import { QueryHealthCheckHistoryUseCase } from './application/use-cases/query-he
 import { FindHealthCheckTargetByIdUseCase } from './application/use-cases/find-health-check-target-by-id.use-case';
 import { FindHealthCheckTargetsUseCase } from './application/use-cases/find-health-check-targets.use-case';
 import { QueryLatestHealthCheckUseCase } from './application/use-cases/query-latest-health-check.use-case';
-
+import { QueryMetricsReportSummaryUseCase } from './application/use-cases/query-metrics-report-summary.use-case';
+import { QueryHealthReportSummaryUseCase } from './application/use-cases/query-health-report-summary.use-case';
 @Module({
   imports: [
     HttpModule,
@@ -75,12 +79,38 @@ import { QueryLatestHealthCheckUseCase } from './application/use-cases/query-lat
         inject: [ConfigService],
         useFactory: (configService: ConfigService) => {
           const rabbitMqUrl = configService.get<string>('RABBITMQ_URL');
-
           const queue = configService.get<string>('RABBITMQ_ALERT_QUEUE');
 
           if (!rabbitMqUrl || !queue) {
             throw new Error(
               'RABBITMQ_URL or RABBITMQ_ALERT_QUEUE is not defined',
+            );
+          }
+
+          return {
+            transport: Transport.RMQ,
+            options: {
+              urls: [rabbitMqUrl],
+              queue,
+              queueOptions: {
+                durable: true,
+              },
+            },
+          };
+        },
+      },
+
+      {
+        name: AUDIT_EVENTS_CLIENT,
+        imports: [ConfigModule],
+        inject: [ConfigService],
+        useFactory: (configService: ConfigService) => {
+          const rabbitMqUrl = configService.get<string>('RABBITMQ_URL');
+          const queue = configService.get<string>('RABBITMQ_AUDIT_QUEUE');
+
+          if (!rabbitMqUrl || !queue) {
+            throw new Error(
+              'RABBITMQ_URL or RABBITMQ_AUDIT_QUEUE is not defined',
             );
           }
 
@@ -136,6 +166,8 @@ import { QueryLatestHealthCheckUseCase } from './application/use-cases/query-lat
     FindHealthCheckTargetByIdUseCase,
     FindHealthCheckTargetsUseCase,
     QueryLatestHealthCheckUseCase,
+    QueryMetricsReportSummaryUseCase,
+    QueryHealthReportSummaryUseCase,
     {
       provide: MONITORING_TARGET_REPOSITORY,
       useClass: DrizzleMonitoringTargetRepository,
@@ -187,6 +219,10 @@ import { QueryLatestHealthCheckUseCase } from './application/use-cases/query-lat
     {
       provide: HEALTH_CHECK_QUERY,
       useClass: InfluxHealthCheckQuery,
+    },
+    {
+      provide: AUDIT_EVENT_PUBLISHER,
+      useClass: RabbitMqAuditEventPublisher,
     },
   ],
 })
