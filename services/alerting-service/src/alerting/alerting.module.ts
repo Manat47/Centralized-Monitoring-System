@@ -22,6 +22,7 @@ import { AlertsController } from './presentation/alerts.controller';
 import { FindAlertByIdUseCase } from './application/use-cases/find-alert-by-id.use-case';
 import { AcknowledgeAlertUseCase } from './application/use-cases/acknowledge-alert.use-case';
 import { CloseAlertUseCase } from './application/use-cases/close-alert.use-case';
+import { QueryAlertReportSummaryUseCase } from './application/use-cases/query-alert-report-summary.use-case';
 
 @Module({
   imports: [
@@ -94,6 +95,7 @@ import { CloseAlertUseCase } from './application/use-cases/close-alert.use-case'
     FindAlertByIdUseCase,
     AcknowledgeAlertUseCase,
     CloseAlertUseCase,
+    QueryAlertReportSummaryUseCase,
     {
       provide: ALERT_REPOSITORY,
       useClass: DrizzleAlertRepository,

@@ -5,6 +5,8 @@ import { FindAlertByIdUseCase } from '../application/use-cases/find-alert-by-id.
 import { AcknowledgeAlertUseCase } from '../application/use-cases/acknowledge-alert.use-case';
 import { CloseAlertUseCase } from '../application/use-cases/close-alert.use-case';
 import { FindAlertsQueryDto } from './dto/find-alerts-query.dto';
+import { QueryAlertReportSummaryUseCase } from '../application/use-cases/query-alert-report-summary.use-case';
+import { QueryAlertReportSummaryDto } from './dto/query-alert-report-summary.dto';
 @Controller('alerts')
 export class AlertsController {
   constructor(
@@ -12,11 +14,25 @@ export class AlertsController {
     private readonly findAlertByIdUseCase: FindAlertByIdUseCase,
     private readonly acknowledgeAlertUseCase: AcknowledgeAlertUseCase,
     private readonly closeAlertUseCase: CloseAlertUseCase,
+    private readonly queryAlertReportSummaryUseCase: QueryAlertReportSummaryUseCase,
   ) {}
 
   @Get()
   async findAll(@Query() query: FindAlertsQueryDto) {
-    return this.findAlertsUseCase.execute(query);
+    return this.findAlertsUseCase.execute({
+      ...query,
+      from: query.from ? new Date(query.from) : undefined,
+      to: query.to ? new Date(query.to) : undefined,
+    });
+  }
+
+  @Get('report-summary')
+  async getReportSummary(@Query() query: QueryAlertReportSummaryDto) {
+    return this.queryAlertReportSummaryUseCase.execute({
+      assetId: query.assetId,
+      from: new Date(query.from),
+      to: new Date(query.to),
+    });
   }
 
   @Get(':id')
