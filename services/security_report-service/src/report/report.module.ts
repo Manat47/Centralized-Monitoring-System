@@ -19,6 +19,7 @@ import { ReportController } from './presentation/report.controller';
 import { ListReportsUseCase } from './application/use-cases/list-reports.use-case';
 import { FindReportByIdUseCase } from './application/use-cases/find-report-by-id.use-case';
 import { GetReportDownloadUseCase } from './application/use-cases/get-report-download.use-case';
+import { MonthlyReportScheduler } from './infrastructure/schedulers/monthly-report.scheduler';
 
 @Module({
   imports: [AuditModule, HttpModule],
@@ -31,6 +32,7 @@ import { GetReportDownloadUseCase } from './application/use-cases/get-report-dow
     ListReportsUseCase,
     FindReportByIdUseCase,
     GetReportDownloadUseCase,
+    MonthlyReportScheduler,
     {
       provide: REPORT_REPOSITORY,
       useClass: DrizzleReportRepository,
