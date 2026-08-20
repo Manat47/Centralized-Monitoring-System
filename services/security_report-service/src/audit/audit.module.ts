@@ -6,6 +6,7 @@ import { AuditEventConsumer } from './infrastructure/messaging/audit-event.consu
 import { DrizzleAuditLogRepository } from './infrastructure/persistence/drizzle-audit-log.repository';
 import { ListAuditLogsUseCase } from './application/use-cases/list-audit-logs.use-case';
 import { AuditLogController } from './presentation/controllers/audit-log.controller';
+import { QueryAuditReportSummaryUseCase } from './application/use-cases/query-audit-report-summary.use-case';
 
 @Module({
   controllers: [AuditEventConsumer, AuditLogController],
@@ -13,12 +14,13 @@ import { AuditLogController } from './presentation/controllers/audit-log.control
   providers: [
     RecordAuditLogUseCase,
     ListAuditLogsUseCase,
+    QueryAuditReportSummaryUseCase,
     {
       provide: AUDIT_LOG_REPOSITORY,
       useClass: DrizzleAuditLogRepository,
     },
   ],
 
-  exports: [RecordAuditLogUseCase],
+  exports: [RecordAuditLogUseCase, QueryAuditReportSummaryUseCase],
 })
 export class AuditModule {}

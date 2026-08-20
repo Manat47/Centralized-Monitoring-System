@@ -16,6 +16,7 @@ import {
   type AuditLogRepository,
   type FindAuditLogsInput,
   type FindAuditLogsResult,
+  type FindAuditLogsForReportInput,
 } from '../../domain/repositories/audit-log.repository';
 
 @Injectable()
@@ -108,5 +109,31 @@ export class DrizzleAuditLogRepository implements AuditLogRepository {
       items,
       total: countRow.value,
     };
+  }
+
+  async findForReport(input: FindAuditLogsForReportInput): Promise<AuditLog[]> {
+    const rows = await this.db
+      .select()
+      .from(auditLogs)
+      .where(
+        and(
+          gte(auditLogs.occurredAt, input.from),
+          lte(auditLogs.occurredAt, input.to),
+        ),
+      )
+      .orderBy(desc(auditLogs.occurredAt));
+
+    return rows.map((row) =>
+      AuditLog.restore({
+        auditLogId: row.auditLogId,
+        actorUserId: row.actorUserId,
+        actorRole: row.actorRole as AuditActorRole,
+        action: row.action as AuditAction,
+        resourceType: row.resourceType as AuditResourceType,
+        resourceId: row.resourceId,
+        result: row.result as AuditResult,
+        occurredAt: row.occurredAt,
+      }),
+    );
   }
 }
