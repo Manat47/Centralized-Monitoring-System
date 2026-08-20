@@ -18,6 +18,7 @@ import { QueryTimeRangeDto } from './dto/query-time-range.dto';
 import { FindHealthCheckTargetByIdUseCase } from '../application/use-cases/find-health-check-target-by-id.use-case';
 import { FindHealthCheckTargetsUseCase } from '../application/use-cases/find-health-check-targets.use-case';
 import { QueryLatestHealthCheckUseCase } from '../application/use-cases/query-latest-health-check.use-case';
+import { QueryHealthReportSummaryUseCase } from '../application/use-cases/query-health-report-summary.use-case';
 
 @Controller('health-check-targets')
 export class HealthCheckTargetsController {
@@ -29,6 +30,7 @@ export class HealthCheckTargetsController {
     private readonly findHealthCheckTargetByIdUseCase: FindHealthCheckTargetByIdUseCase,
     private readonly findHealthCheckTargetsUseCase: FindHealthCheckTargetsUseCase,
     private readonly queryLatestHealthCheckUseCase: QueryLatestHealthCheckUseCase,
+    private readonly queryHealthReportSummaryUseCase: QueryHealthReportSummaryUseCase,
   ) {}
 
   @Post()
@@ -80,6 +82,18 @@ export class HealthCheckTargetsController {
     @Query() query: QueryTimeRangeDto,
   ) {
     return this.queryHealthCheckHistoryUseCase.execute({
+      healthCheckTargetId: id,
+      start: new Date(query.start),
+      end: new Date(query.end),
+    });
+  }
+
+  @Get(':id/report-summary')
+  async getReportSummary(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Query() query: QueryTimeRangeDto,
+  ) {
+    return this.queryHealthReportSummaryUseCase.execute({
       healthCheckTargetId: id,
       start: new Date(query.start),
       end: new Date(query.end),

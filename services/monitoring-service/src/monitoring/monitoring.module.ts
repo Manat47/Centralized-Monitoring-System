@@ -67,6 +67,8 @@ import { QueryHealthCheckHistoryUseCase } from './application/use-cases/query-he
 import { FindHealthCheckTargetByIdUseCase } from './application/use-cases/find-health-check-target-by-id.use-case';
 import { FindHealthCheckTargetsUseCase } from './application/use-cases/find-health-check-targets.use-case';
 import { QueryLatestHealthCheckUseCase } from './application/use-cases/query-latest-health-check.use-case';
+import { QueryMetricsReportSummaryUseCase } from './application/use-cases/query-metrics-report-summary.use-case';
+import { QueryHealthReportSummaryUseCase } from './application/use-cases/query-health-report-summary.use-case';
 @Module({
   imports: [
     HttpModule,
@@ -164,6 +166,8 @@ import { QueryLatestHealthCheckUseCase } from './application/use-cases/query-lat
     FindHealthCheckTargetByIdUseCase,
     FindHealthCheckTargetsUseCase,
     QueryLatestHealthCheckUseCase,
+    QueryMetricsReportSummaryUseCase,
+    QueryHealthReportSummaryUseCase,
     {
       provide: MONITORING_TARGET_REPOSITORY,
       useClass: DrizzleMonitoringTargetRepository,

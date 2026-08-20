@@ -28,6 +28,7 @@ import { QueryMetricsSummaryUseCase } from '../application/use-cases/query-metri
 import { FindMonitoringTargetsUseCase } from '../application/use-cases/find-monitoring-targets.use-case';
 import { FindMonitoringTargetByIdUseCase } from '../application/use-cases/find-monitoring-target-by-id.use-case';
 import { QueryHttpRequestRateUseCase } from '../application/use-cases/query-http-request-rate.use-case';
+import { QueryMetricsReportSummaryUseCase } from '../application/use-cases/query-metrics-report-summary.use-case';
 
 @Controller('monitoring-targets')
 export class MonitoringTargetsController {
@@ -46,6 +47,7 @@ export class MonitoringTargetsController {
     private readonly findMonitoringTargetsUseCase: FindMonitoringTargetsUseCase,
     private readonly findMonitoringTargetByIdUseCase: FindMonitoringTargetByIdUseCase,
     private readonly queryHttpRequestRateUseCase: QueryHttpRequestRateUseCase,
+    private readonly queryMetricsReportSummaryUseCase: QueryMetricsReportSummaryUseCase,
   ) {}
 
   @Post()
@@ -145,6 +147,21 @@ export class MonitoringTargetsController {
     query: QueryTimeRangeDto,
   ) {
     return this.queryMetricsSummaryUseCase.execute({
+      assetId,
+      start: new Date(query.start),
+      end: new Date(query.end),
+    });
+  }
+
+  @Get(':assetId/metrics/report-summary')
+  async queryMetricsReportSummary(
+    @Param('assetId', new ParseUUIDPipe())
+    assetId: string,
+
+    @Query()
+    query: QueryTimeRangeDto,
+  ) {
+    return this.queryMetricsReportSummaryUseCase.execute({
       assetId,
       start: new Date(query.start),
       end: new Date(query.end),
