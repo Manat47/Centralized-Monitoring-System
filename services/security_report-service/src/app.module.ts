@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { DatabaseModule } from './database/database.module';
 import { AuditModule } from './audit/audit.module';
+import { ReportModule } from './report/report.module';
 
 @Module({
   imports: [
@@ -10,6 +11,7 @@ import { AuditModule } from './audit/audit.module';
     }),
     DatabaseModule,
     AuditModule,
+    ReportModule,
   ],
 })
 export class AppModule {}

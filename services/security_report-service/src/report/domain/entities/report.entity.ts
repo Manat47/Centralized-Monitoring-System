@@ -7,11 +7,13 @@ export interface ReportProps {
 
   reportType: ReportType;
 
+  // null = report รวมทุก asset
   assetId: string | null;
 
   periodStart: Date;
   periodEnd: Date;
 
+  // monthly report อาจไม่มี user เป็นคนกด
   generatedBy: string | null;
 
   status: ReportStatus;
@@ -29,32 +31,37 @@ export interface ReportProps {
 export interface CreateReportProps {
   reportType: ReportType;
   assetId?: string | null;
+
   periodStart: Date;
   periodEnd: Date;
+
   generatedBy?: string | null;
 }
 
 export class Report {
   private constructor(private props: ReportProps) {}
 
-  static create(reportId: string, props: CreateReportProps): Report {
-    if (props.periodStart >= props.periodEnd) {
-      throw new Error('Report period start must be before end');
+  static create(reportId: string, input: CreateReportProps): Report {
+    if (input.periodStart >= input.periodEnd) {
+      throw new Error('Report period start must be before period end');
     }
 
     const now = new Date();
 
     return new Report({
       reportId,
-      reportType: props.reportType,
-      assetId: props.assetId ?? null,
-      periodStart: props.periodStart,
-      periodEnd: props.periodEnd,
-      generatedBy: props.generatedBy ?? null,
+      reportType: input.reportType,
+      assetId: input.assetId ?? null,
+      periodStart: input.periodStart,
+      periodEnd: input.periodEnd,
+      generatedBy: input.generatedBy ?? null,
+
       status: 'GENERATING',
+
       summary: null,
       pdfPath: null,
       generatedAt: null,
+
       createdAt: now,
       updatedAt: now,
     });
