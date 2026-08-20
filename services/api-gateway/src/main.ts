@@ -98,6 +98,14 @@ async function bootstrap() {
     }),
   );
 
+  app.use(
+    '/api/reports',
+    createProxyMiddleware({
+      target: `${securityReportServiceUrl}/reports`,
+      changeOrigin: true,
+    }),
+  );
+
   app.setGlobalPrefix('api');
 
   await app.listen(Number(process.env.PORT ?? 3005));
