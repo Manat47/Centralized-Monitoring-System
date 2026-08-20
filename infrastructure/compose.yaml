@@ -126,6 +126,28 @@ services:
       timeout: 5s
       retries: 10
 
+  notification-db:
+    image: postgres:17-alpine
+    container_name: notification-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${NOTIFICATION_DB_USER}
+      POSTGRES_PASSWORD: ${NOTIFICATION_DB_PASSWORD}
+      POSTGRES_DB: ${NOTIFICATION_DB_NAME}
+    ports:
+      - "${NOTIFICATION_DB_PORT}:5432"
+    volumes:
+      - notification_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${NOTIFICATION_DB_USER} -d ${NOTIFICATION_DB_NAME}",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
 volumes:
   asset_db_data:
   influxdb_data:
@@ -134,3 +156,4 @@ volumes:
   alerting_db_data:
   auth_db_data:
   security_report_db_data:
+  notification_db_data:

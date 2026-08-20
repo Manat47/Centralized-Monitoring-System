@@ -1,4 +1,5 @@
 export interface SendNotificationInput {
+  recipientEmail: string;
   alertId: string;
   assetId: string;
   severity: 'WARNING' | 'CRITICAL';

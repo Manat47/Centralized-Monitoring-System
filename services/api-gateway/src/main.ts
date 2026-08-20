@@ -26,14 +26,17 @@ async function bootstrap() {
 
   app.use('/api', gatewayAuthorizationMiddleware);
 
-  const alertingServiceUrl =
-    process.env.ALERTING_SERVICE_URL ?? 'http://localhost:3002';
-
   const assetServiceUrl =
     process.env.ASSET_SERVICE_URL ?? 'http://localhost:3000';
 
   const monitoringServiceUrl =
     process.env.MONITORING_SERVICE_URL ?? 'http://localhost:3001';
+
+  const alertingServiceUrl =
+    process.env.ALERTING_SERVICE_URL ?? 'http://localhost:3002';
+
+  const notificationServiceUrl =
+    process.env.NOTIFICATION_SERVICE_URL ?? 'http://localhost:3003';
 
   const authServiceUrl =
     process.env.AUTH_SERVICE_URL ?? 'http://localhost:3004';
@@ -102,6 +105,14 @@ async function bootstrap() {
     '/api/reports',
     createProxyMiddleware({
       target: `${securityReportServiceUrl}/reports`,
+      changeOrigin: true,
+    }),
+  );
+
+  app.use(
+    '/api/notification-recipients',
+    createProxyMiddleware({
+      target: `${notificationServiceUrl}/notification-recipients`,
       changeOrigin: true,
     }),
   );
