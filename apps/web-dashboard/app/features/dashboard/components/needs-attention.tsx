@@ -63,7 +63,7 @@ export function NeedsAttention() {
   if (isLoading) {
     return (
       <Card className="border-slate-200 shadow-none">
-        <CardContent className="py-10 text-center text-sm text-slate-500">
+        <CardContent className="flex min-h-28 items-center justify-center py-5 text-center text-sm text-slate-500">
           Loading alerts...
         </CardContent>
       </Card>
@@ -73,7 +73,7 @@ export function NeedsAttention() {
   if (isError) {
     return (
       <Card className="border-rose-200 shadow-none">
-        <CardContent className="py-10 text-center">
+        <CardContent className="flex min-h-28 items-center justify-center py-5 text-center">
           <p className="text-sm font-medium text-rose-700">
             Failed to load alerts
           </p>

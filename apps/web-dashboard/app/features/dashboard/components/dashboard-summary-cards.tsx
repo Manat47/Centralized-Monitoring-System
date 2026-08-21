@@ -48,9 +48,9 @@ export function DashboardSummaryCards() {
   }
 
   const endpointHealthPercent =
-    data.healthChecks.total > 0
+    data.healthChecks.checked > 0
       ? Math.round(
-          (data.healthChecks.available / data.healthChecks.total) * 100,
+          (data.healthChecks.available / data.healthChecks.checked) * 100,
         )
       : null;
 
@@ -103,9 +103,11 @@ export function DashboardSummaryCards() {
       title: "Endpoint Health",
       value: endpointHealthPercent !== null ? `${endpointHealthPercent}%` : "—",
       description:
-        data.healthChecks.total > 0
-          ? `${data.healthChecks.available} / ${data.healthChecks.total} available`
-          : "No endpoints configured",
+        data.healthChecks.checked > 0
+          ? `${data.healthChecks.available} / ${data.healthChecks.checked} available`
+          : data.healthChecks.total > 0
+            ? "Waiting for first check"
+            : "No endpoints configured",
       icon: HeartPulse,
       iconClassName:
         endpointHealthPercent === null

@@ -107,13 +107,22 @@ export class DashboardService {
       }),
     );
 
-    const availableHealthChecks = latestHealthChecks.filter(
+    const checkedHealthChecks = latestHealthChecks.filter(
+      (check) => check !== null,
+    );
+
+    const availableHealthChecks = checkedHealthChecks.filter(
       (check) =>
-        check !== null &&
         check.statusCode !== null &&
         check.statusCode >= 200 &&
         check.statusCode < 300,
     ).length;
+
+    const unavailableHealthChecks =
+      checkedHealthChecks.length - availableHealthChecks;
+
+    const unknownHealthChecks =
+      enabledHealthTargets.length - checkedHealthChecks.length;
 
     return {
       assets: {
@@ -146,8 +155,10 @@ export class DashboardService {
 
       healthChecks: {
         total: enabledHealthTargets.length,
+        checked: checkedHealthChecks.length,
         available: availableHealthChecks,
-        unavailable: enabledHealthTargets.length - availableHealthChecks,
+        unavailable: unavailableHealthChecks,
+        unknown: unknownHealthChecks,
       },
     };
   }

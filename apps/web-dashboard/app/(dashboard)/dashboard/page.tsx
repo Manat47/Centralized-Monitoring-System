@@ -1,7 +1,8 @@
 import { DashboardHeader } from "@/app/features/dashboard/components/dashboard-header";
 import { DashboardSummaryCards } from "@/app/features/dashboard/components/dashboard-summary-cards";
 import { NeedsAttention } from "@/app/features/dashboard/components/needs-attention";
-import { SystemStatusCard } from "@/app/features/system-status/components/system-status-card";
+import { HealthOverview } from "@/app/features/dashboard/components/health-overview";
+import { MonitoringSnapshot } from "@/app/features/dashboard/components/monitoring-snapshot";
 
 export default function DashboardPage() {
   return (
@@ -12,7 +13,10 @@ export default function DashboardPage() {
 
       <NeedsAttention />
 
-      <SystemStatusCard />
+      <div className="grid items-start gap-5 xl:grid-cols-[1fr_1.4fr]">
+        <HealthOverview />
+        <MonitoringSnapshot />
+      </div>
     </section>
   );
 }

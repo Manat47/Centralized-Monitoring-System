@@ -22,7 +22,9 @@ export interface DashboardSummary {
 
   healthChecks: {
     total: number;
+    checked: number;
     available: number;
     unavailable: number;
+    unknown: number;
   };
 }
