@@ -29,8 +29,8 @@ import type {
 
 import { useAssets } from "../api/use-assets";
 import { Button } from "@/components/ui/button";
-import { EditAssetDialog } from "./edit-asset-dialog";
 import { AssetActions } from "./asset-actions";
+import Link from "next/link";
 
 function getStatusVariant(
   status: AssetStatus,
@@ -272,7 +272,12 @@ export function AssetsTable() {
                 <TableRow key={asset.assetId}>
                   <TableCell>
                     <div>
-                      <p className="font-medium">{asset.name}</p>
+                      <Link
+                        href={`/assets/${asset.assetId}`}
+                        className="font-medium text-slate-900 hover:text-blue-600 hover:underline"
+                      >
+                        {asset.name}
+                      </Link>
 
                       <p className="text-xs text-muted-foreground">
                         {getAssetSubtitle(asset)}
