@@ -1,23 +1,22 @@
+import { DashboardHeader } from "@/app/features/dashboard/components/dashboard-header";
 import { DashboardSummaryCards } from "@/app/features/dashboard/components/dashboard-summary-cards";
-import { RecentAlerts } from "@/app/features/dashboard/components/recent-alerts";
-import { SystemStatusCard } from "@/app/features/system-status/components/system-status-card";
+import { NeedsAttention } from "@/app/features/dashboard/components/needs-attention";
+import { HealthOverview } from "@/app/features/dashboard/components/health-overview";
+import { MonitoringSnapshot } from "@/app/features/dashboard/components/monitoring-snapshot";
 
 export default function DashboardPage() {
   return (
-    <section className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold">Dashboard</h1>
-
-        <p className="mt-1 text-sm text-muted-foreground">
-          Overview of assets, monitoring, rules and alerts.
-        </p>
-      </div>
+    <section className="space-y-5">
+      <DashboardHeader />
 
       <DashboardSummaryCards />
 
-      <SystemStatusCard />
+      <NeedsAttention />
 
-      <RecentAlerts />
+      <div className="grid items-start gap-5 xl:grid-cols-[1fr_1.4fr]">
+        <HealthOverview />
+        <MonitoringSnapshot />
+      </div>
     </section>
   );
 }

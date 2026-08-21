@@ -19,4 +19,12 @@ export interface DashboardSummary {
     active: number;
     critical: number;
   };
+
+  healthChecks: {
+    total: number;
+    checked: number;
+    available: number;
+    unavailable: number;
+    unknown: number;
+  };
 }

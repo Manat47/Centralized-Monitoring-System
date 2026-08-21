@@ -170,7 +170,7 @@ export function AssetMetricsSummary() {
 
           <p className="text-right text-xs text-muted-foreground">
             Latest sample:{" "}
-            {latest
+            {latest?.timestamp
               ? new Intl.DateTimeFormat("th-TH", {
                   dateStyle: "medium",
                   timeStyle: "medium",

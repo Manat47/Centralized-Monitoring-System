@@ -37,9 +37,9 @@ export interface NetworkRateSummary {
 
 export interface MetricsSummaryPoint {
   assetId: string;
-  timestamp: string;
+  timestamp: string | null;
   cpu: CpuUsageSummary;
-  memory: MemoryUsageSummary;
+  memory: MemoryUsageSummary | null;
   disks: DiskUsageSummary[];
   networks: NetworkRateSummary[];
 }
