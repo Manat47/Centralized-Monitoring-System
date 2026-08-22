@@ -1,10 +1,12 @@
 export type VerificationStatus = 'NOT_VERIFIED' | 'VERIFIED' | 'FAILED'; // ยังไม่เคยตรวจ | ตรวจสอบแล้วเชื่อมต่อได้ | ตรวจแล้วเชื่อมต่อไม่ได้
 export type MonitoringType = 'NODE_EXPORTER' | 'PROMETHEUS_APPLICATION'; // ประเภทของ Monitoring Target ว่าเป็น Node Exporter หรือ Prometheus Application
+export type MonitoringProtocol = 'HTTP' | 'HTTPS';
 export interface MonitoringTargetProps {
   // เปรียบเหมือนโครงสร้างภายในของ Entity
   targetId: string; // เก็บตัวตั้งค่าที่จะให้ระบบเข้าไปเก็บ metrics
   assetId: string; // เครื่องที่ต้องการให้ระบบไป monitor
   monitoringType: MonitoringType; // ประเภทของ Monitoring Target
+  protocol: MonitoringProtocol | null;
   port: number; // port ที่ Metrics endpoint เปิดให้เข้าไปใช้ดึงข้อมูล
   path: string; // ตำแหน้งที่ endpoint ใช้ดึง metrics
   scrapeIntervalSeconds: number; // ตัวที่กำหนดว่าจะต้องเข้าไปเก็บ metrics ทุกๆกี่วินาที
@@ -21,6 +23,7 @@ export interface CreateMonitoringTargetProps {
   // ใช้ตอนสร้าง target ใหม่ เพราะตามหลักผู้ใช้ไม่จำเป็นต้องส่งทุกอย่างมาเอง ส่วนอื้่นก็ให้ domain กำหนด
   assetId: string;
   monitoringType: MonitoringType;
+  protocol?: MonitoringProtocol;
   port?: number;
   path?: string;
   scrapeIntervalSeconds?: number;
@@ -90,6 +93,10 @@ export class MonitoringTarget {
       targetId,
       assetId: input.assetId,
       monitoringType: input.monitoringType,
+      protocol:
+        input.monitoringType === 'NODE_EXPORTER'
+          ? (input.protocol ?? 'HTTP')
+          : null,
       port,
       path,
       scrapeIntervalSeconds,

@@ -11,6 +11,7 @@ import {
   MonitoringTarget, // Entity
   type CreateMonitoringTargetProps, // เป็น Type ที่ Entity กำหนดว่าตอนสร้าง Target ต้องส่งข้อมูลอะไรเข้าไป
   type MonitoringType,
+  type MonitoringProtocol,
 } from '../../domain/entities/monitoring-target.entity';
 import {
   ASSET_READER,
@@ -27,6 +28,7 @@ import {
 
 export interface CreateMonitoringTargetInput {
   assetId: string;
+  protocol?: MonitoringProtocol;
   port?: number;
   path?: string;
   scrapeIntervalSeconds?: number;
@@ -133,6 +135,7 @@ export class CreateMonitoringTargetUseCase {
       //เอาข้อมูลจาก 2 แหล่งมารวมกัน
       assetId: asset.assetId, // Asset Service
       monitoringType, // กำหนดจาก asset.assetType
+      protocol: monitoringType === 'NODE_EXPORTER' ? input.protocol : undefined,
       port, //  User Input
       path, // User Input
       scrapeIntervalSeconds: input.scrapeIntervalSeconds, // User Input

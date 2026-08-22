@@ -43,6 +43,11 @@ export const monitoringTypeEnum = pgEnum('monitoring_type', [
   'PROMETHEUS_APPLICATION',
 ]);
 
+export const monitoringProtocolEnum = pgEnum('monitoring_protocol', [
+  'HTTP',
+  'HTTPS',
+]);
+
 export const monitoringTargets = pgTable(
   'monitoring_targets',
   {
@@ -53,6 +58,8 @@ export const monitoringTargets = pgTable(
     monitoringType: monitoringTypeEnum('monitoring_type')
       .default('NODE_EXPORTER')
       .notNull(),
+
+    protocol: monitoringProtocolEnum('protocol'),
 
     port: integer('port').notNull(),
 

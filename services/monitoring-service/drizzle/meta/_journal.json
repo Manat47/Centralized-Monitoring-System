@@ -43,6 +43,13 @@
       "when": 1787406655862,
       "tag": "0005_silent_hercules",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1787409602404,
+      "tag": "0006_mean_silver_centurion",
+      "breakpoints": true
     }
   ]
 }

@@ -28,6 +28,7 @@ export class DrizzleMonitoringTargetRepository implements MonitoringTargetReposi
         targetId: data.targetId,
         assetId: data.assetId,
         monitoringType: data.monitoringType,
+        protocol: data.protocol,
         port: data.port,
         path: data.path,
         scrapeIntervalSeconds: data.scrapeIntervalSeconds,
@@ -102,6 +103,7 @@ export class DrizzleMonitoringTargetRepository implements MonitoringTargetReposi
     const [row] = await this.db
       .update(schema.monitoringTargets)
       .set({
+        protocol: data.protocol,
         port: data.port,
         path: data.path,
         scrapeIntervalSeconds: data.scrapeIntervalSeconds,
@@ -123,6 +125,7 @@ export class DrizzleMonitoringTargetRepository implements MonitoringTargetReposi
       targetId: row.targetId,
       assetId: row.assetId,
       monitoringType: row.monitoringType,
+      protocol: row.protocol,
       port: row.port,
       path: row.path,
       scrapeIntervalSeconds: row.scrapeIntervalSeconds,

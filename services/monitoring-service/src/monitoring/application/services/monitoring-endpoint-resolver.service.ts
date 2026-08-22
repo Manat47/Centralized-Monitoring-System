@@ -38,7 +38,13 @@ export class MonitoringEndpointResolver {
         );
       }
 
-      return `http://${host}:${targetData.port}${targetData.path}`;
+      if (!targetData.protocol) {
+        throw new BadRequestException('Monitoring protocol is not configured');
+      }
+
+      const protocol = targetData.protocol.toLowerCase();
+
+      return `${protocol}://${host}:${targetData.port}${targetData.path}`;
     }
 
     if (!asset.endpoint) {
