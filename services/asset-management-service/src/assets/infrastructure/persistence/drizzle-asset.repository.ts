@@ -24,6 +24,7 @@ export class DrizzleAssetRepository implements AssetRepository {
       .insert(schema.assets)
       .values({
         name: data.name,
+        hostname: data.hostname,
         targetType: data.targetType,
         ipAddress: data.ipAddress,
         endpoint: data.endpoint,
@@ -67,7 +68,6 @@ export class DrizzleAssetRepository implements AssetRepository {
         endpoint: data.endpoint,
         environment: data.environment,
         status: data.status,
-        monitoringEnable: data.monitoringEnable,
         updatedAt: data.updatedAt,
       })
       .where(eq(schema.assets.assetId, data.assetId))
@@ -89,21 +89,6 @@ export class DrizzleAssetRepository implements AssetRepository {
     return this.toDomain(row);
   }
 
-  async updateMonitoringStatus(
-    assetId: string,
-    enabled: boolean,
-  ): Promise<Asset> {
-    const [row] = await this.db
-      .update(schema.assets)
-      .set({
-        monitoringEnable: enabled,
-        updatedAt: new Date(),
-      })
-      .where(eq(schema.assets.assetId, assetId))
-      .returning();
-
-    return this.toDomain(row);
-  }
   private toDomain(row: AssetProps): Asset {
     return Asset.restore(row);
   }

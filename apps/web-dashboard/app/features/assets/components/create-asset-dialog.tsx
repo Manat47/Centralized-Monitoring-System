@@ -29,6 +29,7 @@ import type {
   CreateAssetInput,
 } from "../types/asset";
 import { AdminOnly } from "@/app/features/auth/components/admin-only";
+import { Plus } from "lucide-react";
 
 const initialForm: CreateAssetInput = {
   name: "",
@@ -124,8 +125,16 @@ export function CreateAssetDialog() {
   return (
     <AdminOnly>
       <Dialog open={open} onOpenChange={handleOpenChange}>
-        <DialogTrigger render={<Button type="button" />}>
-          Create asset
+        <DialogTrigger
+          render={
+            <Button
+              type="button"
+              className="gap-2 bg-blue-600 text-white hover:bg-blue-700"
+            />
+          }
+        >
+          <Plus className="size-4" />
+          Add Asset
         </DialogTrigger>
 
         <DialogContent className="sm:max-w-lg">

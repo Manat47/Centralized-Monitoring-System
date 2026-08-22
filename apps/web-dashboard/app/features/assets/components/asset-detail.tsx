@@ -14,6 +14,8 @@ import { AssetMetricsSummary } from "@/app/features/monitoring-targets/component
 import { useMonitoringTargets } from "@/app/features/monitoring-targets/api/use-monitoring-targets";
 import { useMetricsSummary } from "@/app/features/monitoring-targets/api/use-metrics-summary";
 import { useAlerts } from "@/app/features/alerts/api/use-alerts";
+import { AssetHealthOverview } from "./asset-health-overview";
+import { AssetAlertsOverview } from "./asset-alerts-overview";
 
 type AssetDetailTab = "overview" | "metrics" | "health" | "alerts";
 
@@ -239,19 +241,11 @@ export function AssetDetail() {
       {activeTab === "metrics" && <AssetMetricsSummary />}
 
       {activeTab === "health" && (
-        <Card className="border-slate-200 bg-white shadow-none">
-          <CardContent className="py-12 text-center text-sm text-slate-400">
-            Health will be connected next.
-          </CardContent>
-        </Card>
+        <AssetHealthOverview assetId={asset.assetId} />
       )}
 
       {activeTab === "alerts" && (
-        <Card className="border-slate-200 bg-white shadow-none">
-          <CardContent className="py-12 text-center text-sm text-slate-400">
-            Alerts will be connected next.
-          </CardContent>
-        </Card>
+        <AssetAlertsOverview assetId={asset.assetId} />
       )}
     </section>
   );

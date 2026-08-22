@@ -117,7 +117,7 @@ export function EditAssetDialog({ asset }: EditAssetDialogProps) {
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger
-        render={<Button type="button" variant="outline" size="sm" />}
+        render={<Button type="button" variant="outline" size="xs" />}
       >
         Edit
       </DialogTrigger>

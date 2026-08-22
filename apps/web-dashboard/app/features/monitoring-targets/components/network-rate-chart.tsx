@@ -13,6 +13,7 @@ const ReactECharts = dynamic(() => import("echarts-for-react"), {
 
 interface NetworkRateChartProps {
   assetId: string;
+  rangeMinutes?: number;
 }
 
 function formatBytesPerSecond(value: number): string {
@@ -31,10 +32,13 @@ function formatBytesPerSecond(value: number): string {
   return `${value.toFixed(2)} B/s`;
 }
 
-export function NetworkRateChart({ assetId }: NetworkRateChartProps) {
+export function NetworkRateChart({
+  assetId,
+  rangeMinutes = 30,
+}: NetworkRateChartProps) {
   const networkQuery = useNetworkRate({
     assetId,
-    rangeMinutes: 30,
+    rangeMinutes,
   });
 
   if (networkQuery.isLoading) {
@@ -184,7 +188,7 @@ export function NetworkRateChart({ assetId }: NetworkRateChartProps) {
           <CardTitle className="text-base">Network Rate</CardTitle>
 
           <p className="mt-1 text-xs text-muted-foreground">
-            Receive and transmit traffic during the last 30 minutes.
+            Receive and transmit traffic during the selected time range.
           </p>
         </div>
 

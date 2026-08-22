@@ -6,6 +6,11 @@ export const ASSET_STATUSES = ['ACTIVATE', 'INACTIVATE', 'DEACTIVATE'] as const;
 
 export type AssetStatus = (typeof ASSET_STATUSES)[number];
 
+export const ASSET_OPERATIONAL_STATUSES = ['ACTIVATE', 'INACTIVATE'] as const;
+
+export type AssetOperationalStatus =
+  (typeof ASSET_OPERATIONAL_STATUSES)[number];
+
 export interface AssetProps {
   assetId: string;
   name: string;
@@ -15,7 +20,6 @@ export interface AssetProps {
   endpoint: string | null;
   environment: AssetEnvironment;
   status: AssetStatus;
-  monitoringEnable: boolean;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -54,6 +58,10 @@ export class Asset {
   }
 
   update(data: Partial<CreateAssetProps>): void {
+    if (this.props.status === 'DEACTIVATE') {
+      throw new Error('Deactivated asset cannot be modified');
+    }
+
     const targetType = data.targetType ?? this.props.targetType;
 
     const ipAddress =
@@ -74,7 +82,11 @@ export class Asset {
     };
   }
 
-  changeStatus(status: AssetStatus): void {
+  changeStatus(status: AssetOperationalStatus): void {
+    if (this.props.status === 'DEACTIVATE') {
+      throw new Error('Deactivated asset cannot change status directly');
+    }
+
     this.props.status = status;
     this.props.updatedAt = new Date();
   }
@@ -85,11 +97,6 @@ export class Asset {
     }
 
     this.props.status = 'DEACTIVATE';
-    this.props.updatedAt = new Date();
-  }
-
-  setMonitoringEnabled(enable: boolean): void {
-    this.props.monitoringEnable = enable;
     this.props.updatedAt = new Date();
   }
 

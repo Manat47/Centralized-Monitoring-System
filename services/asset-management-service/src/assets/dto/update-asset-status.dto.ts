@@ -1,11 +1,11 @@
 import { IsIn } from 'class-validator';
 
 import {
-  ASSET_STATUSES,
-  type AssetStatus,
+  ASSET_OPERATIONAL_STATUSES,
+  type AssetOperationalStatus,
 } from '../domain/entities/asset.entity';
 
 export class UpdateAssetStatusDto {
-  @IsIn(ASSET_STATUSES)
-  status!: AssetStatus;
+  @IsIn(ASSET_OPERATIONAL_STATUSES)
+  status!: AssetOperationalStatus;
 }

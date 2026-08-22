@@ -1,20 +1,33 @@
 "use client";
 
 import { useParams } from "next/navigation";
-
+import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-
 import { useAssets } from "@/app/features/assets/api/use-assets";
-
 import { useMetricsSummary } from "../api/use-metrics-summary";
-
 import { CpuUsageChart } from "./cpu-usage-chart";
-
 import { MemoryUsageChart } from "./memory-usage-chart";
-
 import { DiskUsageChart } from "./disk-usage-chart";
-
 import { NetworkRateChart } from "./network-rate-chart";
+
+const TIME_RANGES = [
+  {
+    label: "Last 30 minutes",
+    value: 30,
+  },
+  {
+    label: "Last 1 hour",
+    value: 60,
+  },
+  {
+    label: "Last 6 hours",
+    value: 360,
+  },
+  {
+    label: "Last 24 hours",
+    value: 1440,
+  },
+] as const;
 
 function formatPercent(value: number | null | undefined): string {
   if (value == null || !Number.isFinite(value)) {
@@ -44,9 +57,11 @@ export function AssetMetricsSummary() {
   const params = useParams<{ assetId: string }>();
   const assetId = params.assetId;
 
+  const [rangeMinutes, setRangeMinutes] = useState(60);
+
   const metricsQuery = useMetricsSummary({
     assetId,
-    rangeMinutes: 30,
+    rangeMinutes,
   });
 
   const assetsQuery = useAssets();
@@ -133,6 +148,20 @@ export function AssetMetricsSummary() {
         )}
       </div>
 
+      <div className="flex justify-end">
+        <select
+          value={rangeMinutes}
+          onChange={(event) => setRangeMinutes(Number(event.target.value))}
+          className="h-10 min-w-48 rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none focus:border-blue-400"
+        >
+          {TIME_RANGES.map((range) => (
+            <option key={range.value} value={range.value}>
+              {range.label}
+            </option>
+          ))}
+        </select>
+      </div>
+
       {!latest ? (
         <Card>
           <CardContent className="py-10 text-center text-sm text-muted-foreground">
@@ -162,10 +191,13 @@ export function AssetMetricsSummary() {
           </div>
 
           <div className="grid gap-4 xl:grid-cols-2">
-            <CpuUsageChart assetId={assetId} />
-            <MemoryUsageChart assetId={assetId} />
-            <DiskUsageChart assetId={assetId} />
-            <NetworkRateChart assetId={assetId} />
+            <CpuUsageChart assetId={assetId} rangeMinutes={rangeMinutes} />
+
+            <MemoryUsageChart assetId={assetId} rangeMinutes={rangeMinutes} />
+
+            <DiskUsageChart assetId={assetId} rangeMinutes={rangeMinutes} />
+
+            <NetworkRateChart assetId={assetId} rangeMinutes={rangeMinutes} />
           </div>
 
           <p className="text-right text-xs text-muted-foreground">
