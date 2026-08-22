@@ -13,6 +13,7 @@ import {
   AUDIT_EVENT_PUBLISHER,
   type AuditEventPublisher,
 } from '../../domain/ports/audit-event-publisher.port';
+import { MonitoringEndpointResolver } from '../services/monitoring-endpoint-resolver.service';
 
 export interface VerifyMonitoringTargetInput {
   actorUserId: string;
@@ -30,6 +31,8 @@ export class VerifyMonitoringTargetUseCase {
 
     @Inject(AUDIT_EVENT_PUBLISHER)
     private readonly auditEventPublisher: AuditEventPublisher,
+
+    private readonly monitoringEndpointResolver: MonitoringEndpointResolver,
   ) {}
 
   async execute(
@@ -48,7 +51,9 @@ export class VerifyMonitoringTargetUseCase {
       target.getMonitoringType(),
     );
 
-    const result = await collector.verify(target.getScrapeUrl());
+    const scrapeUrl = await this.monitoringEndpointResolver.resolve(target);
+
+    const result = await collector.verify(scrapeUrl);
 
     if (result.success) {
       target.markVerified();

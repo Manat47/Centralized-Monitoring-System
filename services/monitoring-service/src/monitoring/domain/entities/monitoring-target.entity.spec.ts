@@ -9,7 +9,6 @@ describe('MonitoringTarget', () => {
     // Arrange + Act
     const target = MonitoringTarget.create('target-001', {
       assetId: 'asset-001',
-      host: '192.168.1.10',
     });
 
     const result = target.toObject();
@@ -17,7 +16,6 @@ describe('MonitoringTarget', () => {
     // Assert: ข้อมูลประจำตัว
     expect(result.targetId).toBe('target-001');
     expect(result.assetId).toBe('asset-001');
-    expect(result.host).toBe('192.168.1.10');
 
     // Assert: ค่า Default
     expect(result.port).toBe(9100);

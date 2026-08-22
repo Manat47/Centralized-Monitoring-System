@@ -5,7 +5,6 @@ export interface MonitoringTargetProps {
   targetId: string; // เก็บตัวตั้งค่าที่จะให้ระบบเข้าไปเก็บ metrics
   assetId: string; // เครื่องที่ต้องการให้ระบบไป monitor
   monitoringType: MonitoringType; // ประเภทของ Monitoring Target
-  host: string; // ที่อยู่ของเครื่องปลายทาง
   port: number; // port ที่ Metrics endpoint เปิดให้เข้าไปใช้ดึงข้อมูล
   path: string; // ตำแหน้งที่ endpoint ใช้ดึง metrics
   scrapeIntervalSeconds: number; // ตัวที่กำหนดว่าจะต้องเข้าไปเก็บ metrics ทุกๆกี่วินาที
@@ -22,7 +21,6 @@ export interface CreateMonitoringTargetProps {
   // ใช้ตอนสร้าง target ใหม่ เพราะตามหลักผู้ใช้ไม่จำเป็นต้องส่งทุกอย่างมาเอง ส่วนอื้่นก็ให้ domain กำหนด
   assetId: string;
   monitoringType: MonitoringType;
-  host: string;
   port?: number;
   path?: string;
   scrapeIntervalSeconds?: number;
@@ -46,11 +44,6 @@ export class MonitoringTarget {
       // ตรวจสอบ assetId
       throw new Error('assetId is required');
     } //ถ้าไม่มี assetId จะสร้างไม่ได้ เพราะระบบจะไม่รู้ว่า Target นี้เป็นของ Asset ใด
-
-    if (!input.host) {
-      // ตรวจสอบ host
-      throw new Error('host is required');
-    } // ถ้าไม่มี host ระบบก็ไม่สามารถเชื่อมต่อไปยังปลายทางได้
 
     let port: number;
     let path: string;
@@ -97,7 +90,6 @@ export class MonitoringTarget {
       targetId,
       assetId: input.assetId,
       monitoringType: input.monitoringType,
-      host: input.host,
       port,
       path,
       scrapeIntervalSeconds,
@@ -157,11 +149,6 @@ export class MonitoringTarget {
     // เรียกเมื่อเก็บ Metrics ล้มเหลว
     this.props.lastError = errorMessage; // สาเหตุที่ล้มเหลว เช่น Network สะดุดชั่วคราว,Timeout
     this.props.updatedAt = new Date(); // เวลาปัจจุบัน
-  }
-
-  getScrapeUrl(): string {
-    // ใช้ประกอบ URL สำหรับดึง Metrics
-    return `http://${this.props.host}:${this.props.port}${this.props.path}`;
   }
 
   getMonitoringType(): MonitoringType {

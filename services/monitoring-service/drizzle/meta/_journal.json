@@ -36,6 +36,13 @@
       "when": 1786597163942,
       "tag": "0004_sweet_puff_adder",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1787406655862,
+      "tag": "0005_silent_hercules",
+      "breakpoints": true
     }
   ]
 }

@@ -22,6 +22,7 @@ import {
   METRICS_STORAGE,
   type MetricsStorage,
 } from '../../domain/ports/metrics-storage.port';
+import { MonitoringEndpointResolver } from '../services/monitoring-endpoint-resolver.service';
 
 const NODE_EXPORTER_SUPPORTED_METRICS = new Set([
   'node_cpu_seconds_total',
@@ -52,6 +53,8 @@ export class CollectTargetMetricsUseCase {
 
     @Inject(METRICS_STORAGE)
     private readonly metricsStorage: MetricsStorage,
+
+    private readonly monitoringEndpointResolver: MonitoringEndpointResolver,
   ) {}
 
   async execute(targetId: string): Promise<ParsedMetric[]> {
@@ -73,7 +76,9 @@ export class CollectTargetMetricsUseCase {
       target.getMonitoringType(),
     );
 
-    const collectionResult = await collector.collect(target.getScrapeUrl());
+    const scrapeUrl = await this.monitoringEndpointResolver.resolve(target);
+
+    const collectionResult = await collector.collect(scrapeUrl);
 
     if (!collectionResult.success || !collectionResult.rawMetrics) {
       target.markCollectionFailed(

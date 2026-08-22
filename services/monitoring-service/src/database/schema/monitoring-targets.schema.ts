@@ -54,8 +54,6 @@ export const monitoringTargets = pgTable(
       .default('NODE_EXPORTER')
       .notNull(),
 
-    host: varchar('host', { length: 255 }).notNull(),
-
     port: integer('port').notNull(),
 
     path: varchar('path', { length: 255 }).notNull(),
