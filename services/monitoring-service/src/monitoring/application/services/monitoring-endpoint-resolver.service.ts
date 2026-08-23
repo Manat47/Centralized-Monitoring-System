@@ -10,6 +10,11 @@ import {
   ASSET_READER,
   type AssetReader,
 } from '../../domain/ports/asset-reader.port';
+import { AssetNotOperationalException } from '../errors/asset-not-operational.exception';
+
+interface ResolveMonitoringEndpointOptions {
+  requireOperational?: boolean;
+}
 
 @Injectable()
 export class MonitoringEndpointResolver {
@@ -18,7 +23,10 @@ export class MonitoringEndpointResolver {
     private readonly assetReader: AssetReader,
   ) {}
 
-  async resolve(target: MonitoringTarget): Promise<string> {
+  async resolve(
+    target: MonitoringTarget,
+    options: ResolveMonitoringEndpointOptions = {},
+  ): Promise<string> {
     const targetData = target.toObject();
 
     const asset = await this.assetReader.findById(targetData.assetId);
@@ -27,6 +35,10 @@ export class MonitoringEndpointResolver {
       throw new NotFoundException(
         `Asset with ID ${targetData.assetId} not found`,
       );
+    }
+
+    if (options.requireOperational && asset.status !== 'ACTIVATE') {
+      throw new AssetNotOperationalException(asset.assetId, asset.status);
     }
 
     if (targetData.monitoringType === 'NODE_EXPORTER') {

@@ -76,7 +76,9 @@ export class CollectTargetMetricsUseCase {
       target.getMonitoringType(),
     );
 
-    const scrapeUrl = await this.monitoringEndpointResolver.resolve(target);
+    const scrapeUrl = await this.monitoringEndpointResolver.resolve(target, {
+      requireOperational: true,
+    });
 
     const collectionResult = await collector.collect(scrapeUrl);
 
