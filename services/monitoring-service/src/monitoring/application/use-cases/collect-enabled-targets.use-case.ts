@@ -5,6 +5,8 @@ import {
   type MonitoringTargetRepository,
 } from '../../domain/repositories/monitoring-target.repository';
 import { CollectTargetMetricsUseCase } from './collect-target-metrics.use-case';
+import { AssetNotOperationalException } from '../errors/asset-not-operational.exception';
+import { MonitoringVerificationRequiredException } from '../errors/monitoring-verification-required.exception';
 
 export interface CollectEnabledTargetsResult {
   checked: number;
@@ -49,6 +51,13 @@ export class CollectEnabledTargetsUseCase {
 
         result.collected += 1;
       } catch (error) {
+        if (
+          error instanceof AssetNotOperationalException ||
+          error instanceof MonitoringVerificationRequiredException
+        ) {
+          result.skipped += 1;
+          continue;
+        }
         result.failed += 1;
 
         const message =

@@ -1,4 +1,9 @@
-import { Inject, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  Inject,
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 
 import {
   HEALTH_CHECK_TARGET_REPOSITORY,
@@ -11,6 +16,11 @@ import {
   AUDIT_EVENT_PUBLISHER,
   type AuditEventPublisher,
 } from '../../domain/ports/audit-event-publisher.port';
+
+import {
+  ASSET_READER,
+  type AssetReader,
+} from '../../domain/ports/asset-reader.port';
 
 export interface EnableHealthCheckTargetInput {
   actorUserId: string;
@@ -25,6 +35,9 @@ export class EnableHealthCheckTargetUseCase {
 
     @Inject(AUDIT_EVENT_PUBLISHER)
     private readonly auditEventPublisher: AuditEventPublisher,
+
+    @Inject(ASSET_READER)
+    private readonly assetReader: AssetReader,
   ) {}
 
   async execute(
@@ -37,6 +50,20 @@ export class EnableHealthCheckTargetUseCase {
     if (!target) {
       throw new NotFoundException(
         `Health check target with ID ${healthCheckTargetId} not found`,
+      );
+    }
+
+    const data = target.toObject();
+
+    const asset = await this.assetReader.findById(data.assetId);
+
+    if (!asset) {
+      throw new NotFoundException(`Asset with ID ${data.assetId} not found`);
+    }
+
+    if (asset.status === 'DEACTIVATE') {
+      throw new BadRequestException(
+        'Health check cannot be configured for a deactivated asset',
       );
     }
 

@@ -13,6 +13,12 @@ import {
   HEALTH_CHECK_STORAGE,
   type HealthCheckStorage,
 } from '../../domain/ports/health-check-storage.port';
+import {
+  ASSET_READER,
+  type AssetReader,
+} from '../../domain/ports/asset-reader.port';
+
+import { AssetNotOperationalException } from '../errors/asset-not-operational.exception';
 
 @Injectable()
 export class CheckHealthTargetUseCase {
@@ -25,6 +31,9 @@ export class CheckHealthTargetUseCase {
 
     @Inject(HEALTH_CHECK_STORAGE)
     private readonly healthCheckStorage: HealthCheckStorage,
+
+    @Inject(ASSET_READER)
+    private readonly assetReader: AssetReader,
   ) {}
 
   async execute(healthCheckTargetId: string): Promise<HealthCheckResult> {
@@ -38,6 +47,16 @@ export class CheckHealthTargetUseCase {
     }
 
     const data = target.toObject();
+
+    const asset = await this.assetReader.findById(data.assetId);
+
+    if (!asset) {
+      throw new NotFoundException(`Asset with ID ${data.assetId} not found`);
+    }
+
+    if (asset.status !== 'ACTIVATE') {
+      throw new AssetNotOperationalException(asset.assetId, asset.status);
+    }
 
     const result = await this.healthChecker.check(data.url);
 

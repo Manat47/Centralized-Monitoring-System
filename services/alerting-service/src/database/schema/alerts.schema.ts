@@ -38,6 +38,7 @@ export const alerts = pgTable('alerts', {
   resolvedAt: timestamp('resolved_at', {
     withTimezone: true,
   }),
+  resolutionReason: text('resolution_reason'),
   closedAt: timestamp('closed_at', {
     withTimezone: true,
   }),

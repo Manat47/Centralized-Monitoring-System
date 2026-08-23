@@ -51,14 +51,14 @@ export function AssetActions({ asset }: AssetActionsProps) {
 
   return (
     <AdminOnly>
-      <div className="flex flex-col items-end gap-2">
-        <div className="flex flex-wrap justify-end gap-2">
+      <div className="flex flex-col items-end gap-1">
+        <div className="flex flex-nowrap items-center justify-end gap-1">
           <EditAssetDialog asset={asset} />
 
           {asset.status !== "ACTIVATE" && (
             <Button
               type="button"
-              size="sm"
+              size="xs"
               variant="outline"
               disabled={isPending}
               onClick={() => void changeStatus("ACTIVATE")}
@@ -73,7 +73,7 @@ export function AssetActions({ asset }: AssetActionsProps) {
           {asset.status === "ACTIVATE" && (
             <Button
               type="button"
-              size="sm"
+              size="xs"
               variant="outline"
               disabled={isPending}
               onClick={() => void changeStatus("INACTIVATE")}
@@ -88,7 +88,7 @@ export function AssetActions({ asset }: AssetActionsProps) {
           {asset.status !== "DEACTIVATE" && (
             <Button
               type="button"
-              size="sm"
+              size="xs"
               variant="destructive"
               disabled={isPending}
               onClick={() => void handleDeactivate()}

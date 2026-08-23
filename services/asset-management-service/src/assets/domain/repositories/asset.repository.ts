@@ -12,6 +12,4 @@ export interface AssetRepository {
   update(asset: Asset): Promise<Asset>;
 
   updateStatus(assetId: string, status: AssetStatus): Promise<Asset>;
-
-  updateMonitoringStatus(assetId: string, enabled: boolean): Promise<Asset>;
 }

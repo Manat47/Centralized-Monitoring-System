@@ -5,6 +5,7 @@ import {
   type HealthCheckTargetRepository,
 } from '../../domain/repositories/health-check-target.repository';
 import { CheckHealthTargetUseCase } from './check-health-target.use-case';
+import { AssetNotOperationalException } from '../errors/asset-not-operational.exception';
 
 export interface CheckEnabledHealthTargetsResult {
   checked: number;
@@ -48,6 +49,11 @@ export class CheckEnabledHealthTargetsUseCase {
 
         result.performed += 1;
       } catch (error) {
+        if (error instanceof AssetNotOperationalException) {
+          result.skipped += 1;
+          continue;
+        }
+
         result.failed += 1;
 
         const message =

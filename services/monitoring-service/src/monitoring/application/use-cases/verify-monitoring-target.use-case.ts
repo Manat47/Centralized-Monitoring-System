@@ -13,6 +13,8 @@ import {
   AUDIT_EVENT_PUBLISHER,
   type AuditEventPublisher,
 } from '../../domain/ports/audit-event-publisher.port';
+import { MonitoringEndpointResolver } from '../services/monitoring-endpoint-resolver.service';
+import { MonitoringConfigFingerprintService } from '../services/monitoring-config-fingerprint.service';
 
 export interface VerifyMonitoringTargetInput {
   actorUserId: string;
@@ -30,6 +32,9 @@ export class VerifyMonitoringTargetUseCase {
 
     @Inject(AUDIT_EVENT_PUBLISHER)
     private readonly auditEventPublisher: AuditEventPublisher,
+
+    private readonly monitoringEndpointResolver: MonitoringEndpointResolver,
+    private readonly monitoringConfigFingerprintService: MonitoringConfigFingerprintService,
   ) {}
 
   async execute(
@@ -48,10 +53,18 @@ export class VerifyMonitoringTargetUseCase {
       target.getMonitoringType(),
     );
 
-    const result = await collector.verify(target.getScrapeUrl());
+    const scrapeUrl = await this.monitoringEndpointResolver.resolve(target, {
+      requireOperational: true,
+    });
+
+    const result = await collector.verify(scrapeUrl);
 
     if (result.success) {
-      target.markVerified();
+      const fingerprint = this.monitoringConfigFingerprintService.create(
+        target,
+        scrapeUrl,
+      );
+      target.markVerified(fingerprint);
     } else {
       target.markVerificationFailed(
         result.errorMessage ?? 'Verification failed',

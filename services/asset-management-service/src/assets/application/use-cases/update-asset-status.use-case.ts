@@ -1,6 +1,9 @@
 import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 
-import { Asset, type AssetStatus } from '../../domain/entities/asset.entity';
+import {
+  Asset,
+  type AssetOperationalStatus,
+} from '../../domain/entities/asset.entity';
 import {
   ASSET_REPOSITORY,
   type AssetRepository,
@@ -11,7 +14,7 @@ import {
 } from '../../domain/ports/audit-event-publisher.port';
 
 export interface UpdateAssetStatusInput {
-  status: AssetStatus;
+  status: AssetOperationalStatus;
   actorUserId: string;
   actorRole: 'ADMIN' | 'OPERATOR';
 }

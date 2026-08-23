@@ -1,15 +1,17 @@
 export type VerificationStatus = 'NOT_VERIFIED' | 'VERIFIED' | 'FAILED'; // ยังไม่เคยตรวจ | ตรวจสอบแล้วเชื่อมต่อได้ | ตรวจแล้วเชื่อมต่อไม่ได้
 export type MonitoringType = 'NODE_EXPORTER' | 'PROMETHEUS_APPLICATION'; // ประเภทของ Monitoring Target ว่าเป็น Node Exporter หรือ Prometheus Application
+export type MonitoringProtocol = 'HTTP' | 'HTTPS';
 export interface MonitoringTargetProps {
   // เปรียบเหมือนโครงสร้างภายในของ Entity
   targetId: string; // เก็บตัวตั้งค่าที่จะให้ระบบเข้าไปเก็บ metrics
   assetId: string; // เครื่องที่ต้องการให้ระบบไป monitor
   monitoringType: MonitoringType; // ประเภทของ Monitoring Target
-  host: string; // ที่อยู่ของเครื่องปลายทาง
+  protocol: MonitoringProtocol | null;
   port: number; // port ที่ Metrics endpoint เปิดให้เข้าไปใช้ดึงข้อมูล
   path: string; // ตำแหน้งที่ endpoint ใช้ดึง metrics
   scrapeIntervalSeconds: number; // ตัวที่กำหนดว่าจะต้องเข้าไปเก็บ metrics ทุกๆกี่วินาที
   verificationStatus: VerificationStatus; // สถานะการตรวจสอบ ความพร้อมใช้งานของ targets
+  verifiedConfigFingerprint: string | null;
   monitoringEnabled: boolean; //แทนสถานะการเปิดปิด ตัว monitoring
   lastVerifiedAt: Date | null; // เวลาที่ verify ล่าสุด
   lastCollectedAt: Date | null; // เวลาที่เก็บ Metrics สำเร็จล่าสุด
@@ -22,7 +24,7 @@ export interface CreateMonitoringTargetProps {
   // ใช้ตอนสร้าง target ใหม่ เพราะตามหลักผู้ใช้ไม่จำเป็นต้องส่งทุกอย่างมาเอง ส่วนอื้่นก็ให้ domain กำหนด
   assetId: string;
   monitoringType: MonitoringType;
-  host: string;
+  protocol?: MonitoringProtocol;
   port?: number;
   path?: string;
   scrapeIntervalSeconds?: number;
@@ -46,11 +48,6 @@ export class MonitoringTarget {
       // ตรวจสอบ assetId
       throw new Error('assetId is required');
     } //ถ้าไม่มี assetId จะสร้างไม่ได้ เพราะระบบจะไม่รู้ว่า Target นี้เป็นของ Asset ใด
-
-    if (!input.host) {
-      // ตรวจสอบ host
-      throw new Error('host is required');
-    } // ถ้าไม่มี host ระบบก็ไม่สามารถเชื่อมต่อไปยังปลายทางได้
 
     let port: number;
     let path: string;
@@ -97,11 +94,15 @@ export class MonitoringTarget {
       targetId,
       assetId: input.assetId,
       monitoringType: input.monitoringType,
-      host: input.host,
+      protocol:
+        input.monitoringType === 'NODE_EXPORTER'
+          ? (input.protocol ?? 'HTTP')
+          : null,
       port,
       path,
       scrapeIntervalSeconds,
       verificationStatus: 'NOT_VERIFIED',
+      verifiedConfigFingerprint: null,
       monitoringEnabled: false,
       lastVerifiedAt: null,
       lastCollectedAt: null,
@@ -111,21 +112,38 @@ export class MonitoringTarget {
     }); //  สร้าง instance จาก MonitoringTarget class create method โดยจะมีการกำหนดสถานะเริ่มต้นทั้งหมด
   }
 
-  markVerified(): void {
-    // เรียกเมื่อระบบตรวจสอบ Target สำเร็จ
-    this.props.verificationStatus = 'VERIFIED'; // NOT_VERIFIED -> VERIFIED
-    this.props.lastVerifiedAt = new Date(); // เวลาปัจจุบัน
-    this.props.lastError = null; // ล้าง Error ถ้าไม่ล้าง Error ผู้ใช้อาจจะยังเห็น Error เก่า ทั้งที่ปัญหาหายแล้ว
-    this.props.updatedAt = new Date(); // เวลาปัจจุบัน
+  markVerified(verifiedConfigFingerprint: string): void {
+    if (!verifiedConfigFingerprint.trim()) {
+      throw new Error('verifiedConfigFingerprint is required');
+    }
+
+    const now = new Date();
+
+    this.props.verificationStatus = 'VERIFIED';
+    this.props.verifiedConfigFingerprint = verifiedConfigFingerprint;
+    this.props.lastVerifiedAt = now;
+    this.props.lastError = null;
+    this.props.updatedAt = now;
   }
 
   markVerificationFailed(errorMessage: string): void {
     // เรียกเมื่อ Verify ไม่สำเร็จ
     this.props.verificationStatus = 'FAILED'; // NOT_VERIFIED -> FAILED
+    this.props.verifiedConfigFingerprint = null;
     this.props.lastVerifiedAt = new Date(); // เวลาที่ลองตรวจสอบล่าสุด
     this.props.lastError = errorMessage; // สาเหตุที่ล้มเหลว
     this.props.monitoringEnabled = false; // เปิดไม่ได้
     this.props.updatedAt = new Date(); // เวลาปัจจุบัน
+  }
+
+  invalidateVerification(): void {
+    const now = new Date();
+
+    this.props.verificationStatus = 'NOT_VERIFIED';
+    this.props.monitoringEnabled = false;
+    this.props.verifiedConfigFingerprint = null;
+    this.props.lastError = null;
+    this.props.updatedAt = now;
   }
 
   enableMonitoring(): void {
@@ -157,11 +175,6 @@ export class MonitoringTarget {
     // เรียกเมื่อเก็บ Metrics ล้มเหลว
     this.props.lastError = errorMessage; // สาเหตุที่ล้มเหลว เช่น Network สะดุดชั่วคราว,Timeout
     this.props.updatedAt = new Date(); // เวลาปัจจุบัน
-  }
-
-  getScrapeUrl(): string {
-    // ใช้ประกอบ URL สำหรับดึง Metrics
-    return `http://${this.props.host}:${this.props.port}${this.props.path}`;
   }
 
   getMonitoringType(): MonitoringType {

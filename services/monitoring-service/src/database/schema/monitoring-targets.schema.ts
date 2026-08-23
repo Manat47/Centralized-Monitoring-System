@@ -43,6 +43,11 @@ export const monitoringTypeEnum = pgEnum('monitoring_type', [
   'PROMETHEUS_APPLICATION',
 ]);
 
+export const monitoringProtocolEnum = pgEnum('monitoring_protocol', [
+  'HTTP',
+  'HTTPS',
+]);
+
 export const monitoringTargets = pgTable(
   'monitoring_targets',
   {
@@ -54,7 +59,7 @@ export const monitoringTargets = pgTable(
       .default('NODE_EXPORTER')
       .notNull(),
 
-    host: varchar('host', { length: 255 }).notNull(),
+    protocol: monitoringProtocolEnum('protocol'),
 
     port: integer('port').notNull(),
 
@@ -67,6 +72,10 @@ export const monitoringTargets = pgTable(
     verificationStatus: verificationStatusEnum('verification_status')
       .default('NOT_VERIFIED')
       .notNull(),
+
+    verifiedConfigFingerprint: varchar('verified_config_fingerprint', {
+      length: 64,
+    }),
 
     monitoringEnabled: boolean('monitoring_enabled').default(false).notNull(),
 

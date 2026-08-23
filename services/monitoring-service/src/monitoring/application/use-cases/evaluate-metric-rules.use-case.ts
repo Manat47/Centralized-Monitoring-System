@@ -1,4 +1,4 @@
-import { Inject, Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 
 import {
@@ -19,6 +19,11 @@ import {
   type AlertEventPublisher,
   type AlertEvent,
 } from '../../domain/ports/alert-event-publisher.port';
+import {
+  ASSET_READER,
+  type AssetReader,
+  type AssetSnapshot,
+} from '../../domain/ports/asset-reader.port';
 
 import { QueryMetricsSummaryUseCase } from './query-metrics-summary.use-case';
 
@@ -35,6 +40,7 @@ export interface MetricRuleViolation {
 
 export interface EvaluateMetricRulesResult {
   checked: number;
+  skipped: number;
   triggered: number;
   recovered: number;
   events: MetricRuleViolation[];
@@ -54,6 +60,9 @@ export class EvaluateMetricRulesUseCase {
     @Inject(ALERT_EVENT_PUBLISHER)
     private readonly alertEventPublisher: AlertEventPublisher,
 
+    @Inject(ASSET_READER)
+    private readonly assetReader: AssetReader,
+
     private readonly queryMetricsSummaryUseCase: QueryMetricsSummaryUseCase,
   ) {}
 
@@ -62,6 +71,7 @@ export class EvaluateMetricRulesUseCase {
 
     const result: EvaluateMetricRulesResult = {
       checked: rules.length,
+      skipped: 0,
       triggered: 0,
       recovered: 0,
       events: [],
@@ -69,8 +79,31 @@ export class EvaluateMetricRulesUseCase {
 
     const now = new Date();
 
+    const assetCache = new Map<string, AssetSnapshot | null>();
+
     for (const rule of rules) {
+      const data = rule.toObject();
+
       try {
+        if (!assetCache.has(data.assetId)) {
+          const asset = await this.assetReader.findById(data.assetId);
+
+          assetCache.set(data.assetId, asset);
+        }
+
+        const asset = assetCache.get(data.assetId) ?? null;
+
+        if (!asset) {
+          throw new NotFoundException(
+            `Asset with ID ${data.assetId} not found`,
+          );
+        }
+
+        if (asset.status !== 'ACTIVATE') {
+          result.skipped += 1;
+          continue;
+        }
+
         const ruleResult = await this.evaluateSingleRule(rule, now);
 
         if (ruleResult.triggeredEvent) {
@@ -84,8 +117,6 @@ export class EvaluateMetricRulesUseCase {
           result.recovered += 1;
         }
       } catch (error) {
-        const data = rule.toObject();
-
         const message =
           error instanceof Error ? error.message : 'Unknown evaluation error';
 

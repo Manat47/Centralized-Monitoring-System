@@ -57,9 +57,9 @@ export class CreateHealthCheckTargetUseCase {
       throw new NotFoundException(`Asset with ID ${input.assetId} not found`);
     }
 
-    if (asset.status !== 'ACTIVATE') {
+    if (asset.status === 'DEACTIVATE') {
       throw new BadRequestException(
-        `Asset status must be ACTIVATE, current status is ${asset.status}`,
+        'Deactivated asset cannot be configured for health checks',
       );
     }
 

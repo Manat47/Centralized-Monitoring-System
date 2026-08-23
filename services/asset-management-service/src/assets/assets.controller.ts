@@ -75,13 +75,25 @@ export class AssetsController {
     @Headers('x-user-id') actorUserId: string,
     @Headers('x-user-role') actorRole: 'ADMIN' | 'OPERATOR',
   ) {
-    const asset = await this.updateAssetStatusUseCase.execute(id, {
-      status: dto.status,
-      actorUserId,
-      actorRole,
-    });
+    try {
+      const asset = await this.updateAssetStatusUseCase.execute(id, {
+        status: dto.status,
+        actorUserId,
+        actorRole,
+      });
 
-    return asset.toObject();
+      return asset.toObject();
+    } catch (error) {
+      if (error instanceof HttpException) {
+        throw error;
+      }
+
+      if (error instanceof Error) {
+        throw new BadRequestException(error.message);
+      }
+
+      throw error;
+    }
   }
 
   @Patch(':id/deactivate')

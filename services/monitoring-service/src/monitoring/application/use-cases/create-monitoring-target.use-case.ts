@@ -11,6 +11,7 @@ import {
   MonitoringTarget, // Entity
   type CreateMonitoringTargetProps, // เป็น Type ที่ Entity กำหนดว่าตอนสร้าง Target ต้องส่งข้อมูลอะไรเข้าไป
   type MonitoringType,
+  type MonitoringProtocol,
 } from '../../domain/entities/monitoring-target.entity';
 import {
   ASSET_READER,
@@ -27,6 +28,7 @@ import {
 
 export interface CreateMonitoringTargetInput {
   assetId: string;
+  protocol?: MonitoringProtocol;
   port?: number;
   path?: string;
   scrapeIntervalSeconds?: number;
@@ -81,27 +83,23 @@ export class CreateMonitoringTargetUseCase {
       );
     }
 
-    if (asset.status !== 'ACTIVATE') {
-      // ตรวจสอบว่า Asset ที่ส่งเข้ามาอยู่ในสถานะ ACTIVATE หรือไม่
+    if (asset.status === 'DEACTIVATE') {
       throw new BadRequestException(
-        `Asset status must be ACTIVATE, current status is ${asset.status}`,
+        'Deactivated asset cannot be configured for monitoring',
       );
     }
 
-    let host: string;
     let port = input.port;
     const path = input.path;
 
     if (asset.assetType === 'SERVER') {
-      const serverHost = asset.hostname?.trim() || asset.ipAddress?.trim();
+      const serverAddress = asset.hostname?.trim() || asset.ipAddress?.trim();
 
-      if (!serverHost) {
+      if (!serverAddress) {
         throw new BadRequestException(
           'SERVER asset does not have a hostname or IP address',
         );
       }
-
-      host = serverHost;
     } else {
       if (!asset.endpoint) {
         throw new BadRequestException(
@@ -109,11 +107,20 @@ export class CreateMonitoringTargetUseCase {
         );
       }
 
-      const endpoint = new URL(asset.endpoint);
+      let endpoint: URL;
 
-      host = endpoint.hostname;
-
-      port = input.port ?? (endpoint.port ? Number(endpoint.port) : 80);
+      try {
+        endpoint = new URL(asset.endpoint);
+      } catch {
+        throw new BadRequestException('APPLICATION asset endpoint is invalid');
+      }
+      port =
+        input.port ??
+        (endpoint.port
+          ? Number(endpoint.port)
+          : endpoint.protocol === 'https:'
+            ? 443
+            : 80);
 
       if (!path) {
         throw new BadRequestException(
@@ -127,9 +134,9 @@ export class CreateMonitoringTargetUseCase {
       //เอาข้อมูลจาก 2 แหล่งมารวมกัน
       assetId: asset.assetId, // Asset Service
       monitoringType, // กำหนดจาก asset.assetType
-      host, // Asset Service
-      port, // กำหนดจาก asset.endpoint หรือ User Input
-      path, // กำหนดจาก asset.endpoint หรือ User Input
+      protocol: monitoringType === 'NODE_EXPORTER' ? input.protocol : undefined,
+      port, //  User Input
+      path, // User Input
       scrapeIntervalSeconds: input.scrapeIntervalSeconds, // User Input
     };
 

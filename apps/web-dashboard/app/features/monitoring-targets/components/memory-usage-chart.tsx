@@ -13,6 +13,7 @@ const ReactECharts = dynamic(() => import("echarts-for-react"), {
 
 interface MemoryUsageChartProps {
   assetId: string;
+  rangeMinutes?: number;
 }
 
 function formatBytes(value: number): string {
@@ -21,10 +22,13 @@ function formatBytes(value: number): string {
   return `${gigabytes.toFixed(2)} GB`;
 }
 
-export function MemoryUsageChart({ assetId }: MemoryUsageChartProps) {
+export function MemoryUsageChart({
+  assetId,
+  rangeMinutes = 30,
+}: MemoryUsageChartProps) {
   const memoryQuery = useMemoryUsage({
     assetId,
-    rangeMinutes: 30,
+    rangeMinutes,
   });
 
   if (memoryQuery.isLoading) {
@@ -143,7 +147,7 @@ export function MemoryUsageChart({ assetId }: MemoryUsageChartProps) {
           <CardTitle className="text-base">Memory Usage</CardTitle>
 
           <p className="mt-1 text-xs text-muted-foreground">
-            Memory utilization during the last 30 minutes.
+            Memory utilization during the selected time range.
           </p>
         </div>
 

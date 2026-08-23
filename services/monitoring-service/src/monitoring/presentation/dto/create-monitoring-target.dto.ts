@@ -1,8 +1,21 @@
-import { IsInt, IsOptional, IsString, IsUUID, Max, Min } from 'class-validator';
+import {
+  IsInt,
+  IsIn,
+  IsOptional,
+  IsString,
+  IsUUID,
+  Max,
+  Min,
+} from 'class-validator';
+import type { MonitoringProtocol } from '../../domain/entities/monitoring-target.entity';
 
 export class CreateMonitoringTargetDto {
   @IsUUID()
   assetId!: string;
+
+  @IsOptional()
+  @IsIn(['HTTP', 'HTTPS'])
+  protocol?: MonitoringProtocol;
 
   @IsOptional()
   @IsInt()

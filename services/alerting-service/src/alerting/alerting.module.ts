@@ -23,6 +23,8 @@ import { FindAlertByIdUseCase } from './application/use-cases/find-alert-by-id.u
 import { AcknowledgeAlertUseCase } from './application/use-cases/acknowledge-alert.use-case';
 import { CloseAlertUseCase } from './application/use-cases/close-alert.use-case';
 import { QueryAlertReportSummaryUseCase } from './application/use-cases/query-alert-report-summary.use-case';
+import { AssetLifecycleEventConsumer } from './infrastructure/messaging/asset-lifecycle-event.consumer';
+import { ResolveAlertsForDeactivatedAssetUseCase } from './application/use-cases/resolve-alerts-for-deactivated-asset.use-case';
 
 @Module({
   imports: [
@@ -88,7 +90,12 @@ import { QueryAlertReportSummaryUseCase } from './application/use-cases/query-al
       },
     ]),
   ],
-  controllers: [AlertEventsController, AlertEventConsumer, AlertsController],
+  controllers: [
+    AlertEventsController,
+    AlertEventConsumer,
+    AssetLifecycleEventConsumer,
+    AlertsController,
+  ],
   providers: [
     ProcessAlertEventUseCase,
     FindAlertsUseCase,
@@ -96,6 +103,7 @@ import { QueryAlertReportSummaryUseCase } from './application/use-cases/query-al
     AcknowledgeAlertUseCase,
     CloseAlertUseCase,
     QueryAlertReportSummaryUseCase,
+    ResolveAlertsForDeactivatedAssetUseCase,
     {
       provide: ALERT_REPOSITORY,
       useClass: DrizzleAlertRepository,

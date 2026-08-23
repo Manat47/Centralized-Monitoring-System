@@ -1,9 +1,9 @@
-export type NotificationEventType = 'ALERT_TRIGGERED' | 'ALERT_RESOLVED';
-
 export type NotificationSeverity = 'WARNING' | 'CRITICAL';
 
-export interface NotificationEvent {
-  eventType: NotificationEventType;
+export type NotificationResolutionReason =
+  'METRIC_RECOVERED' | 'ASSET_DEACTIVATED';
+
+interface NotificationEventBase {
   alertId: string;
   ruleId: string;
   assetId: string;
@@ -12,3 +12,12 @@ export interface NotificationEvent {
   message: string;
   occurredAt: string;
 }
+
+export type NotificationEvent =
+  | (NotificationEventBase & {
+      eventType: 'ALERT_TRIGGERED';
+    })
+  | (NotificationEventBase & {
+      eventType: 'ALERT_RESOLVED';
+      resolutionReason: NotificationResolutionReason;
+    });

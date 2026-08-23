@@ -67,7 +67,11 @@ export class ProcessAlertEventUseCase {
       return null;
     }
 
-    activeAlert.resolve(event.actualValue, new Date(event.occurredAt));
+    activeAlert.resolve(
+      event.actualValue,
+      new Date(event.occurredAt),
+      'METRIC_RECOVERED',
+    );
 
     const updatedAlert = await this.alertRepository.update(activeAlert);
 
@@ -82,6 +86,8 @@ export class ProcessAlertEventUseCase {
       severity: data.severity,
       message: event.message,
       occurredAt: data.resolvedAt?.toISOString() ?? event.occurredAt,
+
+      resolutionReason: 'METRIC_RECOVERED',
     });
 
     return updatedAlert;

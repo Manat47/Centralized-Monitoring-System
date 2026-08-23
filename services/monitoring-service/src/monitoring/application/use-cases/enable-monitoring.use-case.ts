@@ -1,4 +1,9 @@
-import { Inject, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  Inject,
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 
 import { MonitoringTarget } from '../../domain/entities/monitoring-target.entity';
 import {
@@ -9,6 +14,13 @@ import {
   AUDIT_EVENT_PUBLISHER,
   type AuditEventPublisher,
 } from '../../domain/ports/audit-event-publisher.port';
+import {
+  ASSET_READER,
+  type AssetReader,
+} from '../../domain/ports/asset-reader.port';
+import { MonitoringEndpointResolver } from '../services/monitoring-endpoint-resolver.service';
+import { MonitoringConfigFingerprintService } from '../services/monitoring-config-fingerprint.service';
+import { MonitoringVerificationRequiredException } from '../errors/monitoring-verification-required.exception';
 
 export interface EnableMonitoringInput {
   actorUserId: string;
@@ -23,6 +35,13 @@ export class EnableMonitoringUseCase {
 
     @Inject(AUDIT_EVENT_PUBLISHER)
     private readonly auditEventPublisher: AuditEventPublisher,
+
+    @Inject(ASSET_READER)
+    private readonly assetReader: AssetReader,
+
+    private readonly monitoringEndpointResolver: MonitoringEndpointResolver,
+
+    private readonly monitoringConfigFingerprintService: MonitoringConfigFingerprintService,
   ) {}
 
   async execute(
@@ -34,6 +53,50 @@ export class EnableMonitoringUseCase {
     if (!target) {
       throw new NotFoundException(
         `Monitoring target with ID ${targetId} not found`,
+      );
+    }
+
+    const targetData = target.toObject();
+
+    const asset = await this.assetReader.findById(targetData.assetId);
+
+    if (!asset) {
+      throw new NotFoundException(
+        `Asset with ID ${targetData.assetId} not found`,
+      );
+    }
+
+    // DEACTIVATE = read-only
+    if (asset.status === 'DEACTIVATE') {
+      throw new BadRequestException(
+        'Monitoring cannot be configured for a deactivated asset',
+      );
+    }
+
+    // ยังไม่เคย verify หรือ verification เก่าใช้ไม่ได้แล้ว
+    if (
+      targetData.verificationStatus !== 'VERIFIED' ||
+      !targetData.verifiedConfigFingerprint
+    ) {
+      throw new MonitoringVerificationRequiredException();
+    }
+
+    // INACTIVATE ยังมาถึงตรงนี้ได้
+    // เพราะอนุญาตให้ตั้ง config enabled ไว้ล่วงหน้า
+    const scrapeUrl = await this.monitoringEndpointResolver.resolve(target);
+
+    const currentFingerprint = this.monitoringConfigFingerprintService.create(
+      target,
+      scrapeUrl,
+    );
+
+    if (targetData.verifiedConfigFingerprint !== currentFingerprint) {
+      target.invalidateVerification();
+
+      await this.monitoringTargetRepository.update(target);
+
+      throw new MonitoringVerificationRequiredException(
+        'Monitoring configuration has changed and must be verified again',
       );
     }
 

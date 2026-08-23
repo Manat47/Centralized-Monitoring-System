@@ -14,6 +14,7 @@ const ReactECharts = dynamic(() => import("echarts-for-react"), {
 
 interface CpuUsageChartProps {
   assetId: string;
+  rangeMinutes?: number;
 }
 
 interface CpuAveragePoint {
@@ -55,10 +56,13 @@ function calculateAverageByTimestamp(
     );
 }
 
-export function CpuUsageChart({ assetId }: CpuUsageChartProps) {
+export function CpuUsageChart({
+  assetId,
+  rangeMinutes = 30,
+}: CpuUsageChartProps) {
   const cpuQuery = useCpuUsage({
     assetId,
-    rangeMinutes: 30,
+    rangeMinutes,
   });
 
   if (cpuQuery.isLoading) {
@@ -147,7 +151,7 @@ export function CpuUsageChart({ assetId }: CpuUsageChartProps) {
           <CardTitle className="text-base">CPU Usage</CardTitle>
 
           <p className="mt-1 text-xs text-muted-foreground">
-            Average usage across all CPU cores during the last 30 minutes.
+            Average usage across all CPU cores during the selected time range.
           </p>
         </div>
 

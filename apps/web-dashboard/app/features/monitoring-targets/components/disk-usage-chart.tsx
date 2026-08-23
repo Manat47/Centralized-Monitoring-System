@@ -14,6 +14,7 @@ const ReactECharts = dynamic(() => import("echarts-for-react"), {
 
 interface DiskUsageChartProps {
   assetId: string;
+  rangeMinutes?: number;
 }
 
 function createDiskKey(point: DiskUsageDataPoint): string {
@@ -26,10 +27,13 @@ function formatBytes(value: number): string {
   return `${gigabytes.toFixed(2)} GB`;
 }
 
-export function DiskUsageChart({ assetId }: DiskUsageChartProps) {
+export function DiskUsageChart({
+  assetId,
+  rangeMinutes = 30,
+}: DiskUsageChartProps) {
   const diskQuery = useDiskUsage({
     assetId,
-    rangeMinutes: 30,
+    rangeMinutes,
   });
 
   if (diskQuery.isLoading) {
@@ -169,7 +173,7 @@ export function DiskUsageChart({ assetId }: DiskUsageChartProps) {
           <CardTitle className="text-base">Disk Usage</CardTitle>
 
           <p className="mt-1 text-xs text-muted-foreground">
-            Disk utilization by device during the last 30 minutes.
+            Disk utilization by device during the selected time range.
           </p>
         </div>
 

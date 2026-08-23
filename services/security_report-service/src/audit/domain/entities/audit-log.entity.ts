@@ -3,7 +3,12 @@ export type AuditActorRole = 'ADMIN' | 'OPERATOR';
 export type AuditResult = 'SUCCESS' | 'FAILURE';
 
 export type AuditResourceType =
-  'USER' | 'ASSET' | 'MONITORING_TARGET' | 'METRIC_RULE' | 'ALERT';
+  | 'USER'
+  | 'ASSET'
+  | 'MONITORING_TARGET'
+  | 'METRIC_RULE'
+  | 'HEALTH_CHECK_TARGET'
+  | 'ALERT';
 
 export type AuditAction =
   | 'USER_CREATED'

@@ -1,7 +1,7 @@
-export type NotificationEventType = 'ALERT_TRIGGERED' | 'ALERT_RESOLVED';
+export type NotificationResolutionReason =
+  'METRIC_RECOVERED' | 'ASSET_DEACTIVATED';
 
-export interface NotificationEvent {
-  eventType: NotificationEventType;
+interface NotificationEventBase {
   alertId: string;
   ruleId: string;
   assetId: string;
@@ -10,6 +10,15 @@ export interface NotificationEvent {
   message: string;
   occurredAt: string;
 }
+
+export type NotificationEvent =
+  | (NotificationEventBase & {
+      eventType: 'ALERT_TRIGGERED';
+    })
+  | (NotificationEventBase & {
+      eventType: 'ALERT_RESOLVED';
+      resolutionReason: NotificationResolutionReason;
+    });
 
 export interface NotificationEventPublisher {
   publish(event: NotificationEvent): Promise<void>;

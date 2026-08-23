@@ -1,11 +1,4 @@
-import {
-  pgEnum,
-  pgTable,
-  timestamp,
-  uuid,
-  varchar,
-  boolean,
-} from 'drizzle-orm/pg-core';
+import { pgEnum, pgTable, timestamp, uuid, varchar } from 'drizzle-orm/pg-core';
 
 export const targetTypeEnum = pgEnum('target_type', [
   'SERVER',
@@ -34,7 +27,6 @@ export const assets = pgTable('assets', {
   endpoint: varchar('endpoint', { length: 2048 }),
   environment: environmentEnum('environment').notNull(),
   status: assetStatusEnum('status').default('ACTIVATE').notNull(),
-  monitoringEnable: boolean('monitoring_enabled').default(false).notNull(),
   createdAt: timestamp('created_at', { withTimezone: true })
     .defaultNow()
     .notNull(),
