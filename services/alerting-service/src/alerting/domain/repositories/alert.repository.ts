@@ -33,6 +33,8 @@ export interface AlertRepository {
 
   findActiveByRuleId(ruleId: string): Promise<Alert | null>;
 
+  findActiveByAssetId(assetId: string): Promise<Alert[]>;
+
   findAll(filters?: FindAlertsFilters): Promise<FindAlertsResult>;
 
   findForReport(filters: FindAlertsForReportFilters): Promise<Alert[]>;

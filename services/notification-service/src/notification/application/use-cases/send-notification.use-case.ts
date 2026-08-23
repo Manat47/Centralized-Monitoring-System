@@ -25,10 +25,15 @@ export class SendNotificationUseCase {
   ) {}
 
   async execute(event: NotificationEvent): Promise<void> {
-    const title =
-      event.eventType === 'ALERT_TRIGGERED'
-        ? `${event.severity} alert triggered`
-        : `${event.severity} alert resolved`;
+    let title: string;
+
+    if (event.eventType === 'ALERT_TRIGGERED') {
+      title = `${event.severity} alert triggered`;
+    } else if (event.resolutionReason === 'ASSET_DEACTIVATED') {
+      title = `${event.severity} alert ended — asset deactivated`;
+    } else {
+      title = `${event.severity} alert resolved`;
+    }
 
     const recipients = await this.notificationRecipientRepository.findAll();
 
@@ -41,7 +46,7 @@ export class SendNotificationUseCase {
     }
 
     let successCount = 0;
-    let lastError: unknown = null;
+    let lastError: Error | null = null;
 
     for (const recipient of recipients) {
       try {
@@ -57,11 +62,11 @@ export class SendNotificationUseCase {
 
         successCount++;
       } catch (error) {
-        lastError = error;
+        lastError = error instanceof Error ? error : new Error(String(error));
 
         this.logger.error(
           `Failed to send notification to ${recipient.email}`,
-          error instanceof Error ? error.stack : undefined,
+          lastError.stack,
         );
       }
     }

@@ -3,7 +3,10 @@ import { and, count, desc, eq, inArray, gte, lte } from 'drizzle-orm';
 import type { SQL } from 'drizzle-orm';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 
-import { Alert } from '../../domain/entities/alert.entity';
+import {
+  Alert,
+  type AlertResolutionReason,
+} from '../../domain/entities/alert.entity';
 import {
   type AlertRepository,
   type FindAlertsFilters,
@@ -39,6 +42,7 @@ export class DrizzleAlertRepository implements AlertRepository {
         triggeredAt: data.triggeredAt,
         acknowledgedAt: data.acknowledgedAt,
         resolvedAt: data.resolvedAt,
+        resolutionReason: data.resolutionReason,
         closedAt: data.closedAt,
         createdAt: data.createdAt,
         updatedAt: data.updatedAt,
@@ -62,6 +66,21 @@ export class DrizzleAlertRepository implements AlertRepository {
       .limit(1);
 
     return row ? this.toDomain(row) : null;
+  }
+
+  async findActiveByAssetId(assetId: string): Promise<Alert[]> {
+    const rows = await this.db
+      .select()
+      .from(alerts)
+      .where(
+        and(
+          eq(alerts.assetId, assetId),
+          inArray(alerts.status, ['TRIGGERED', 'ACKNOWLEDGED']),
+        ),
+      )
+      .orderBy(desc(alerts.triggeredAt));
+
+    return rows.map((row) => this.toDomain(row));
   }
 
   async findAll(filters?: FindAlertsFilters): Promise<FindAlertsResult> {
@@ -152,6 +171,7 @@ export class DrizzleAlertRepository implements AlertRepository {
         actualValue: data.actualValue,
         message: data.message,
         resolvedAt: data.resolvedAt,
+        resolutionReason: data.resolutionReason,
         closedAt: data.closedAt,
         updatedAt: data.updatedAt,
       })
@@ -179,6 +199,7 @@ export class DrizzleAlertRepository implements AlertRepository {
       triggeredAt: row.triggeredAt,
       acknowledgedAt: row.acknowledgedAt,
       resolvedAt: row.resolvedAt,
+      resolutionReason: row.resolutionReason as AlertResolutionReason | null,
       closedAt: row.closedAt,
       createdAt: row.createdAt,
       updatedAt: row.updatedAt,

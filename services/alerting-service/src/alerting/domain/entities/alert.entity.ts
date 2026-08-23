@@ -2,6 +2,8 @@ export type AlertStatus = 'TRIGGERED' | 'ACKNOWLEDGED' | 'RESOLVED' | 'CLOSED';
 
 export type AlertSeverity = 'WARNING' | 'CRITICAL';
 
+export type AlertResolutionReason = 'METRIC_RECOVERED' | 'ASSET_DEACTIVATED';
+
 export interface AlertProps {
   alertId: string;
   ruleId: string;
@@ -14,6 +16,7 @@ export interface AlertProps {
   message: string;
   triggeredAt: Date;
   resolvedAt: Date | null;
+  resolutionReason: AlertResolutionReason | null;
   acknowledgedAt: Date | null;
   closedAt: Date | null;
   createdAt: Date;
@@ -49,6 +52,7 @@ export class Alert {
       message: input.message,
       triggeredAt: input.triggeredAt,
       resolvedAt: null,
+      resolutionReason: null,
       acknowledgedAt: null,
       closedAt: null,
       createdAt: now,
@@ -60,13 +64,18 @@ export class Alert {
     return new Alert(props);
   }
 
-  resolve(actualValue: number | null, resolvedAt: Date): void {
+  resolve(
+    actualValue: number | null,
+    resolvedAt: Date,
+    resolutionReason: AlertResolutionReason,
+  ): void {
     if (this.props.status === 'RESOLVED' || this.props.status === 'CLOSED') {
       return;
     }
 
     this.props.status = 'RESOLVED';
     this.props.actualValue = actualValue;
+    this.props.resolutionReason = resolutionReason;
     this.props.resolvedAt = resolvedAt;
     this.props.updatedAt = resolvedAt;
   }
