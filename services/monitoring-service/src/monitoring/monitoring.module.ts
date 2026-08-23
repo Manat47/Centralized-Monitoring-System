@@ -70,6 +70,7 @@ import { QueryLatestHealthCheckUseCase } from './application/use-cases/query-lat
 import { QueryMetricsReportSummaryUseCase } from './application/use-cases/query-metrics-report-summary.use-case';
 import { QueryHealthReportSummaryUseCase } from './application/use-cases/query-health-report-summary.use-case';
 import { MonitoringEndpointResolver } from './application/services/monitoring-endpoint-resolver.service';
+import { MonitoringConfigFingerprintService } from './application/services/monitoring-config-fingerprint.service';
 @Module({
   imports: [
     HttpModule,
@@ -170,6 +171,7 @@ import { MonitoringEndpointResolver } from './application/services/monitoring-en
     QueryMetricsReportSummaryUseCase,
     QueryHealthReportSummaryUseCase,
     MonitoringEndpointResolver,
+    MonitoringConfigFingerprintService,
     {
       provide: MONITORING_TARGET_REPOSITORY,
       useClass: DrizzleMonitoringTargetRepository,

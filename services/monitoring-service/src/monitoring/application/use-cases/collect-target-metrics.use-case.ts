@@ -23,6 +23,8 @@ import {
   type MetricsStorage,
 } from '../../domain/ports/metrics-storage.port';
 import { MonitoringEndpointResolver } from '../services/monitoring-endpoint-resolver.service';
+import { MonitoringConfigFingerprintService } from '../services/monitoring-config-fingerprint.service';
+import { MonitoringVerificationRequiredException } from '../errors/monitoring-verification-required.exception';
 
 const NODE_EXPORTER_SUPPORTED_METRICS = new Set([
   'node_cpu_seconds_total',
@@ -55,6 +57,8 @@ export class CollectTargetMetricsUseCase {
     private readonly metricsStorage: MetricsStorage,
 
     private readonly monitoringEndpointResolver: MonitoringEndpointResolver,
+
+    private readonly monitoringConfigFingerprintService: MonitoringConfigFingerprintService,
   ) {}
 
   async execute(targetId: string): Promise<ParsedMetric[]> {
@@ -79,6 +83,28 @@ export class CollectTargetMetricsUseCase {
     const scrapeUrl = await this.monitoringEndpointResolver.resolve(target, {
       requireOperational: true,
     });
+
+    const currentFingerprint = this.monitoringConfigFingerprintService.create(
+      target,
+      scrapeUrl,
+    );
+
+    if (
+      targetData.verificationStatus !== 'VERIFIED' ||
+      !targetData.verifiedConfigFingerprint
+    ) {
+      throw new BadRequestException(
+        'Monitoring target must be verified before collecting metrics',
+      );
+    }
+
+    if (targetData.verifiedConfigFingerprint !== currentFingerprint) {
+      target.invalidateVerification();
+
+      await this.monitoringTargetRepository.update(target);
+
+      throw new MonitoringVerificationRequiredException();
+    }
 
     const collectionResult = await collector.collect(scrapeUrl);
 

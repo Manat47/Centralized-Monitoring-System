@@ -18,6 +18,9 @@ import {
   ASSET_READER,
   type AssetReader,
 } from '../../domain/ports/asset-reader.port';
+import { MonitoringEndpointResolver } from '../services/monitoring-endpoint-resolver.service';
+import { MonitoringConfigFingerprintService } from '../services/monitoring-config-fingerprint.service';
+import { MonitoringVerificationRequiredException } from '../errors/monitoring-verification-required.exception';
 
 export interface EnableMonitoringInput {
   actorUserId: string;
@@ -35,6 +38,10 @@ export class EnableMonitoringUseCase {
 
     @Inject(ASSET_READER)
     private readonly assetReader: AssetReader,
+
+    private readonly monitoringEndpointResolver: MonitoringEndpointResolver,
+
+    private readonly monitoringConfigFingerprintService: MonitoringConfigFingerprintService,
   ) {}
 
   async execute(
@@ -59,9 +66,37 @@ export class EnableMonitoringUseCase {
       );
     }
 
+    // DEACTIVATE = read-only
     if (asset.status === 'DEACTIVATE') {
       throw new BadRequestException(
         'Monitoring cannot be configured for a deactivated asset',
+      );
+    }
+
+    // ยังไม่เคย verify หรือ verification เก่าใช้ไม่ได้แล้ว
+    if (
+      targetData.verificationStatus !== 'VERIFIED' ||
+      !targetData.verifiedConfigFingerprint
+    ) {
+      throw new MonitoringVerificationRequiredException();
+    }
+
+    // INACTIVATE ยังมาถึงตรงนี้ได้
+    // เพราะอนุญาตให้ตั้ง config enabled ไว้ล่วงหน้า
+    const scrapeUrl = await this.monitoringEndpointResolver.resolve(target);
+
+    const currentFingerprint = this.monitoringConfigFingerprintService.create(
+      target,
+      scrapeUrl,
+    );
+
+    if (targetData.verifiedConfigFingerprint !== currentFingerprint) {
+      target.invalidateVerification();
+
+      await this.monitoringTargetRepository.update(target);
+
+      throw new MonitoringVerificationRequiredException(
+        'Monitoring configuration has changed and must be verified again',
       );
     }
 

@@ -11,6 +11,7 @@ export interface MonitoringTargetProps {
   path: string; // ตำแหน้งที่ endpoint ใช้ดึง metrics
   scrapeIntervalSeconds: number; // ตัวที่กำหนดว่าจะต้องเข้าไปเก็บ metrics ทุกๆกี่วินาที
   verificationStatus: VerificationStatus; // สถานะการตรวจสอบ ความพร้อมใช้งานของ targets
+  verifiedConfigFingerprint: string | null;
   monitoringEnabled: boolean; //แทนสถานะการเปิดปิด ตัว monitoring
   lastVerifiedAt: Date | null; // เวลาที่ verify ล่าสุด
   lastCollectedAt: Date | null; // เวลาที่เก็บ Metrics สำเร็จล่าสุด
@@ -101,6 +102,7 @@ export class MonitoringTarget {
       path,
       scrapeIntervalSeconds,
       verificationStatus: 'NOT_VERIFIED',
+      verifiedConfigFingerprint: null,
       monitoringEnabled: false,
       lastVerifiedAt: null,
       lastCollectedAt: null,
@@ -110,21 +112,38 @@ export class MonitoringTarget {
     }); //  สร้าง instance จาก MonitoringTarget class create method โดยจะมีการกำหนดสถานะเริ่มต้นทั้งหมด
   }
 
-  markVerified(): void {
-    // เรียกเมื่อระบบตรวจสอบ Target สำเร็จ
-    this.props.verificationStatus = 'VERIFIED'; // NOT_VERIFIED -> VERIFIED
-    this.props.lastVerifiedAt = new Date(); // เวลาปัจจุบัน
-    this.props.lastError = null; // ล้าง Error ถ้าไม่ล้าง Error ผู้ใช้อาจจะยังเห็น Error เก่า ทั้งที่ปัญหาหายแล้ว
-    this.props.updatedAt = new Date(); // เวลาปัจจุบัน
+  markVerified(verifiedConfigFingerprint: string): void {
+    if (!verifiedConfigFingerprint.trim()) {
+      throw new Error('verifiedConfigFingerprint is required');
+    }
+
+    const now = new Date();
+
+    this.props.verificationStatus = 'VERIFIED';
+    this.props.verifiedConfigFingerprint = verifiedConfigFingerprint;
+    this.props.lastVerifiedAt = now;
+    this.props.lastError = null;
+    this.props.updatedAt = now;
   }
 
   markVerificationFailed(errorMessage: string): void {
     // เรียกเมื่อ Verify ไม่สำเร็จ
     this.props.verificationStatus = 'FAILED'; // NOT_VERIFIED -> FAILED
+    this.props.verifiedConfigFingerprint = null;
     this.props.lastVerifiedAt = new Date(); // เวลาที่ลองตรวจสอบล่าสุด
     this.props.lastError = errorMessage; // สาเหตุที่ล้มเหลว
     this.props.monitoringEnabled = false; // เปิดไม่ได้
     this.props.updatedAt = new Date(); // เวลาปัจจุบัน
+  }
+
+  invalidateVerification(): void {
+    const now = new Date();
+
+    this.props.verificationStatus = 'NOT_VERIFIED';
+    this.props.monitoringEnabled = false;
+    this.props.verifiedConfigFingerprint = null;
+    this.props.lastError = null;
+    this.props.updatedAt = now;
   }
 
   enableMonitoring(): void {

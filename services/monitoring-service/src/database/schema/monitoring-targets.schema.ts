@@ -73,6 +73,10 @@ export const monitoringTargets = pgTable(
       .default('NOT_VERIFIED')
       .notNull(),
 
+    verifiedConfigFingerprint: varchar('verified_config_fingerprint', {
+      length: 64,
+    }),
+
     monitoringEnabled: boolean('monitoring_enabled').default(false).notNull(),
 
     lastVerifiedAt: timestamp('last_verified_at', {
