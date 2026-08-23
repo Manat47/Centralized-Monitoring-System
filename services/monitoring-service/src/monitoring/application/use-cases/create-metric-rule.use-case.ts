@@ -58,9 +58,9 @@ export class CreateMetricRuleUseCase {
       );
     }
 
-    if (asset.status !== 'ACTIVATE') {
+    if (asset.status === 'DEACTIVATE') {
       throw new BadRequestException(
-        `Asset status must be ACTIVATE, current status is ${asset.status}`,
+        'Deactivated asset cannot be configured with metric rules',
       );
     }
 

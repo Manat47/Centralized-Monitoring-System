@@ -1,4 +1,9 @@
-import { Inject, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  Inject,
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 
 import { MonitoringTarget } from '../../domain/entities/monitoring-target.entity';
 import {
@@ -9,6 +14,10 @@ import {
   AUDIT_EVENT_PUBLISHER,
   type AuditEventPublisher,
 } from '../../domain/ports/audit-event-publisher.port';
+import {
+  ASSET_READER,
+  type AssetReader,
+} from '../../domain/ports/asset-reader.port';
 
 export interface EnableMonitoringInput {
   actorUserId: string;
@@ -23,6 +32,9 @@ export class EnableMonitoringUseCase {
 
     @Inject(AUDIT_EVENT_PUBLISHER)
     private readonly auditEventPublisher: AuditEventPublisher,
+
+    @Inject(ASSET_READER)
+    private readonly assetReader: AssetReader,
   ) {}
 
   async execute(
@@ -34,6 +46,22 @@ export class EnableMonitoringUseCase {
     if (!target) {
       throw new NotFoundException(
         `Monitoring target with ID ${targetId} not found`,
+      );
+    }
+
+    const targetData = target.toObject();
+
+    const asset = await this.assetReader.findById(targetData.assetId);
+
+    if (!asset) {
+      throw new NotFoundException(
+        `Asset with ID ${targetData.assetId} not found`,
+      );
+    }
+
+    if (asset.status === 'DEACTIVATE') {
+      throw new BadRequestException(
+        'Monitoring cannot be configured for a deactivated asset',
       );
     }
 

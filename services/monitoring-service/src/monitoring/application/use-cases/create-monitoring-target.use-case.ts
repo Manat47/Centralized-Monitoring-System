@@ -83,10 +83,9 @@ export class CreateMonitoringTargetUseCase {
       );
     }
 
-    if (asset.status !== 'ACTIVATE') {
-      // ตรวจสอบว่า Asset ที่ส่งเข้ามาอยู่ในสถานะ ACTIVATE หรือไม่
+    if (asset.status === 'DEACTIVATE') {
       throw new BadRequestException(
-        `Asset status must be ACTIVATE, current status is ${asset.status}`,
+        'Deactivated asset cannot be configured for monitoring',
       );
     }
 
