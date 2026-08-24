@@ -91,6 +91,21 @@ function formatResolutionReason(
     case "ASSET_DEACTIVATED":
       return "Asset deactivated";
 
+    case "HEALTH_CHECK_RECOVERED":
+      return "Endpoint recovered";
+
+    case "HEALTH_CHECK_DATA_STALE":
+      return "Health data became stale";
+
+    case "HEALTH_CHECK_DATA_RESUMED":
+      return "Health data resumed";
+
+    case "HEALTH_CHECK_TARGET_PAUSED":
+      return "Health check paused";
+
+    case "HEALTH_CHECK_TARGET_ARCHIVED":
+      return "Health check archived";
+
     case null:
       return "—";
   }
@@ -186,7 +201,7 @@ export function AssetAlertsOverview({ assetId }: AssetAlertsOverviewProps) {
                   </TableCell>
 
                   <TableCell className="text-right text-sm text-slate-700">
-                    {formatNumber(alert.actualValue)}
+                    {alert.actualText ?? formatNumber(alert.actualValue)}
                   </TableCell>
 
                   <TableCell className="text-right text-sm text-slate-700">

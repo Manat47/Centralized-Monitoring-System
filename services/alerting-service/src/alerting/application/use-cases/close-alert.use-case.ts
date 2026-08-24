@@ -4,6 +4,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { randomUUID } from 'node:crypto';
 
 import type { AlertProps } from '../../domain/entities/alert.entity';
 import {
@@ -38,7 +39,7 @@ export class CloseAlertUseCase {
     }
 
     try {
-      alert.close();
+      alert.close(input.actorUserId);
     } catch (error) {
       const message =
         error instanceof Error ? error.message : 'Unable to close alert';
@@ -47,6 +48,17 @@ export class CloseAlertUseCase {
     }
 
     const updatedAlert = await this.alertRepository.update(alert);
+    const closedAt = updatedAlert.toObject().closedAt ?? new Date();
+
+    await this.alertRepository.appendLifecycleEvent({
+      lifecycleEventId: randomUUID(),
+      alertId,
+      eventType: 'CLOSED',
+      actorUserId: input.actorUserId,
+      reason: null,
+      context: null,
+      occurredAt: closedAt,
+    });
 
     await this.auditEventPublisher.publish({
       actorUserId: input.actorUserId,

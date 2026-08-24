@@ -27,22 +27,23 @@ describe('Alert', () => {
     const alert = createAlert();
     const acknowledgedAt = new Date('2026-07-14T10:05:00.000Z');
 
-    alert.acknowledge(acknowledgedAt);
+    alert.acknowledge('user-1', acknowledgedAt);
 
     const result = alert.toObject();
 
     expect(result.status).toBe('ACKNOWLEDGED');
     expect(result.acknowledgedAt).toEqual(acknowledgedAt);
+    expect(result.acknowledgedBy).toBe('user-1');
   });
 
   it('should resolve an acknowledged alert', () => {
     const alert = createAlert();
 
-    alert.acknowledge();
+    alert.acknowledge('user-1');
 
     const resolvedAt = new Date('2026-07-14T10:10:00.000Z');
 
-    alert.resolve(50, resolvedAt);
+    alert.resolve(50, resolvedAt, 'METRIC_RECOVERED');
 
     const result = alert.toObject();
 
@@ -54,24 +55,25 @@ describe('Alert', () => {
   it('should close a resolved alert', () => {
     const alert = createAlert();
 
-    alert.resolve(50, new Date());
+    alert.resolve(50, new Date(), 'METRIC_RECOVERED');
 
     const closedAt = new Date('2026-07-14T10:15:00.000Z');
 
-    alert.close(closedAt);
+    alert.close('user-1', closedAt);
 
     const result = alert.toObject();
 
     expect(result.status).toBe('CLOSED');
     expect(result.closedAt).toEqual(closedAt);
+    expect(result.closedBy).toBe('user-1');
   });
 
   it('should reject acknowledge when status is RESOLVED', () => {
     const alert = createAlert();
 
-    alert.resolve(50, new Date());
+    alert.resolve(50, new Date(), 'METRIC_RECOVERED');
 
-    expect(() => alert.acknowledge()).toThrow(
+    expect(() => alert.acknowledge('user-1')).toThrow(
       'Cannot acknowledge alert with status RESOLVED',
     );
   });
@@ -79,7 +81,7 @@ describe('Alert', () => {
   it('should reject close when status is TRIGGERED', () => {
     const alert = createAlert();
 
-    expect(() => alert.close()).toThrow(
+    expect(() => alert.close('user-1')).toThrow(
       'Cannot close alert with status TRIGGERED',
     );
   });

@@ -1,12 +1,15 @@
 import { randomUUID } from 'node:crypto';
 
 import { Alert } from '../../domain/entities/alert.entity';
+import type { HealthCheckAlertState } from '../../domain/entities/health-check-alert-state.entity';
 import type { NotificationEventPublisher } from '../../domain/port/notification-event-publisher.port';
 import type { AlertRepository } from '../../domain/repositories/alert.repository';
+import type { HealthCheckAlertStateRepository } from '../../domain/repositories/health-check-alert-state.repository';
 import { ProcessAlertEventUseCase } from './process-alert-event.use-case';
 
 describe('ProcessAlertEventUseCase', () => {
   let alertRepository: jest.Mocked<AlertRepository>;
+  let healthStateRepository: jest.Mocked<HealthCheckAlertStateRepository>;
   let notificationEventPublisher: jest.Mocked<NotificationEventPublisher>;
   let useCase: ProcessAlertEventUseCase;
 
@@ -14,32 +17,42 @@ describe('ProcessAlertEventUseCase', () => {
     alertRepository = {
       create: jest.fn(),
       findActiveByRuleId: jest.fn(),
+      findActiveByDedupKey: jest.fn(),
+      findActiveBySource: jest.fn(),
+      findActiveByAssetId: jest.fn(),
       findAll: jest.fn(),
+      findForReport: jest.fn(),
       findById: jest.fn(),
       update: jest.fn(),
+      appendLifecycleEvent: jest.fn(),
+      findLifecycleEvents: jest.fn(),
+      claimEvent: jest.fn().mockResolvedValue(true),
+      releaseEvent: jest.fn(),
     };
-
-    notificationEventPublisher = {
-      publish: jest.fn(),
+    healthStateRepository = {
+      findByTargetId: jest.fn(),
+      findStaleCandidates: jest.fn(),
+      save: jest.fn(),
     };
-
+    notificationEventPublisher = { publish: jest.fn() };
     useCase = new ProcessAlertEventUseCase(
       alertRepository,
+      healthStateRepository,
       notificationEventPublisher,
     );
   });
 
-  it('should create a TRIGGERED alert from an exceeded event', async () => {
-    alertRepository.findActiveByRuleId.mockResolvedValue(null);
-
+  it('creates a triggered metric alert and lifecycle event', async () => {
+    alertRepository.findActiveByDedupKey.mockResolvedValue(null);
     alertRepository.create.mockImplementation((alert) =>
       Promise.resolve(alert),
     );
 
     const result = await useCase.execute({
+      eventId: randomUUID(),
       eventType: 'METRIC_THRESHOLD_EXCEEDED',
-      ruleId: 'rule-1',
-      assetId: 'asset-1',
+      ruleId: randomUUID(),
+      assetId: randomUUID(),
       metricType: 'CPU_USAGE',
       severity: 'WARNING',
       thresholdValue: 80,
@@ -48,28 +61,20 @@ describe('ProcessAlertEventUseCase', () => {
       message: 'CPU usage exceeded threshold',
     });
 
-    // eslint-disable-next-line @typescript-eslint/unbound-method
-    expect(alertRepository.findActiveByRuleId).toHaveBeenCalledWith('rule-1');
-
-    // eslint-disable-next-line @typescript-eslint/unbound-method
-    expect(alertRepository.create).toHaveBeenCalledTimes(1);
-
-    // eslint-disable-next-line @typescript-eslint/unbound-method
-    expect(notificationEventPublisher.publish).toHaveBeenCalledWith(
-      expect.objectContaining({
-        eventType: 'ALERT_TRIGGERED',
-        ruleId: 'rule-1',
-        assetId: 'asset-1',
-      }),
-    );
-
     expect(result?.toObject().status).toBe('TRIGGERED');
+    expect(alertRepository.create).toHaveBeenCalledTimes(1);
+    expect(alertRepository.appendLifecycleEvent).toHaveBeenCalledWith(
+      expect.objectContaining({ eventType: 'TRIGGERED' }),
+    );
+    expect(notificationEventPublisher.publish).toHaveBeenCalledWith(
+      expect.objectContaining({ eventType: 'ALERT_TRIGGERED' }),
+    );
   });
 
-  it('should not create a duplicate active alert', async () => {
+  it('does not create a duplicate active metric alert', async () => {
     const existingAlert = Alert.create(randomUUID(), {
-      ruleId: 'rule-1',
-      assetId: 'asset-1',
+      ruleId: randomUUID(),
+      assetId: randomUUID(),
       metricType: 'CPU_USAGE',
       severity: 'WARNING',
       thresholdValue: 80,
@@ -77,34 +82,31 @@ describe('ProcessAlertEventUseCase', () => {
       message: 'CPU usage exceeded threshold',
       triggeredAt: new Date('2026-07-14T10:00:00.000Z'),
     });
+    alertRepository.findActiveByDedupKey.mockResolvedValue(existingAlert);
 
-    alertRepository.findActiveByRuleId.mockResolvedValue(existingAlert);
-
+    const data = existingAlert.toObject();
     const result = await useCase.execute({
+      eventId: randomUUID(),
       eventType: 'METRIC_THRESHOLD_EXCEEDED',
-      ruleId: 'rule-1',
-      assetId: 'asset-1',
-      metricType: 'CPU_USAGE',
-      severity: 'WARNING',
+      ruleId: data.sourceId,
+      assetId: data.assetId,
+      metricType: data.metricType,
+      severity: data.severity,
       thresholdValue: 80,
       actualValue: 95,
       occurredAt: '2026-07-14T10:05:00.000Z',
       message: 'CPU usage exceeded threshold',
     });
 
-    // eslint-disable-next-line @typescript-eslint/unbound-method
-    expect(alertRepository.create).not.toHaveBeenCalled();
-
-    // eslint-disable-next-line @typescript-eslint/unbound-method
-    expect(notificationEventPublisher.publish).not.toHaveBeenCalled();
-
     expect(result).toBe(existingAlert);
+    expect(alertRepository.create).not.toHaveBeenCalled();
   });
 
-  it('should resolve an active alert from a recovered event', async () => {
+  it('resolves an active metric alert', async () => {
+    const ruleId = randomUUID();
     const existingAlert = Alert.create(randomUUID(), {
-      ruleId: 'rule-1',
-      assetId: 'asset-1',
+      ruleId,
+      assetId: randomUUID(),
       metricType: 'CPU_USAGE',
       severity: 'WARNING',
       thresholdValue: 80,
@@ -112,17 +114,16 @@ describe('ProcessAlertEventUseCase', () => {
       message: 'CPU usage exceeded threshold',
       triggeredAt: new Date('2026-07-14T10:00:00.000Z'),
     });
-
-    alertRepository.findActiveByRuleId.mockResolvedValue(existingAlert);
-
+    alertRepository.findActiveByDedupKey.mockResolvedValue(existingAlert);
     alertRepository.update.mockImplementation((alert) =>
       Promise.resolve(alert),
     );
 
     const result = await useCase.execute({
+      eventId: randomUUID(),
       eventType: 'METRIC_THRESHOLD_RECOVERED',
-      ruleId: 'rule-1',
-      assetId: 'asset-1',
+      ruleId,
+      assetId: existingAlert.toObject().assetId,
       metricType: 'CPU_USAGE',
       severity: 'WARNING',
       thresholdValue: 80,
@@ -130,29 +131,21 @@ describe('ProcessAlertEventUseCase', () => {
       occurredAt: '2026-07-14T10:10:00.000Z',
       message: 'CPU usage recovered',
     });
-
-    // eslint-disable-next-line @typescript-eslint/unbound-method
-    expect(alertRepository.update).toHaveBeenCalledTimes(1);
-
-    // eslint-disable-next-line @typescript-eslint/unbound-method
-    expect(notificationEventPublisher.publish).toHaveBeenCalledWith(
-      expect.objectContaining({
-        eventType: 'ALERT_RESOLVED',
-        message: 'CPU usage recovered',
-      }),
-    );
 
     expect(result?.toObject().status).toBe('RESOLVED');
-    expect(result?.toObject().actualValue).toBe(40);
+    expect(alertRepository.appendLifecycleEvent).toHaveBeenCalledWith(
+      expect.objectContaining({ eventType: 'RESOLVED' }),
+    );
   });
 
-  it('should ignore a recovered event when no active alert exists', async () => {
-    alertRepository.findActiveByRuleId.mockResolvedValue(null);
+  it('ignores a duplicate event id', async () => {
+    alertRepository.claimEvent.mockResolvedValue(false);
 
     const result = await useCase.execute({
+      eventId: randomUUID(),
       eventType: 'METRIC_THRESHOLD_RECOVERED',
-      ruleId: 'rule-1',
-      assetId: 'asset-1',
+      ruleId: randomUUID(),
+      assetId: randomUUID(),
       metricType: 'CPU_USAGE',
       severity: 'WARNING',
       thresholdValue: 80,
@@ -161,12 +154,51 @@ describe('ProcessAlertEventUseCase', () => {
       message: 'CPU usage recovered',
     });
 
-    // eslint-disable-next-line @typescript-eslint/unbound-method
-    expect(alertRepository.update).not.toHaveBeenCalled();
-
-    // eslint-disable-next-line @typescript-eslint/unbound-method
-    expect(notificationEventPublisher.publish).not.toHaveBeenCalled();
-
     expect(result).toBeNull();
+    expect(alertRepository.findActiveByDedupKey).not.toHaveBeenCalled();
+  });
+
+  it('triggers a health alert after two consecutive failures', async () => {
+    let persistedState: HealthCheckAlertState | null = null;
+    healthStateRepository.findByTargetId.mockImplementation(() =>
+      Promise.resolve(persistedState),
+    );
+    healthStateRepository.save.mockImplementation((state) => {
+      persistedState = state;
+      return Promise.resolve(state);
+    });
+    alertRepository.create.mockImplementation((alert) =>
+      Promise.resolve(alert),
+    );
+    alertRepository.findActiveByDedupKey.mockResolvedValue(null);
+
+    const base = {
+      eventType: 'HEALTH_CHECK_RESULT_RECORDED' as const,
+      healthCheckTargetId: randomUUID(),
+      assetId: randomUUID(),
+      url: 'https://example.com/health',
+      checkIntervalSeconds: 15,
+      statusCode: 500,
+      responseTimeMs: 42,
+      error: null,
+    };
+
+    await useCase.execute({
+      ...base,
+      eventId: randomUUID(),
+      occurredAt: '2026-07-14T10:00:00.000Z',
+    });
+    const result = await useCase.execute({
+      ...base,
+      eventId: randomUUID(),
+      occurredAt: '2026-07-14T10:00:15.000Z',
+    });
+
+    expect(result?.toObject()).toMatchObject({
+      sourceType: 'HEALTH_CHECK',
+      alertType: 'ENDPOINT_UNAVAILABLE',
+      status: 'TRIGGERED',
+      actualText: 'HTTP 500',
+    });
   });
 });

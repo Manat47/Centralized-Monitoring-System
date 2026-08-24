@@ -4,6 +4,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { randomUUID } from 'node:crypto';
 
 import type { AlertProps } from '../../domain/entities/alert.entity';
 import {
@@ -41,7 +42,7 @@ export class AcknowledgeAlertUseCase {
     }
 
     try {
-      alert.acknowledge();
+      alert.acknowledge(input.actorUserId);
     } catch (error) {
       const message =
         error instanceof Error ? error.message : 'Unable to acknowledge alert';
@@ -50,6 +51,17 @@ export class AcknowledgeAlertUseCase {
     }
 
     const updatedAlert = await this.alertRepository.update(alert);
+    const acknowledgedAt = updatedAlert.toObject().acknowledgedAt ?? new Date();
+
+    await this.alertRepository.appendLifecycleEvent({
+      lifecycleEventId: randomUUID(),
+      alertId,
+      eventType: 'ACKNOWLEDGED',
+      actorUserId: input.actorUserId,
+      reason: null,
+      context: null,
+      occurredAt: acknowledgedAt,
+    });
 
     await this.auditEventPublisher.publish({
       actorUserId: input.actorUserId,

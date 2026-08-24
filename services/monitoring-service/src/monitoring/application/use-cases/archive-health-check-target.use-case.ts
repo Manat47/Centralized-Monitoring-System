@@ -15,6 +15,11 @@ import {
   type UserRole,
 } from '../../domain/ports/audit-event-publisher.port';
 import type { HealthCheckTarget } from '../../domain/entities/health-check-target.entity';
+import { randomUUID } from 'node:crypto';
+import {
+  ALERT_EVENT_PUBLISHER,
+  type AlertEventPublisher,
+} from '../../domain/ports/alert-event-publisher.port';
 
 export interface ArchiveHealthCheckTargetInput {
   actorUserId: string;
@@ -28,6 +33,9 @@ export class ArchiveHealthCheckTargetUseCase {
     private readonly repository: HealthCheckTargetRepository,
     @Inject(AUDIT_EVENT_PUBLISHER)
     private readonly auditEventPublisher: AuditEventPublisher,
+
+    @Inject(ALERT_EVENT_PUBLISHER)
+    private readonly alertEventPublisher: AlertEventPublisher,
   ) {}
 
   async execute(
@@ -58,6 +66,18 @@ export class ArchiveHealthCheckTargetUseCase {
       resourceId: healthCheckTargetId,
       result: 'SUCCESS',
       occurredAt: new Date(),
+    });
+
+    const archivedData = archivedTarget.toObject();
+    await this.alertEventPublisher.publish({
+      eventId: randomUUID(),
+      eventType: 'HEALTH_CHECK_TARGET_STATE_CHANGED',
+      healthCheckTargetId,
+      assetId: archivedData.assetId,
+      url: archivedData.url,
+      checkIntervalSeconds: archivedData.checkIntervalSeconds,
+      state: 'ARCHIVED',
+      occurredAt: archivedData.updatedAt,
     });
 
     return archivedTarget;

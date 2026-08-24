@@ -16,6 +16,11 @@ import {
   AUDIT_EVENT_PUBLISHER,
   type AuditEventPublisher,
 } from '../../domain/ports/audit-event-publisher.port';
+import { randomUUID } from 'node:crypto';
+import {
+  ALERT_EVENT_PUBLISHER,
+  type AlertEventPublisher,
+} from '../../domain/ports/alert-event-publisher.port';
 
 export interface DisableHealthCheckTargetInput {
   actorUserId: string;
@@ -30,6 +35,9 @@ export class DisableHealthCheckTargetUseCase {
 
     @Inject(AUDIT_EVENT_PUBLISHER)
     private readonly auditEventPublisher: AuditEventPublisher,
+
+    @Inject(ALERT_EVENT_PUBLISHER)
+    private readonly alertEventPublisher: AlertEventPublisher,
   ) {}
 
   async execute(
@@ -65,6 +73,18 @@ export class DisableHealthCheckTargetUseCase {
       result: 'SUCCESS',
 
       occurredAt: new Date(),
+    });
+
+    const updatedData = updatedTarget.toObject();
+    await this.alertEventPublisher.publish({
+      eventId: randomUUID(),
+      eventType: 'HEALTH_CHECK_TARGET_STATE_CHANGED',
+      healthCheckTargetId,
+      assetId: updatedData.assetId,
+      url: updatedData.url,
+      checkIntervalSeconds: updatedData.checkIntervalSeconds,
+      state: 'PAUSED',
+      occurredAt: updatedData.updatedAt,
     });
 
     return updatedTarget;

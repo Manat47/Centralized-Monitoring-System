@@ -21,6 +21,11 @@ import {
   ASSET_READER,
   type AssetReader,
 } from '../../domain/ports/asset-reader.port';
+import { randomUUID } from 'node:crypto';
+import {
+  ALERT_EVENT_PUBLISHER,
+  type AlertEventPublisher,
+} from '../../domain/ports/alert-event-publisher.port';
 
 export interface EnableHealthCheckTargetInput {
   actorUserId: string;
@@ -38,6 +43,9 @@ export class EnableHealthCheckTargetUseCase {
 
     @Inject(ASSET_READER)
     private readonly assetReader: AssetReader,
+
+    @Inject(ALERT_EVENT_PUBLISHER)
+    private readonly alertEventPublisher: AlertEventPublisher,
   ) {}
 
   async execute(
@@ -93,6 +101,18 @@ export class EnableHealthCheckTargetUseCase {
       result: 'SUCCESS',
 
       occurredAt: new Date(),
+    });
+
+    const updatedData = updatedTarget.toObject();
+    await this.alertEventPublisher.publish({
+      eventId: randomUUID(),
+      eventType: 'HEALTH_CHECK_TARGET_STATE_CHANGED',
+      healthCheckTargetId,
+      assetId: updatedData.assetId,
+      url: updatedData.url,
+      checkIntervalSeconds: updatedData.checkIntervalSeconds,
+      state: 'RUNNING',
+      occurredAt: updatedData.updatedAt,
     });
 
     return updatedTarget;

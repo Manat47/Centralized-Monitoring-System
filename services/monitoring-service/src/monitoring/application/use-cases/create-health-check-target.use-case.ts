@@ -27,6 +27,10 @@ import {
   AUDIT_EVENT_PUBLISHER,
   type AuditEventPublisher,
 } from '../../domain/ports/audit-event-publisher.port';
+import {
+  ALERT_EVENT_PUBLISHER,
+  type AlertEventPublisher,
+} from '../../domain/ports/alert-event-publisher.port';
 
 export interface CreateHealthCheckTargetInput {
   assetId: string;
@@ -48,6 +52,9 @@ export class CreateHealthCheckTargetUseCase {
 
     @Inject(AUDIT_EVENT_PUBLISHER)
     private readonly auditEventPublisher: AuditEventPublisher,
+
+    @Inject(ALERT_EVENT_PUBLISHER)
+    private readonly alertEventPublisher: AlertEventPublisher,
   ) {}
 
   async execute(
@@ -109,6 +116,19 @@ export class CreateHealthCheckTargetUseCase {
       result: 'SUCCESS',
 
       occurredAt: new Date(),
+    });
+
+    const createdData = createdTarget.toObject();
+
+    await this.alertEventPublisher.publish({
+      eventId: randomUUID(),
+      eventType: 'HEALTH_CHECK_TARGET_STATE_CHANGED',
+      healthCheckTargetId,
+      assetId: createdData.assetId,
+      url: createdData.url,
+      checkIntervalSeconds: createdData.checkIntervalSeconds,
+      state: 'RUNNING',
+      occurredAt: createdData.createdAt,
     });
 
     return createdTarget;

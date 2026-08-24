@@ -4,6 +4,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { randomUUID } from 'node:crypto';
 
 import {
   HEALTH_CHECK_TARGET_REPOSITORY,
@@ -29,6 +30,10 @@ import {
   type AuditEventPublisher,
   type UserRole,
 } from '../../domain/ports/audit-event-publisher.port';
+import {
+  ALERT_EVENT_PUBLISHER,
+  type AlertEventPublisher,
+} from '../../domain/ports/alert-event-publisher.port';
 
 export interface CheckHealthTargetInput {
   actorUserId: string;
@@ -52,6 +57,9 @@ export class CheckHealthTargetUseCase {
 
     @Inject(AUDIT_EVENT_PUBLISHER)
     private readonly auditEventPublisher: AuditEventPublisher,
+
+    @Inject(ALERT_EVENT_PUBLISHER)
+    private readonly alertEventPublisher: AlertEventPublisher,
   ) {}
 
   async execute(
@@ -100,6 +108,21 @@ export class CheckHealthTargetUseCase {
     target.markChecked(result.checkedAt);
 
     await this.healthCheckTargetRepository.update(target);
+
+    if (!input) {
+      await this.alertEventPublisher.publish({
+        eventId: randomUUID(),
+        eventType: 'HEALTH_CHECK_RESULT_RECORDED',
+        healthCheckTargetId: data.healthCheckTargetId,
+        assetId: data.assetId,
+        url: data.url,
+        checkIntervalSeconds: data.checkIntervalSeconds,
+        statusCode: result.statusCode,
+        responseTimeMs: result.responseTimeMs,
+        error: result.error,
+        occurredAt: result.checkedAt,
+      });
+    }
 
     if (input) {
       await this.auditEventPublisher.publish({

@@ -164,13 +164,12 @@ export class EvaluateMetricRulesUseCase {
     const actualValue = this.getActualValue(data.metricType, summary);
 
     if (actualValue === null) {
-      state.markNormal(now, null);
+      state.markNoData(now);
       await this.stateRepository.update(state);
 
       return {
         triggeredEvent: null,
-        recovered:
-          previousStatus === 'VIOLATING' || previousStatus === 'ALERTED',
+        recovered: false,
       };
     }
 
@@ -182,6 +181,7 @@ export class EvaluateMetricRulesUseCase {
 
       if (previousStatus === 'ALERTED') {
         await this.alertEventPublisher.publish({
+          eventId: randomUUID(),
           eventType: 'METRIC_THRESHOLD_RECOVERED',
           ruleId: data.ruleId,
           assetId: data.assetId,
@@ -236,6 +236,7 @@ export class EvaluateMetricRulesUseCase {
     await this.stateRepository.update(state);
 
     const alertEvent: AlertEvent = {
+      eventId: randomUUID(),
       eventType: 'METRIC_THRESHOLD_EXCEEDED',
       ruleId: data.ruleId,
       assetId: data.assetId,

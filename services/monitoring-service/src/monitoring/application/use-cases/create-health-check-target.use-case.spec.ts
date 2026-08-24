@@ -6,6 +6,7 @@ import type {
   AssetSnapshot,
 } from '../../domain/ports/asset-reader.port';
 import type { AuditEventPublisher } from '../../domain/ports/audit-event-publisher.port';
+import type { AlertEventPublisher } from '../../domain/ports/alert-event-publisher.port';
 import type { HealthCheckTargetRepository } from '../../domain/repositories/health-check-target.repository';
 import { CreateHealthCheckTargetUseCase } from './create-health-check-target.use-case';
 
@@ -29,10 +30,14 @@ describe('CreateHealthCheckTargetUseCase', () => {
   const auditPublisher = {
     publish: jest.fn(),
   } as unknown as jest.Mocked<AuditEventPublisher>;
+  const alertEventPublisher = {
+    publish: jest.fn(),
+  } as unknown as jest.Mocked<AlertEventPublisher>;
   const useCase = new CreateHealthCheckTargetUseCase(
     repository,
     assetReader,
     auditPublisher,
+    alertEventPublisher,
   );
 
   beforeEach(() => {
@@ -41,6 +46,7 @@ describe('CreateHealthCheckTargetUseCase', () => {
     repository.findActiveByAssetIdAndUrl.mockResolvedValue(null);
     repository.create.mockImplementation((target) => Promise.resolve(target));
     auditPublisher.publish.mockResolvedValue(undefined);
+    alertEventPublisher.publish.mockResolvedValue(undefined);
   });
 
   it('creates a running application check using the normalized URL', async () => {
@@ -62,6 +68,12 @@ describe('CreateHealthCheckTargetUseCase', () => {
       checkIntervalSeconds: 30,
       enabled: true,
     });
+    expect(alertEventPublisher.publish).toHaveBeenCalledWith(
+      expect.objectContaining({
+        eventType: 'HEALTH_CHECK_TARGET_STATE_CHANGED',
+        state: 'RUNNING',
+      }),
+    );
   });
 
   it('rejects non-application assets', async () => {
