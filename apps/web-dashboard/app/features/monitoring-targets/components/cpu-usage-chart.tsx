@@ -1,168 +1,181 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import { useState } from "react";
 import type { EChartsOption } from "echarts";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 import { useCpuUsage } from "../api/use-cpu-usage";
 import type { CpuUsageDataPoint } from "../types/cpu-usage";
+import { MetricChartStatsRow } from "./metric-chart-stats";
+import {
+  calculateMetricStats,
+  formatPercent,
+  getThresholdColor,
+  type MetricThreshold,
+} from "./metric-chart-utils";
 
-const ReactECharts = dynamic(() => import("echarts-for-react"), {
-  ssr: false,
-});
+const ReactECharts = dynamic(() => import("echarts-for-react"), { ssr: false });
 
 interface CpuUsageChartProps {
   assetId: string;
   rangeMinutes?: number;
+  thresholds?: MetricThreshold[];
 }
 
-interface CpuAveragePoint {
+interface CpuChartPoint {
   timestamp: string;
   usagePercent: number;
 }
 
-function calculateAverageByTimestamp(
-  points: CpuUsageDataPoint[],
-): CpuAveragePoint[] {
-  const groups = new Map<
-    string,
-    {
-      total: number;
-      count: number;
-    }
-  >();
+function averageByTimestamp(points: CpuUsageDataPoint[]): CpuChartPoint[] {
+  const groups = new Map<string, { total: number; count: number }>();
 
   for (const point of points) {
-    const current = groups.get(point.timestamp) ?? {
-      total: 0,
-      count: 0,
-    };
-
-    current.total += point.usagePercent;
-    current.count += 1;
-
-    groups.set(point.timestamp, current);
+    const group = groups.get(point.timestamp) ?? { total: 0, count: 0 };
+    group.total += point.usagePercent;
+    group.count += 1;
+    groups.set(point.timestamp, group);
   }
 
-  return Array.from(groups.entries())
-    .map(([timestamp, group]) => ({
-      timestamp,
-      usagePercent: Math.round((group.total / group.count) * 100) / 100,
-    }))
-    .sort(
-      (a, b) =>
-        new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime(),
-    );
+  return Array.from(groups, ([timestamp, group]) => ({
+    timestamp,
+    usagePercent: group.total / group.count,
+  })).sort(
+    (a, b) =>
+      new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime(),
+  );
 }
 
 export function CpuUsageChart({
   assetId,
   rangeMinutes = 30,
+  thresholds = [],
 }: CpuUsageChartProps) {
-  const cpuQuery = useCpuUsage({
-    assetId,
-    rangeMinutes,
-  });
+  const [selectedCpu, setSelectedCpu] = useState("ALL");
+  const cpuQuery = useCpuUsage({ assetId, rangeMinutes });
 
   if (cpuQuery.isLoading) {
-    return (
-      <Card>
-        <CardContent className="py-10 text-center text-sm text-muted-foreground">
-          Loading CPU chart...
-        </CardContent>
-      </Card>
-    );
+    return <ChartMessage message="Loading CPU chart..." />;
   }
 
   if (cpuQuery.isError) {
-    return (
-      <Card>
-        <CardContent className="py-10 text-center">
-          <p className="font-medium text-destructive">
-            Failed to load CPU usage
-          </p>
-
-          <p className="mt-1 text-sm text-muted-foreground">
-            {cpuQuery.error instanceof Error
-              ? cpuQuery.error.message
-              : "Unknown error"}
-          </p>
-        </CardContent>
-      </Card>
-    );
+    return <ChartMessage message="Failed to load CPU usage" destructive />;
   }
 
-  const data = calculateAverageByTimestamp(cpuQuery.data ?? []);
+  const rawData = cpuQuery.data ?? [];
+  const cpuCores = Array.from(new Set(rawData.map((point) => point.cpu))).sort();
+  const data =
+    selectedCpu === "ALL"
+      ? averageByTimestamp(rawData)
+      : rawData
+          .filter((point) => point.cpu === selectedCpu)
+          .map((point) => ({
+            timestamp: point.timestamp,
+            usagePercent: point.usagePercent,
+          }))
+          .sort(
+            (a, b) =>
+              new Date(a.timestamp).getTime() -
+              new Date(b.timestamp).getTime(),
+          );
+  const stats = calculateMetricStats(data.map((point) => point.usagePercent));
 
   const option: EChartsOption = {
+    color: ["#2563eb"],
+    animationDuration: 300,
     tooltip: {
       trigger: "axis",
-      valueFormatter: (value) => `${Number(value).toFixed(2)}%`,
+      valueFormatter: (value) => formatPercent(Number(value)),
     },
-
-    grid: {
-      left: 50,
-      right: 24,
-      top: 24,
-      bottom: 70,
-    },
-
+    grid: { left: 54, right: 24, top: 20, bottom: 42 },
     xAxis: {
       type: "time",
-      name: "Time",
-      nameLocation: "middle",
-      nameGap: 42,
+      axisLine: { lineStyle: { color: "#cbd5e1" } },
+      axisLabel: { color: "#64748b" },
     },
-
     yAxis: {
       type: "value",
-      name: "CPU usage (%)",
       min: 0,
       max: 100,
+      axisLabel: { color: "#64748b", formatter: "{value}%" },
+      splitLine: { lineStyle: { color: "#e2e8f0", type: "dashed" } },
     },
-
-    dataZoom: [
-      {
-        type: "inside",
-      },
-      {
-        type: "slider",
-        height: 20,
-        bottom: 10,
-      },
-    ],
-
+    dataZoom: [{ type: "inside" }],
     series: [
       {
-        name: "Average CPU usage",
+        name: selectedCpu === "ALL" ? "All cores (avg)" : selectedCpu,
         type: "line",
         smooth: true,
         showSymbol: false,
+        lineStyle: { width: 2 },
+        areaStyle: { color: "rgba(37, 99, 235, 0.08)" },
         data: data.map((point) => [point.timestamp, point.usagePercent]),
+        markLine:
+          thresholds.length > 0
+            ? {
+                silent: true,
+                symbol: "none",
+                data: thresholds.map((threshold) => ({
+                  name: `${threshold.severity === "CRITICAL" ? "Critical" : "Warning"} ${threshold.value}%`,
+                  yAxis: threshold.value,
+                  lineStyle: {
+                    color: getThresholdColor(threshold.severity),
+                    type: "dashed",
+                  },
+                  label: { color: getThresholdColor(threshold.severity) },
+                })),
+              }
+            : undefined,
       },
     ],
   };
 
   return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between">
+    <Card className="border-slate-200 shadow-none">
+      <CardHeader className="flex flex-col gap-3 border-b border-slate-100 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <CardTitle className="text-base">CPU Usage</CardTitle>
-
-          <p className="mt-1 text-xs text-muted-foreground">
-            Average usage across all CPU cores during the selected time range.
+          <CardTitle className="text-sm">CPU Usage</CardTitle>
+          <p className="mt-1 text-xs text-slate-500">
+            Per-core utilization from node exporter
           </p>
         </div>
 
-        {cpuQuery.isFetching && (
-          <span className="text-xs text-muted-foreground">Updating...</span>
-        )}
+        <div className="flex items-center gap-3">
+          <span className="text-xs text-slate-500">{cpuCores.length} cores</span>
+          <Select
+            value={selectedCpu}
+            onValueChange={(value) => value && setSelectedCpu(value)}
+          >
+            <SelectTrigger className="w-44 bg-white">
+              <SelectValue>
+                {selectedCpu === "ALL" ? "All cores (avg)" : selectedCpu}
+              </SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="ALL">All cores (avg)</SelectItem>
+              {cpuCores.map((cpu) => (
+                <SelectItem key={cpu} value={cpu}>
+                  {cpu}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
       </CardHeader>
 
-      <CardContent>
+      <CardContent className="space-y-4 p-5">
+        <MetricChartStatsRow stats={stats} formatter={formatPercent} />
         {data.length === 0 ? (
-          <div className="py-10 text-center text-sm text-muted-foreground">
+          <div className="py-16 text-center text-sm text-slate-500">
             No CPU usage data found.
           </div>
         ) : (
@@ -170,12 +183,27 @@ export function CpuUsageChart({
             option={option}
             notMerge
             lazyUpdate
-            style={{
-              height: 360,
-              width: "100%",
-            }}
+            style={{ height: 320, width: "100%" }}
           />
         )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function ChartMessage({
+  message,
+  destructive = false,
+}: {
+  message: string;
+  destructive?: boolean;
+}) {
+  return (
+    <Card className="border-slate-200 shadow-none">
+      <CardContent
+        className={`py-16 text-center text-sm ${destructive ? "text-rose-600" : "text-slate-500"}`}
+      >
+        {message}
       </CardContent>
     </Card>
   );

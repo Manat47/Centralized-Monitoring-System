@@ -1,205 +1,180 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import { useState } from "react";
 import type { EChartsOption } from "echarts";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 import { useNetworkRate } from "../api/use-network-rate";
+import type { NetworkRateDataPoint } from "../types/network-rate";
+import { MetricChartStatsRow } from "./metric-chart-stats";
+import {
+  calculateMetricStats,
+  formatBytesPerSecond,
+} from "./metric-chart-utils";
 
-const ReactECharts = dynamic(() => import("echarts-for-react"), {
-  ssr: false,
-});
+const ReactECharts = dynamic(() => import("echarts-for-react"), { ssr: false });
 
 interface NetworkRateChartProps {
   assetId: string;
   rangeMinutes?: number;
 }
 
-function formatBytesPerSecond(value: number): string {
-  if (value >= 1_000_000_000) {
-    return `${(value / 1_000_000_000).toFixed(2)} GB/s`;
+interface NetworkChartPoint {
+  timestamp: string;
+  receiveBytesPerSecond: number;
+  transmitBytesPerSecond: number;
+}
+
+function aggregateByTimestamp(data: NetworkRateDataPoint[]): NetworkChartPoint[] {
+  const aggregate = new Map<string, NetworkChartPoint>();
+
+  for (const point of data) {
+    const current = aggregate.get(point.timestamp) ?? {
+      timestamp: point.timestamp,
+      receiveBytesPerSecond: 0,
+      transmitBytesPerSecond: 0,
+    };
+
+    current.receiveBytesPerSecond += point.receiveBytesPerSecond;
+    current.transmitBytesPerSecond += point.transmitBytesPerSecond;
+    aggregate.set(point.timestamp, current);
   }
 
-  if (value >= 1_000_000) {
-    return `${(value / 1_000_000).toFixed(2)} MB/s`;
-  }
-
-  if (value >= 1_000) {
-    return `${(value / 1_000).toFixed(2)} KB/s`;
-  }
-
-  return `${value.toFixed(2)} B/s`;
+  return Array.from(aggregate.values()).sort(
+    (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime(),
+  );
 }
 
 export function NetworkRateChart({
   assetId,
   rangeMinutes = 30,
 }: NetworkRateChartProps) {
-  const networkQuery = useNetworkRate({
-    assetId,
-    rangeMinutes,
-  });
+  const [selectedDevice, setSelectedDevice] = useState("ALL");
+  const networkQuery = useNetworkRate({ assetId, rangeMinutes });
 
   if (networkQuery.isLoading) {
-    return (
-      <Card>
-        <CardContent className="py-10 text-center text-sm text-muted-foreground">
-          Loading network chart...
-        </CardContent>
-      </Card>
-    );
+    return <ChartMessage message="Loading network chart..." />;
   }
 
   if (networkQuery.isError) {
-    return (
-      <Card>
-        <CardContent className="py-10 text-center">
-          <p className="font-medium text-destructive">
-            Failed to load network rate
-          </p>
-
-          <p className="mt-1 text-sm text-muted-foreground">
-            {networkQuery.error instanceof Error
-              ? networkQuery.error.message
-              : "Unknown error"}
-          </p>
-        </CardContent>
-      </Card>
-    );
+    return <ChartMessage message="Failed to load network rate" destructive />;
   }
 
-  const data = [...(networkQuery.data ?? [])].sort(
-    (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime(),
+  const rawData = networkQuery.data ?? [];
+  const devices = Array.from(new Set(rawData.map((point) => point.device))).sort();
+  const data = aggregateByTimestamp(
+    selectedDevice === "ALL"
+      ? rawData
+      : rawData.filter((point) => point.device === selectedDevice),
+  );
+  const receiveStats = calculateMetricStats(
+    data.map((point) => point.receiveBytesPerSecond),
+  );
+  const transmitStats = calculateMetricStats(
+    data.map((point) => point.transmitBytesPerSecond),
   );
 
-  const devices = Array.from(new Set(data.map((point) => point.device)));
-
   const option: EChartsOption = {
+    color: ["#059669", "#2563eb"],
+    animationDuration: 300,
     tooltip: {
       trigger: "axis",
-
-      formatter: (params) => {
-        const items = Array.isArray(params) ? params : [params];
-
-        const first = items[0];
-
-        if (!first) {
-          return "";
-        }
-
-        const firstValue = Array.isArray(first.value) ? first.value : [];
-
-        const timestamp = firstValue[0]
-          ? new Date(String(firstValue[0])).toLocaleString("th-TH")
-          : "";
-
-        const lines = [timestamp];
-
-        for (const item of items) {
-          const values = Array.isArray(item.value) ? item.value : [];
-
-          const value = Number(values[1]);
-
-          if (Number.isNaN(value)) {
-            continue;
-          }
-
-          lines.push(
-            `${String(item.seriesName)}: ${formatBytesPerSecond(value)}`,
-          );
-        }
-
-        return lines.join("<br/>");
-      },
+      valueFormatter: (value) => formatBytesPerSecond(Number(value)),
     },
-
-    legend: {
-      type: "scroll",
-      top: 0,
-    },
-
-    grid: {
-      left: 70,
-      right: 24,
-      top: 60,
-      bottom: 70,
-    },
-
+    legend: { top: 0, textStyle: { color: "#475569" } },
+    grid: { left: 72, right: 24, top: 48, bottom: 42 },
     xAxis: {
       type: "time",
-      name: "Time",
-      nameLocation: "middle",
-      nameGap: 42,
+      axisLine: { lineStyle: { color: "#cbd5e1" } },
+      axisLabel: { color: "#64748b" },
     },
-
     yAxis: {
       type: "value",
-      name: "Bytes per second",
       min: 0,
       axisLabel: {
+        color: "#64748b",
         formatter: (value: number) => formatBytesPerSecond(value),
       },
+      splitLine: { lineStyle: { color: "#e2e8f0", type: "dashed" } },
     },
-
-    dataZoom: [
+    dataZoom: [{ type: "inside" }],
+    series: [
       {
-        type: "inside",
+        name: "RX",
+        type: "line",
+        smooth: true,
+        showSymbol: false,
+        lineStyle: { width: 2 },
+        data: data.map((point) => [point.timestamp, point.receiveBytesPerSecond]),
       },
       {
-        type: "slider",
-        height: 20,
-        bottom: 10,
+        name: "TX",
+        type: "line",
+        smooth: true,
+        showSymbol: false,
+        lineStyle: { width: 2 },
+        data: data.map((point) => [point.timestamp, point.transmitBytesPerSecond]),
       },
     ],
-
-    series: devices.flatMap((device) => {
-      const devicePoints = data.filter((point) => point.device === device);
-
-      return [
-        {
-          name: `${device} RX`,
-          type: "line" as const,
-          smooth: true,
-          showSymbol: false,
-          data: devicePoints.map((point) => [
-            point.timestamp,
-            point.receiveBytesPerSecond,
-          ]),
-        },
-        {
-          name: `${device} TX`,
-          type: "line" as const,
-          smooth: true,
-          showSymbol: false,
-          data: devicePoints.map((point) => [
-            point.timestamp,
-            point.transmitBytesPerSecond,
-          ]),
-        },
-      ];
-    }),
   };
 
   return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between">
+    <Card className="border-slate-200 shadow-none">
+      <CardHeader className="flex flex-col gap-3 border-b border-slate-100 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <CardTitle className="text-base">Network Rate</CardTitle>
-
-          <p className="mt-1 text-xs text-muted-foreground">
-            Receive and transmit traffic during the selected time range.
+          <CardTitle className="text-sm">Network</CardTitle>
+          <p className="mt-1 text-xs text-slate-500">
+            Receive and transmit rates per interface
           </p>
         </div>
 
-        {networkQuery.isFetching && (
-          <span className="text-xs text-muted-foreground">Updating...</span>
-        )}
+        <Select
+          value={selectedDevice}
+          onValueChange={(value) => value && setSelectedDevice(value)}
+        >
+          <SelectTrigger className="w-44 bg-white">
+            <SelectValue>
+              {selectedDevice === "ALL" ? "All interfaces" : selectedDevice}
+            </SelectValue>
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="ALL">All interfaces</SelectItem>
+            {devices.map((device) => (
+              <SelectItem key={device} value={device}>
+                {device}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </CardHeader>
 
-      <CardContent>
+      <CardContent className="space-y-4 p-5">
+        <div className="space-y-3">
+          <MetricChartStatsRow
+            label="RX"
+            stats={receiveStats}
+            formatter={formatBytesPerSecond}
+            accentClassName="bg-emerald-600"
+          />
+          <MetricChartStatsRow
+            label="TX"
+            stats={transmitStats}
+            formatter={formatBytesPerSecond}
+            accentClassName="bg-blue-600"
+          />
+        </div>
+
         {data.length === 0 ? (
-          <div className="py-10 text-center text-sm text-muted-foreground">
+          <div className="py-16 text-center text-sm text-slate-500">
             No network data found.
           </div>
         ) : (
@@ -207,12 +182,19 @@ export function NetworkRateChart({
             option={option}
             notMerge
             lazyUpdate
-            style={{
-              height: 360,
-              width: "100%",
-            }}
+            style={{ height: 320, width: "100%" }}
           />
         )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function ChartMessage({ message, destructive = false }: { message: string; destructive?: boolean }) {
+  return (
+    <Card className="border-slate-200 shadow-none">
+      <CardContent className={`py-16 text-center text-sm ${destructive ? "text-rose-600" : "text-slate-500"}`}>
+        {message}
       </CardContent>
     </Card>
   );
