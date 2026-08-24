@@ -18,7 +18,6 @@ import {
   SelectContent,
   SelectItem,
   SelectTrigger,
-  SelectValue,
 } from "@/components/ui/select";
 import type {
   Asset,
@@ -33,19 +32,9 @@ import { AssetActions } from "./asset-actions";
 import Link from "next/link";
 import { Search } from "lucide-react";
 
+type AssetStatusFilter = "CURRENT" | "ALL" | AssetStatus;
+
 function getTargetAddress(asset: Asset): string {
-  if (asset.targetType === "SERVER") {
-    return asset.ipAddress ?? "-";
-  }
-
-  return asset.endpoint ?? "-";
-}
-
-function getAssetSubtitle(asset: Asset): string {
-  if (asset.hostname) {
-    return asset.hostname;
-  }
-
   if (asset.targetType === "SERVER") {
     return asset.ipAddress ?? "-";
   }
@@ -67,7 +56,7 @@ function formatTargetType(value: AssetTargetType): string {
     case "APPLICATION":
       return "Application";
     case "SERVICE":
-      return "Service";
+      return "Application";
   }
 }
 
@@ -109,9 +98,8 @@ function getTypeClass(type: AssetTargetType): string {
     case "SERVER":
       return "border-blue-200 bg-blue-50 text-blue-700";
     case "APPLICATION":
-      return "border-violet-200 bg-violet-50 text-violet-700";
     case "SERVICE":
-      return "border-slate-200 bg-slate-50 text-slate-700";
+      return "border-violet-200 bg-violet-50 text-violet-700";
   }
 }
 
@@ -119,7 +107,7 @@ export function AssetsTable() {
   const { data, isLoading, isError, error, isFetching } = useAssets();
   const [search, setSearch] = useState("");
   const [targetType, setTargetType] = useState<"ALL" | AssetTargetType>("ALL");
-  const [status, setStatus] = useState<"ALL" | AssetStatus>("ALL");
+  const [status, setStatus] = useState<AssetStatusFilter>("CURRENT");
   const [environment, setEnvironment] = useState<"ALL" | AssetEnvironment>(
     "ALL",
   );
@@ -136,12 +124,17 @@ export function AssetsTable() {
         asset.endpoint?.toLowerCase().includes(normalizedSearch);
 
       const matchesTargetType =
-        targetType === "ALL" || asset.targetType === targetType;
+        targetType === "ALL" ||
+        asset.targetType === targetType ||
+        (targetType === "APPLICATION" && asset.targetType === "SERVICE");
 
       const matchesEnvironment =
         environment === "ALL" || asset.environment === environment;
 
-      const matchesStatus = status === "ALL" || asset.status === status;
+      const matchesStatus =
+        status === "ALL" ||
+        (status === "CURRENT" && asset.status !== "DEACTIVATE") ||
+        asset.status === status;
 
       return (
         matchesSearch &&
@@ -204,7 +197,7 @@ export function AssetsTable() {
             <Input
               value={search}
               onChange={(event) => setSearch(event.target.value)}
-              placeholder="Search assets..."
+              placeholder="Search name, hostname, IP, endpoint"
               className="pl-9"
             />
           </div>
@@ -227,7 +220,6 @@ export function AssetsTable() {
               <SelectItem value="ALL">All types</SelectItem>
               <SelectItem value="SERVER">Server</SelectItem>
               <SelectItem value="APPLICATION">Application</SelectItem>
-              <SelectItem value="SERVICE">Service</SelectItem>
             </SelectContent>
           </Select>
 
@@ -259,11 +251,16 @@ export function AssetsTable() {
           >
             <SelectTrigger className="w-36">
               <span className="truncate">
-                {status === "ALL" ? "All statuses" : formatStatus(status)}
+                {status === "CURRENT"
+                  ? "Current"
+                  : status === "ALL"
+                    ? "All statuses"
+                    : formatStatus(status)}
               </span>
             </SelectTrigger>
 
             <SelectContent>
+              <SelectItem value="CURRENT">Current</SelectItem>
               <SelectItem value="ALL">All statuses</SelectItem>
               <SelectItem value="ACTIVATE">Active</SelectItem>
               <SelectItem value="INACTIVATE">Inactive</SelectItem>
@@ -279,14 +276,14 @@ export function AssetsTable() {
               search.length === 0 &&
               targetType === "ALL" &&
               environment === "ALL" &&
-              status === "ALL"
+              status === "CURRENT"
             }
             className="text-slate-500"
             onClick={() => {
               setSearch("");
               setTargetType("ALL");
               setEnvironment("ALL");
-              setStatus("ALL");
+              setStatus("CURRENT");
             }}
           >
             Clear
@@ -316,10 +313,6 @@ export function AssetsTable() {
               </TableHead>
 
               <TableHead className="text-xs font-medium text-slate-500">
-                Monitoring
-              </TableHead>
-
-              <TableHead className="text-xs font-medium text-slate-500">
                 Updated
               </TableHead>
 
@@ -332,7 +325,7 @@ export function AssetsTable() {
           <TableBody>
             {filteredAssets.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={8} className="h-32 text-center">
+                <TableCell colSpan={7} className="h-32 text-center">
                   <p className="text-sm font-medium text-slate-700">
                     No assets found
                   </p>
@@ -391,22 +384,6 @@ export function AssetsTable() {
                     >
                       {formatStatus(asset.status)}
                     </Badge>
-                  </TableCell>
-
-                  <TableCell>
-                    <div className="flex items-center gap-2">
-                      <span
-                        className={
-                          asset.monitoringEnable
-                            ? "size-2 rounded-full bg-blue-500"
-                            : "size-2 rounded-full bg-slate-300"
-                        }
-                      />
-
-                      <span className="text-xs text-slate-600">
-                        {asset.monitoringEnable ? "Enabled" : "Disabled"}
-                      </span>
-                    </div>
                   </TableCell>
 
                   <TableCell className="whitespace-nowrap text-xs text-slate-500">

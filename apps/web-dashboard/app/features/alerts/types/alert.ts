@@ -2,6 +2,8 @@ export type AlertStatus = "TRIGGERED" | "ACKNOWLEDGED" | "RESOLVED" | "CLOSED";
 
 export type AlertSeverity = "WARNING" | "CRITICAL";
 
+export type AlertResolutionReason = "METRIC_RECOVERED" | "ASSET_DEACTIVATED";
+
 export interface Alert {
   alertId: string;
   ruleId: string;
@@ -15,6 +17,7 @@ export interface Alert {
   triggeredAt: string;
   acknowledgedAt: string | null;
   resolvedAt: string | null;
+  resolutionReason: AlertResolutionReason | null;
   closedAt: string | null;
   createdAt: string;
   updatedAt: string;

@@ -4,6 +4,7 @@ import { Bell } from "lucide-react";
 
 import { useAlerts } from "@/app/features/alerts/api/use-alerts";
 import type {
+  AlertResolutionReason,
   AlertSeverity,
   AlertStatus,
 } from "@/app/features/alerts/types/alert";
@@ -80,6 +81,21 @@ function formatStatus(status: AlertStatus): string {
   }
 }
 
+function formatResolutionReason(
+  reason: AlertResolutionReason | null,
+): string {
+  switch (reason) {
+    case "METRIC_RECOVERED":
+      return "Metric recovered";
+
+    case "ASSET_DEACTIVATED":
+      return "Asset deactivated";
+
+    case null:
+      return "—";
+  }
+}
+
 export function AssetAlertsOverview({ assetId }: AssetAlertsOverviewProps) {
   const alertsQuery = useAlerts({
     assetId,
@@ -147,6 +163,8 @@ export function AssetAlertsOverview({ assetId }: AssetAlertsOverviewProps) {
 
                 <TableHead className="text-xs">Status</TableHead>
 
+                <TableHead className="text-xs">Reason</TableHead>
+
                 <TableHead className="text-right text-xs">Triggered</TableHead>
               </TableRow>
             </TableHeader>
@@ -182,6 +200,10 @@ export function AssetAlertsOverview({ assetId }: AssetAlertsOverviewProps) {
                     >
                       {formatStatus(alert.status)}
                     </Badge>
+                  </TableCell>
+
+                  <TableCell className="text-xs text-slate-600">
+                    {formatResolutionReason(alert.resolutionReason)}
                   </TableCell>
 
                   <TableCell className="text-right text-xs text-slate-500">

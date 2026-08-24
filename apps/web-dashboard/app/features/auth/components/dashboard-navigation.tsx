@@ -87,7 +87,6 @@ const navigationGroups: NavigationGroup[] = [
         href: "/audit-logs",
         label: "Audit Logs",
         icon: ScrollText,
-        disabled: true,
       },
       {
         href: "/reports",

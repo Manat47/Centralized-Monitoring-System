@@ -21,11 +21,16 @@ interface AssetHealthOverviewProps {
   assetId: string;
 }
 
-type HealthStatus = "AVAILABLE" | "UNAVAILABLE" | "UNKNOWN";
+type HealthStatus = "AVAILABLE" | "UNAVAILABLE" | "DISABLED" | "UNKNOWN";
 
 function getHealthStatus(
+  enabled: boolean,
   latest: LatestHealthCheck | null | undefined,
 ): HealthStatus {
+  if (!enabled) {
+    return "DISABLED";
+  }
+
   if (!latest) {
     return "UNKNOWN";
   }
@@ -117,11 +122,9 @@ export function AssetHealthOverview({ assetId }: AssetHealthOverviewProps) {
           <Table>
             <TableHeader>
               <TableRow className="bg-slate-50/70 hover:bg-slate-50/70">
-                <TableHead className="text-xs">Endpoint</TableHead>
+                <TableHead className="text-xs">URL</TableHead>
 
-                <TableHead className="w-28 text-xs">Check</TableHead>
-
-                <TableHead className="w-32 text-xs">Latest Result</TableHead>
+                <TableHead className="w-32 text-xs">Status</TableHead>
 
                 <TableHead className="w-20 text-xs">HTTP</TableHead>
 
@@ -139,7 +142,7 @@ export function AssetHealthOverview({ assetId }: AssetHealthOverviewProps) {
               {assetTargets.map((target, index) => {
                 const latest = latestQueries[index]?.data;
 
-                const status = getHealthStatus(latest);
+                const status = getHealthStatus(target.enabled, latest);
 
                 return (
                   <TableRow key={target.healthCheckTargetId}>
@@ -150,22 +153,6 @@ export function AssetHealthOverview({ assetId }: AssetHealthOverviewProps) {
                       >
                         {target.url}
                       </p>
-                    </TableCell>
-
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        <span
-                          className={
-                            target.enabled
-                              ? "size-2 rounded-full bg-blue-500"
-                              : "size-2 rounded-full bg-slate-300"
-                          }
-                        />
-
-                        <span className="text-xs text-slate-600">
-                          {target.enabled ? "Enabled" : "Disabled"}
-                        </span>
-                      </div>
                     </TableCell>
 
                     <TableCell>
@@ -185,7 +172,9 @@ export function AssetHealthOverview({ assetId }: AssetHealthOverviewProps) {
                             ? "Available"
                             : status === "UNAVAILABLE"
                               ? "Unavailable"
-                              : "Unknown"}
+                              : status === "DISABLED"
+                                ? "Disabled"
+                                : "Unknown"}
                         </span>
                       </div>
                     </TableCell>

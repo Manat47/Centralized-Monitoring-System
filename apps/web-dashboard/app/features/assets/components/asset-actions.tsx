@@ -19,6 +19,7 @@ export function AssetActions({ asset }: AssetActionsProps) {
   const deactivateMutation = useDeactivateAsset();
 
   const isPending = statusMutation.isPending || deactivateMutation.isPending;
+  const isDeactivated = asset.status === "DEACTIVATE";
 
   async function changeStatus(
     status: "ACTIVATE" | "INACTIVATE",
@@ -52,40 +53,44 @@ export function AssetActions({ asset }: AssetActionsProps) {
   return (
     <AdminOnly>
       <div className="flex flex-col items-end gap-1">
-        <div className="flex flex-nowrap items-center justify-end gap-1">
-          <EditAssetDialog asset={asset} />
+        {isDeactivated ? (
+          <span className="rounded-md border border-slate-200 bg-slate-50 px-2 py-1 text-xs font-medium text-slate-500">
+            Read-only
+          </span>
+        ) : (
+          <div className="flex flex-nowrap items-center justify-end gap-1">
+            <EditAssetDialog asset={asset} />
 
-          {asset.status !== "ACTIVATE" && (
-            <Button
-              type="button"
-              size="xs"
-              variant="outline"
-              disabled={isPending}
-              onClick={() => void changeStatus("ACTIVATE")}
-            >
-              {statusMutation.isPending &&
-              statusMutation.variables?.assetId === asset.assetId
-                ? "Updating..."
-                : "Activate"}
-            </Button>
-          )}
+            {asset.status === "INACTIVATE" && (
+              <Button
+                type="button"
+                size="xs"
+                variant="outline"
+                disabled={isPending}
+                onClick={() => void changeStatus("ACTIVATE")}
+              >
+                {statusMutation.isPending &&
+                statusMutation.variables?.assetId === asset.assetId
+                  ? "Updating..."
+                  : "Activate"}
+              </Button>
+            )}
 
-          {asset.status === "ACTIVATE" && (
-            <Button
-              type="button"
-              size="xs"
-              variant="outline"
-              disabled={isPending}
-              onClick={() => void changeStatus("INACTIVATE")}
-            >
-              {statusMutation.isPending &&
-              statusMutation.variables?.assetId === asset.assetId
-                ? "Updating..."
-                : "Inactivate"}
-            </Button>
-          )}
+            {asset.status === "ACTIVATE" && (
+              <Button
+                type="button"
+                size="xs"
+                variant="outline"
+                disabled={isPending}
+                onClick={() => void changeStatus("INACTIVATE")}
+              >
+                {statusMutation.isPending &&
+                statusMutation.variables?.assetId === asset.assetId
+                  ? "Updating..."
+                  : "Inactivate"}
+              </Button>
+            )}
 
-          {asset.status !== "DEACTIVATE" && (
             <Button
               type="button"
               size="xs"
@@ -98,8 +103,8 @@ export function AssetActions({ asset }: AssetActionsProps) {
                 ? "Deactivating..."
                 : "Deactivate"}
             </Button>
-          )}
-        </div>
+          </div>
+        )}
 
         {statusMutation.isError && (
           <p className="max-w-80 text-right text-xs text-destructive">
