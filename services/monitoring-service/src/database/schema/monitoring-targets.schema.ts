@@ -10,6 +10,7 @@ import {
   uuid,
   varchar,
 } from 'drizzle-orm/pg-core';
+import { sql } from 'drizzle-orm';
 
 export const verificationStatusEnum = pgEnum('verification_status', [
   'NOT_VERIFIED',
@@ -112,35 +113,49 @@ export const monitoringTargets = pgTable(
 export type MonitoringTargetRow = typeof monitoringTargets.$inferSelect;
 export type NewMonitoringTargetRow = typeof monitoringTargets.$inferInsert;
 
-export const healthCheckTargets = pgTable('health_check_targets', {
-  healthCheckTargetId: uuid('health_check_target_id')
-    .defaultRandom()
-    .primaryKey(),
+export const healthCheckTargets = pgTable(
+  'health_check_targets',
+  {
+    healthCheckTargetId: uuid('health_check_target_id')
+      .defaultRandom()
+      .primaryKey(),
 
-  assetId: uuid('asset_id').notNull(),
+    assetId: uuid('asset_id').notNull(),
 
-  url: varchar('url', { length: 2048 }).notNull(),
+    url: varchar('url', { length: 2048 }).notNull(),
 
-  checkIntervalSeconds: integer('check_interval_seconds').default(15).notNull(),
+    checkIntervalSeconds: integer('check_interval_seconds')
+      .default(15)
+      .notNull(),
 
-  enabled: boolean('enabled').default(false).notNull(),
+    enabled: boolean('enabled').default(true).notNull(),
 
-  lastCheckedAt: timestamp('last_checked_at', {
-    withTimezone: true,
-  }),
+    archivedAt: timestamp('archived_at', {
+      withTimezone: true,
+    }),
 
-  createdAt: timestamp('created_at', {
-    withTimezone: true,
-  })
-    .defaultNow()
-    .notNull(),
+    lastCheckedAt: timestamp('last_checked_at', {
+      withTimezone: true,
+    }),
 
-  updatedAt: timestamp('updated_at', {
-    withTimezone: true,
-  })
-    .defaultNow()
-    .notNull(),
-});
+    createdAt: timestamp('created_at', {
+      withTimezone: true,
+    })
+      .defaultNow()
+      .notNull(),
+
+    updatedAt: timestamp('updated_at', {
+      withTimezone: true,
+    })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    uniqueIndex('health_check_targets_active_asset_url_unique')
+      .on(table.assetId, table.url)
+      .where(sql`${table.archivedAt} is null`),
+  ],
+);
 
 export type HealthCheckTargetRow = typeof healthCheckTargets.$inferSelect;
 export type NewHealthCheckTargetRow = typeof healthCheckTargets.$inferInsert;

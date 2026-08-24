@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { eq } from 'drizzle-orm';
+import { and, eq, isNull } from 'drizzle-orm';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
 
 import { DRIZZLE_DB } from '../../../database/database.provider';
@@ -28,6 +28,7 @@ export class DrizzleHealthCheckTargetRepository implements HealthCheckTargetRepo
         url: data.url,
         checkIntervalSeconds: data.checkIntervalSeconds,
         enabled: data.enabled,
+        archivedAt: data.archivedAt,
         lastCheckedAt: data.lastCheckedAt,
         createdAt: data.createdAt,
         updatedAt: data.updatedAt,
@@ -66,11 +67,35 @@ export class DrizzleHealthCheckTargetRepository implements HealthCheckTargetRepo
     return rows.map((row) => this.toDomain(row));
   }
 
+  async findActiveByAssetIdAndUrl(
+    assetId: string,
+    url: string,
+  ): Promise<HealthCheckTarget | null> {
+    const [row] = await this.db
+      .select()
+      .from(schema.healthCheckTargets)
+      .where(
+        and(
+          eq(schema.healthCheckTargets.assetId, assetId),
+          eq(schema.healthCheckTargets.url, url),
+          isNull(schema.healthCheckTargets.archivedAt),
+        ),
+      )
+      .limit(1);
+
+    return row ? this.toDomain(row) : null;
+  }
+
   async findEnabled(): Promise<HealthCheckTarget[]> {
     const rows = await this.db
       .select()
       .from(schema.healthCheckTargets)
-      .where(eq(schema.healthCheckTargets.enabled, true));
+      .where(
+        and(
+          eq(schema.healthCheckTargets.enabled, true),
+          isNull(schema.healthCheckTargets.archivedAt),
+        ),
+      );
 
     return rows.map((row) => this.toDomain(row));
   }
@@ -84,6 +109,7 @@ export class DrizzleHealthCheckTargetRepository implements HealthCheckTargetRepo
         url: data.url,
         checkIntervalSeconds: data.checkIntervalSeconds,
         enabled: data.enabled,
+        archivedAt: data.archivedAt,
         lastCheckedAt: data.lastCheckedAt,
         updatedAt: data.updatedAt,
       })
@@ -105,6 +131,7 @@ export class DrizzleHealthCheckTargetRepository implements HealthCheckTargetRepo
       url: row.url,
       checkIntervalSeconds: row.checkIntervalSeconds,
       enabled: row.enabled,
+      archivedAt: row.archivedAt,
       lastCheckedAt: row.lastCheckedAt,
       createdAt: row.createdAt,
       updatedAt: row.updatedAt,

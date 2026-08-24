@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   Inject,
   Injectable,
   NotFoundException,
@@ -9,6 +10,7 @@ import { randomUUID } from 'node:crypto';
 import {
   HealthCheckTarget,
   type CreateHealthCheckTargetProps,
+  normalizeHealthCheckUrl,
 } from '../../domain/entities/health-check-target.entity';
 
 import {
@@ -63,9 +65,29 @@ export class CreateHealthCheckTargetUseCase {
       );
     }
 
+    if (asset.assetType !== 'APPLICATION') {
+      throw new BadRequestException(
+        'Health checks can only be configured for application assets',
+      );
+    }
+
+    const normalizedUrl = normalizeHealthCheckUrl(input.url);
+
+    const existingTarget =
+      await this.healthCheckTargetRepository.findActiveByAssetIdAndUrl(
+        asset.assetId,
+        normalizedUrl,
+      );
+
+    if (existingTarget) {
+      throw new ConflictException(
+        'An active health check already exists for this application and URL',
+      );
+    }
+
     const createProps: CreateHealthCheckTargetProps = {
       assetId: asset.assetId,
-      url: input.url,
+      url: normalizedUrl,
       checkIntervalSeconds: input.checkIntervalSeconds,
     };
 

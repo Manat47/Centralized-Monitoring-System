@@ -1,15 +1,13 @@
 "use client";
 
-import { useQueries } from "@tanstack/react-query";
 import { Activity } from "lucide-react";
 
 import { useAssets } from "@/app/features/assets/api/use-assets";
-import { getLatestHealthCheck } from "@/app/features/health-checks/api/get-latest-health-check";
 import { useHealthCheckTargets } from "@/app/features/health-checks/api/use-health-check-targets";
 import type {
   HealthCheckTarget,
-  LatestHealthCheck,
 } from "@/app/features/health-checks/types/health-check";
+import { getHealthResultStatus } from "@/app/features/health-checks/components/health-check-status";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Table,
@@ -19,26 +17,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-
-type HealthStatus = "AVAILABLE" | "UNAVAILABLE" | "UNKNOWN";
-
-function getHealthStatus(
-  latest: LatestHealthCheck | null | undefined,
-): HealthStatus {
-  if (!latest) {
-    return "UNKNOWN";
-  }
-
-  if (
-    latest.statusCode !== null &&
-    latest.statusCode >= 200 &&
-    latest.statusCode < 300
-  ) {
-    return "AVAILABLE";
-  }
-
-  return "UNAVAILABLE";
-}
 
 function formatCheckedAt(value: string | null): string {
   if (!value) {
@@ -61,23 +39,17 @@ export function HealthOverview() {
 
   const { data: assets } = useAssets();
 
-  const enabledTargets = (targets ?? []).filter((target) => target.enabled);
-
-  const latestQueries = useQueries({
-    queries: enabledTargets.map((target) => ({
-      queryKey: ["health-check-targets", target.healthCheckTargetId, "latest"],
-      queryFn: () => getLatestHealthCheck(target.healthCheckTargetId),
-      refetchInterval: 15_000,
-    })),
-  });
+  const enabledTargets = (targets ?? []).filter(
+    (target) => target.enabled && !target.archivedAt,
+  );
 
   const assetNames = new Map(
     (assets ?? []).map((asset) => [asset.assetId, asset.name]),
   );
 
-  const rows = enabledTargets.map((target: HealthCheckTarget, index) => {
-    const latest = latestQueries[index]?.data;
-    const status = getHealthStatus(latest);
+  const rows = enabledTargets.map((target: HealthCheckTarget) => {
+    const latest = target.latest;
+    const status = getHealthResultStatus(target);
 
     return {
       target,
@@ -179,6 +151,8 @@ export function HealthOverview() {
                             ? "size-2 rounded-full bg-emerald-500"
                             : status === "UNAVAILABLE"
                               ? "size-2 rounded-full bg-rose-500"
+                              : status === "STALE"
+                                ? "size-2 rounded-full bg-amber-500"
                               : "size-2 rounded-full bg-slate-300"
                         }
                       />
@@ -188,6 +162,8 @@ export function HealthOverview() {
                           ? "Available"
                           : status === "UNAVAILABLE"
                             ? "Unavailable"
+                            : status === "STALE"
+                              ? "Stale"
                             : "Unknown"}
                       </span>
                     </div>

@@ -71,6 +71,8 @@ import { QueryMetricsReportSummaryUseCase } from './application/use-cases/query-
 import { QueryHealthReportSummaryUseCase } from './application/use-cases/query-health-report-summary.use-case';
 import { MonitoringEndpointResolver } from './application/services/monitoring-endpoint-resolver.service';
 import { MonitoringConfigFingerprintService } from './application/services/monitoring-config-fingerprint.service';
+import { UpdateHealthCheckTargetUseCase } from './application/use-cases/update-health-check-target.use-case';
+import { ArchiveHealthCheckTargetUseCase } from './application/use-cases/archive-health-check-target.use-case';
 @Module({
   imports: [
     HttpModule,
@@ -170,6 +172,8 @@ import { MonitoringConfigFingerprintService } from './application/services/monit
     QueryLatestHealthCheckUseCase,
     QueryMetricsReportSummaryUseCase,
     QueryHealthReportSummaryUseCase,
+    UpdateHealthCheckTargetUseCase,
+    ArchiveHealthCheckTargetUseCase,
     MonitoringEndpointResolver,
     MonitoringConfigFingerprintService,
     {

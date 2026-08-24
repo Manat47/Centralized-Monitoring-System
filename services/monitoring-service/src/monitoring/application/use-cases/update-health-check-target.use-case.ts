@@ -9,35 +9,33 @@ import {
   HEALTH_CHECK_TARGET_REPOSITORY,
   type HealthCheckTargetRepository,
 } from '../../domain/repositories/health-check-target.repository';
-
-import { HealthCheckTarget } from '../../domain/entities/health-check-target.entity';
-
 import {
   AUDIT_EVENT_PUBLISHER,
   type AuditEventPublisher,
+  type UserRole,
 } from '../../domain/ports/audit-event-publisher.port';
+import type { HealthCheckTarget } from '../../domain/entities/health-check-target.entity';
 
-export interface DisableHealthCheckTargetInput {
+export interface UpdateHealthCheckTargetInput {
+  checkIntervalSeconds: number;
   actorUserId: string;
-  actorRole: 'ADMIN' | 'OPERATOR';
+  actorRole: UserRole;
 }
 
 @Injectable()
-export class DisableHealthCheckTargetUseCase {
+export class UpdateHealthCheckTargetUseCase {
   constructor(
     @Inject(HEALTH_CHECK_TARGET_REPOSITORY)
-    private readonly healthCheckTargetRepository: HealthCheckTargetRepository,
-
+    private readonly repository: HealthCheckTargetRepository,
     @Inject(AUDIT_EVENT_PUBLISHER)
     private readonly auditEventPublisher: AuditEventPublisher,
   ) {}
 
   async execute(
     healthCheckTargetId: string,
-    input: DisableHealthCheckTargetInput,
+    input: UpdateHealthCheckTargetInput,
   ): Promise<HealthCheckTarget> {
-    const target =
-      await this.healthCheckTargetRepository.findById(healthCheckTargetId);
+    const target = await this.repository.findById(healthCheckTargetId);
 
     if (!target) {
       throw new NotFoundException(
@@ -46,24 +44,20 @@ export class DisableHealthCheckTargetUseCase {
     }
 
     if (target.toObject().archivedAt) {
-      throw new BadRequestException('Archived health check cannot be paused');
+      throw new BadRequestException('Archived health check cannot be updated');
     }
 
-    target.disable();
+    target.updateInterval(input.checkIntervalSeconds);
 
-    const updatedTarget = await this.healthCheckTargetRepository.update(target);
+    const updatedTarget = await this.repository.update(target);
 
     await this.auditEventPublisher.publish({
       actorUserId: input.actorUserId,
       actorRole: input.actorRole,
-
-      action: 'HEALTH_CHECK_TARGET_DISABLED',
-
+      action: 'HEALTH_CHECK_TARGET_UPDATED',
       resourceType: 'HEALTH_CHECK_TARGET',
       resourceId: healthCheckTargetId,
-
       result: 'SUCCESS',
-
       occurredAt: new Date(),
     });
 

@@ -176,4 +176,74 @@ export class InfluxHealthCheckQuery implements HealthCheckQuery {
 
     return rows[0] ?? null;
   }
+
+  async queryLatestMany(
+    healthCheckTargetIds: string[],
+  ): Promise<Map<string, HealthCheckHistoryPoint>> {
+    if (healthCheckTargetIds.length === 0) {
+      return new Map();
+    }
+
+    const requestedIds = new Set(healthCheckTargetIds);
+    const query = flux`
+      from(bucket: ${this.bucket})
+        |> range(start: 0)
+        |> filter(fn: (r) => r._measurement == "health_check")
+        |> filter(
+          fn: (r) =>
+            r._field == "statusCode" or
+            r._field == "responseTimeMs" or
+            r._field == "error"
+        )
+        |> pivot(
+          rowKey: ["_time"],
+          columnKey: ["_field"],
+          valueColumn: "_value"
+        )
+        |> group(columns: ["healthCheckTargetId"])
+        |> sort(columns: ["_time"], desc: true)
+        |> limit(n: 1)
+    `;
+
+    interface LatestRow extends HealthCheckHistoryPoint {
+      healthCheckTargetId: string;
+    }
+
+    const rows = await this.queryApi.collectRows<LatestRow>(
+      query,
+      (values: string[], tableMeta: FluxTableMetaData) => {
+        const row = tableMeta.toObject(values) as Record<string, unknown>;
+
+        if (
+          typeof row._time !== 'string' ||
+          typeof row.healthCheckTargetId !== 'string' ||
+          !requestedIds.has(row.healthCheckTargetId)
+        ) {
+          return undefined;
+        }
+
+        return {
+          healthCheckTargetId: row.healthCheckTargetId,
+          timestamp: new Date(row._time),
+          statusCode:
+            typeof row.statusCode === 'number' ? row.statusCode : null,
+          responseTimeMs:
+            typeof row.responseTimeMs === 'number' ? row.responseTimeMs : 0,
+          error: typeof row.error === 'string' ? row.error : null,
+        };
+      },
+    );
+
+    return new Map(
+      rows.map((row) => [
+        row.healthCheckTargetId,
+        {
+          timestamp: row.timestamp,
+          statusCode: row.statusCode,
+          responseTimeMs: row.responseTimeMs,
+          error: row.error,
+        },
+      ]),
+    );
+  }
 }

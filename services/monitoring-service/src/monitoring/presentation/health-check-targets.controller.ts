@@ -7,6 +7,7 @@ import {
   Param,
   Query,
   Headers,
+  Patch,
 } from '@nestjs/common';
 
 import { CreateHealthCheckTargetUseCase } from '../application/use-cases/create-health-check-target.use-case';
@@ -19,6 +20,10 @@ import { FindHealthCheckTargetByIdUseCase } from '../application/use-cases/find-
 import { FindHealthCheckTargetsUseCase } from '../application/use-cases/find-health-check-targets.use-case';
 import { QueryLatestHealthCheckUseCase } from '../application/use-cases/query-latest-health-check.use-case';
 import { QueryHealthReportSummaryUseCase } from '../application/use-cases/query-health-report-summary.use-case';
+import { UpdateHealthCheckTargetDto } from './dto/update-health-check-target.dto';
+import { UpdateHealthCheckTargetUseCase } from '../application/use-cases/update-health-check-target.use-case';
+import { ArchiveHealthCheckTargetUseCase } from '../application/use-cases/archive-health-check-target.use-case';
+import { CheckHealthTargetUseCase } from '../application/use-cases/check-health-target.use-case';
 
 @Controller('health-check-targets')
 export class HealthCheckTargetsController {
@@ -31,6 +36,9 @@ export class HealthCheckTargetsController {
     private readonly findHealthCheckTargetsUseCase: FindHealthCheckTargetsUseCase,
     private readonly queryLatestHealthCheckUseCase: QueryLatestHealthCheckUseCase,
     private readonly queryHealthReportSummaryUseCase: QueryHealthReportSummaryUseCase,
+    private readonly updateHealthCheckTargetUseCase: UpdateHealthCheckTargetUseCase,
+    private readonly archiveHealthCheckTargetUseCase: ArchiveHealthCheckTargetUseCase,
+    private readonly checkHealthTargetUseCase: CheckHealthTargetUseCase,
   ) {}
 
   @Post()
@@ -76,6 +84,48 @@ export class HealthCheckTargetsController {
     return target.toObject();
   }
 
+  @Patch(':id')
+  async update(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body() dto: UpdateHealthCheckTargetDto,
+    @Headers('x-user-id') actorUserId: string,
+    @Headers('x-user-role') actorRole: 'ADMIN' | 'OPERATOR',
+  ) {
+    const target = await this.updateHealthCheckTargetUseCase.execute(id, {
+      ...dto,
+      actorUserId,
+      actorRole,
+    });
+
+    return target.toObject();
+  }
+
+  @Post(':id/check-now')
+  async checkNow(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Headers('x-user-id') actorUserId: string,
+    @Headers('x-user-role') actorRole: 'ADMIN' | 'OPERATOR',
+  ) {
+    return this.checkHealthTargetUseCase.execute(id, {
+      actorUserId,
+      actorRole,
+    });
+  }
+
+  @Post(':id/archive')
+  async archive(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Headers('x-user-id') actorUserId: string,
+    @Headers('x-user-role') actorRole: 'ADMIN' | 'OPERATOR',
+  ) {
+    const target = await this.archiveHealthCheckTargetUseCase.execute(id, {
+      actorUserId,
+      actorRole,
+    });
+
+    return target.toObject();
+  }
+
   @Get(':id/history')
   async getHistory(
     @Param('id', new ParseUUIDPipe()) id: string,
@@ -102,9 +152,7 @@ export class HealthCheckTargetsController {
 
   @Get()
   async findAll() {
-    const targets = await this.findHealthCheckTargetsUseCase.execute();
-
-    return targets.map((target) => target.toObject());
+    return this.findHealthCheckTargetsUseCase.execute();
   }
 
   @Get(':id')

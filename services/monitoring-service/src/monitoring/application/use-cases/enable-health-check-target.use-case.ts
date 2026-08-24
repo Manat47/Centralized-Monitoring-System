@@ -55,6 +55,10 @@ export class EnableHealthCheckTargetUseCase {
 
     const data = target.toObject();
 
+    if (data.archivedAt) {
+      throw new BadRequestException('Archived health check cannot be resumed');
+    }
+
     const asset = await this.assetReader.findById(data.assetId);
 
     if (!asset) {
@@ -64,6 +68,12 @@ export class EnableHealthCheckTargetUseCase {
     if (asset.status === 'DEACTIVATE') {
       throw new BadRequestException(
         'Health check cannot be configured for a deactivated asset',
+      );
+    }
+
+    if (asset.assetType !== 'APPLICATION') {
+      throw new BadRequestException(
+        'Health checks can only run for application assets',
       );
     }
 

@@ -65,7 +65,6 @@ const navigationGroups: NavigationGroup[] = [
         href: "/health-checks",
         label: "Health Checks",
         icon: HeartPulse,
-        disabled: true,
       },
       {
         href: "/metric-rules",
