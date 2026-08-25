@@ -73,6 +73,9 @@ import { MonitoringEndpointResolver } from './application/services/monitoring-en
 import { MonitoringConfigFingerprintService } from './application/services/monitoring-config-fingerprint.service';
 import { UpdateHealthCheckTargetUseCase } from './application/use-cases/update-health-check-target.use-case';
 import { ArchiveHealthCheckTargetUseCase } from './application/use-cases/archive-health-check-target.use-case';
+import { UpdateMetricRuleUseCase } from './application/use-cases/update-metric-rule.use-case';
+import { SetMetricRuleEnabledUseCase } from './application/use-cases/set-metric-rule-enabled.use-case';
+import { ArchiveMetricRuleUseCase } from './application/use-cases/archive-metric-rule.use-case';
 @Module({
   imports: [
     HttpModule,
@@ -174,6 +177,9 @@ import { ArchiveHealthCheckTargetUseCase } from './application/use-cases/archive
     QueryHealthReportSummaryUseCase,
     UpdateHealthCheckTargetUseCase,
     ArchiveHealthCheckTargetUseCase,
+    UpdateMetricRuleUseCase,
+    SetMetricRuleEnabledUseCase,
+    ArchiveMetricRuleUseCase,
     MonitoringEndpointResolver,
     MonitoringConfigFingerprintService,
     {

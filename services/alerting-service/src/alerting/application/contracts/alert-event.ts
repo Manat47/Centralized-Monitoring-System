@@ -1,6 +1,7 @@
 export type AlertEventType =
   | 'METRIC_THRESHOLD_EXCEEDED'
   | 'METRIC_THRESHOLD_RECOVERED'
+  | 'METRIC_RULE_STATE_CHANGED'
   | 'HEALTH_CHECK_RESULT_RECORDED'
   | 'HEALTH_CHECK_TARGET_STATE_CHANGED';
 
@@ -32,6 +33,16 @@ export interface MetricThresholdRecoveredEvent {
   message: string;
 }
 
+export interface MetricRuleStateChangedEvent {
+  eventId: string;
+  eventType: 'METRIC_RULE_STATE_CHANGED';
+  ruleId: string;
+  assetId: string;
+  state: 'UPDATED' | 'DISABLED' | 'ARCHIVED';
+  occurredAt: string;
+  message: string;
+}
+
 export interface HealthCheckResultRecordedEvent {
   eventId: string;
   eventType: 'HEALTH_CHECK_RESULT_RECORDED';
@@ -59,5 +70,6 @@ export interface HealthCheckTargetStateChangedEvent {
 export type AlertEvent =
   | MetricThresholdExceededEvent
   | MetricThresholdRecoveredEvent
+  | MetricRuleStateChangedEvent
   | HealthCheckResultRecordedEvent
   | HealthCheckTargetStateChangedEvent;

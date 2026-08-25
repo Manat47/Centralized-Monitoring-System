@@ -166,7 +166,7 @@ export function RecipientPicker({
           <div
             id="recipient-options"
             role="listbox"
-            className="absolute z-30 mt-1 max-h-72 w-full overflow-y-auto rounded-md border bg-popover p-1 text-popover-foreground shadow-md sm:w-[calc(100%-7.75rem)]"
+            className="absolute z-30 mt-2 max-h-72 w-full overflow-y-auto rounded-md border border-slate-300 bg-white p-1.5 text-slate-900 shadow-[0_12px_32px_rgba(15,23,42,0.18)] ring-1 ring-slate-950/5 sm:w-[calc(100%-7.75rem)]"
           >
             {usersLoading ? (
               <p className="px-3 py-3 text-sm text-muted-foreground">
@@ -184,18 +184,24 @@ export function RecipientPicker({
                     onMouseDown={(event) => event.preventDefault()}
                     onMouseEnter={() => setHighlightedIndex(index)}
                     onClick={() => add(user.email)}
-                    className={`flex w-full items-center gap-3 rounded-sm px-3 py-2 text-left focus-visible:outline-none ${
-                      highlightedIndex === index ? "bg-accent" : "hover:bg-accent"
+                    className={`flex w-full items-center gap-3 rounded-md border px-3 py-2.5 text-left focus-visible:outline-none ${
+                      highlightedIndex === index
+                        ? "border-blue-200 bg-blue-50 shadow-sm"
+                        : "border-transparent hover:border-slate-200 hover:bg-slate-50"
                     }`}
                   >
                     <UserRound className="size-4 shrink-0 text-primary" />
                     <span className="min-w-0 flex-1">
-                      <span className="block truncate text-sm font-medium">
+                      <span className="block truncate text-sm font-semibold text-slate-900">
                         {user.displayName}
                       </span>
-                      <span className="block truncate text-xs text-muted-foreground">
-                        {user.email} · {user.role === "ADMIN" ? "Admin" : "Operator"}
+                      <span className="block truncate text-xs text-slate-600">
+                        {user.email} ·{" "}
+                        {user.role === "ADMIN" ? "Admin" : "Operator"}
                       </span>
+                    </span>
+                    <span className="hidden shrink-0 rounded border border-blue-200 bg-white px-2 py-0.5 text-xs font-medium text-blue-700 sm:inline-flex">
+                      System user
                     </span>
                   </button>
                 ))}
@@ -211,18 +217,18 @@ export function RecipientPicker({
                       setHighlightedIndex(availableUsers.length)
                     }
                     onClick={() => add(normalizedQuery)}
-                    className={`flex w-full items-center gap-3 rounded-sm px-3 py-2 text-left focus-visible:outline-none ${
+                    className={`flex w-full items-center gap-3 rounded-md border px-3 py-2.5 text-left focus-visible:outline-none ${
                       highlightedIndex === availableUsers.length
-                        ? "bg-accent"
-                        : "hover:bg-accent"
+                        ? "border-blue-200 bg-blue-50 shadow-sm"
+                        : "border-transparent hover:border-slate-200 hover:bg-slate-50"
                     }`}
                   >
                     <Mail className="size-4 shrink-0 text-muted-foreground" />
                     <span className="min-w-0">
-                      <span className="block text-sm font-medium">
+                      <span className="block text-sm font-semibold text-slate-900">
                         Add external email
                       </span>
-                      <span className="block truncate text-xs text-muted-foreground">
+                      <span className="block truncate text-xs text-slate-600">
                         {normalizedQuery}
                       </span>
                     </span>
@@ -244,7 +250,8 @@ export function RecipientPicker({
 
       {usersUnavailable && (
         <p className="text-xs text-amber-700">
-          System users could not be loaded. External email entry is still available.
+          System users could not be loaded. External email entry is still
+          available.
         </p>
       )}
     </div>

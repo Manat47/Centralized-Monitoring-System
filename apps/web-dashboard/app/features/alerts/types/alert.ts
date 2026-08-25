@@ -11,6 +11,9 @@ export type AlertType =
 
 export type AlertResolutionReason =
   | "METRIC_RECOVERED"
+  | "METRIC_RULE_UPDATED"
+  | "METRIC_RULE_DISABLED"
+  | "METRIC_RULE_ARCHIVED"
   | "HEALTH_CHECK_RECOVERED"
   | "HEALTH_CHECK_DATA_STALE"
   | "HEALTH_CHECK_DATA_RESUMED"

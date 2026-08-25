@@ -136,7 +136,10 @@ export class GenerateReportUseCase {
   }
 
   private toMetadata(report: ReturnType<Report['toObject']>) {
-    const { summary: _summary, pdfPath: _pdfPath, ...metadata } = report;
+    const metadata: Partial<ReturnType<Report['toObject']>> = { ...report };
+
+    delete metadata.summary;
+    delete metadata.pdfPath;
 
     return metadata;
   }

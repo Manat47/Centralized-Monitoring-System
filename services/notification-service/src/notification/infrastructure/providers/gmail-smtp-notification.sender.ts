@@ -7,6 +7,7 @@ import type {
   SendNotificationInput,
   SendUserInvitationInput,
 } from '../../domain/ports/notification-sender.port';
+import { buildAlertEmail } from './alert-email.template';
 
 @Injectable()
 export class GmailSmtpNotificationSender implements NotificationSender {
@@ -33,34 +34,43 @@ export class GmailSmtpNotificationSender implements NotificationSender {
   }
 
   async send(input: SendNotificationInput): Promise<void> {
+    const email = buildAlertEmail(input);
+
     await this.transporter.sendMail({
-      from: this.senderEmail,
+      from: {
+        name: 'Centralized Monitoring',
+        address: this.senderEmail,
+      },
       to: input.recipientEmail,
-      subject: input.title,
-      text: [
-        input.title,
-        '',
-        `Severity: ${input.severity}`,
-        `Asset ID: ${input.assetId}`,
-        `Alert ID: ${input.alertId}`,
-        `Occurred At: ${input.occurredAt.toISOString()}`,
-        '',
-        input.message,
-      ].join('\n'),
+      subject: email.subject,
+      text: email.text,
+      html: email.html,
     });
   }
 
   async sendTest(recipientEmail: string): Promise<void> {
+    const sentAt = new Date().toISOString();
+
     await this.transporter.sendMail({
-      from: this.senderEmail,
+      from: {
+        name: 'Centralized Monitoring',
+        address: this.senderEmail,
+      },
       to: recipientEmail,
-      subject: 'Monitoring notification test',
+      subject: '[Centralized Monitoring] Notification test',
       text: [
         'Monitoring notification test',
         '',
         'Email notifications are configured correctly for this recipient.',
-        `Sent at: ${new Date().toISOString()}`,
+        `Sent at: ${sentAt}`,
       ].join('\n'),
+      html: [
+        '<div style="font-family:Arial,sans-serif;max-width:600px;color:#0f172a;">',
+        '<h2>Centralized Monitoring</h2>',
+        '<p>Email notifications are configured correctly for this recipient.</p>',
+        `<p style="color:#64748b;font-size:13px;">Sent at ${sentAt}</p>`,
+        '</div>',
+      ].join(''),
     });
   }
 
@@ -69,9 +79,12 @@ export class GmailSmtpNotificationSender implements NotificationSender {
     const invitationUrl = this.escapeHtml(input.invitationUrl);
 
     await this.transporter.sendMail({
-      from: this.senderEmail,
+      from: {
+        name: 'Centralized Monitoring',
+        address: this.senderEmail,
+      },
       to: input.recipientEmail,
-      subject: 'You are invited to Centralized Monitoring',
+      subject: '[Centralized Monitoring] Account invitation',
       text: [
         `Hello ${input.displayName},`,
         '',

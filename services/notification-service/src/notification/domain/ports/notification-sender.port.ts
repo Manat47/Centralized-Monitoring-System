@@ -3,6 +3,10 @@ export interface SendNotificationInput {
   alertId: string;
   assetId: string;
   severity: 'WARNING' | 'CRITICAL';
+  status: 'TRIGGERED' | 'RESOLVED';
+  alertType: 'METRIC_THRESHOLD' | 'ENDPOINT_UNAVAILABLE' | 'HEALTH_CHECK_STALE';
+  metricType: string;
+  resolutionReason?: string;
   title: string;
   message: string;
   occurredAt: Date;

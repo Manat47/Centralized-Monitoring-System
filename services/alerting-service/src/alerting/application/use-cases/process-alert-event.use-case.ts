@@ -24,6 +24,7 @@ import type {
   HealthCheckTargetStateChangedEvent,
   MetricThresholdExceededEvent,
   MetricThresholdRecoveredEvent,
+  MetricRuleStateChangedEvent,
 } from '../contracts/alert-event';
 
 const HEALTH_FAILURE_THRESHOLD = 2;
@@ -54,6 +55,10 @@ export class ProcessAlertEventUseCase {
 
       if (event.eventType === 'METRIC_THRESHOLD_RECOVERED') {
         return await this.processMetricRecovered(event);
+      }
+
+      if (event.eventType === 'METRIC_RULE_STATE_CHANGED') {
+        return await this.processMetricRuleStateChanged(event);
       }
 
       if (event.eventType === 'HEALTH_CHECK_TARGET_STATE_CHANGED') {
@@ -113,6 +118,32 @@ export class ProcessAlertEventUseCase {
       event.actualValue,
       new Date(event.occurredAt),
       'METRIC_RECOVERED',
+      event.message,
+    );
+  }
+
+  private async processMetricRuleStateChanged(
+    event: MetricRuleStateChangedEvent,
+  ): Promise<Alert | null> {
+    const activeAlert = await this.alertRepository.findActiveByDedupKey(
+      `METRIC_RULE:${event.ruleId}:METRIC_THRESHOLD`,
+    );
+
+    if (!activeAlert) {
+      return null;
+    }
+
+    const reason = {
+      UPDATED: 'METRIC_RULE_UPDATED',
+      DISABLED: 'METRIC_RULE_DISABLED',
+      ARCHIVED: 'METRIC_RULE_ARCHIVED',
+    }[event.state] as AlertResolutionReason;
+
+    return this.resolveAlert(
+      activeAlert,
+      null,
+      new Date(event.occurredAt),
+      reason,
       event.message,
     );
   }
@@ -254,10 +285,7 @@ export class ProcessAlertEventUseCase {
         transition.previousState === 'RECOVERING')
     ) {
       const activeAlert = await this.alertRepository.findActiveByDedupKey(
-        this.healthDedupKey(
-          event.healthCheckTargetId,
-          'ENDPOINT_UNAVAILABLE',
-        ),
+        this.healthDedupKey(event.healthCheckTargetId, 'ENDPOINT_UNAVAILABLE'),
       );
 
       if (activeAlert) {

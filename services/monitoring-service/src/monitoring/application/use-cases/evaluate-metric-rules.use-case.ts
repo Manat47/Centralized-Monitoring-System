@@ -26,6 +26,10 @@ import {
 } from '../../domain/ports/asset-reader.port';
 
 import { QueryMetricsSummaryUseCase } from './query-metrics-summary.use-case';
+import {
+  MONITORING_TARGET_REPOSITORY,
+  type MonitoringTargetRepository,
+} from '../../domain/repositories/monitoring-target.repository';
 
 export interface MetricRuleViolation {
   ruleId: string;
@@ -64,6 +68,9 @@ export class EvaluateMetricRulesUseCase {
     private readonly assetReader: AssetReader,
 
     private readonly queryMetricsSummaryUseCase: QueryMetricsSummaryUseCase,
+
+    @Inject(MONITORING_TARGET_REPOSITORY)
+    private readonly monitoringTargetRepository: MonitoringTargetRepository,
   ) {}
 
   async execute(): Promise<EvaluateMetricRulesResult> {
@@ -104,7 +111,22 @@ export class EvaluateMetricRulesUseCase {
           continue;
         }
 
-        const ruleResult = await this.evaluateSingleRule(rule, now);
+        const target =
+          await this.monitoringTargetRepository.findByAssetIdAndMonitoringType(
+            data.assetId,
+            'NODE_EXPORTER',
+          );
+
+        if (!target?.toObject().monitoringEnabled) {
+          result.skipped += 1;
+          continue;
+        }
+
+        const ruleResult = await this.evaluateSingleRule(
+          rule,
+          now,
+          target.toObject().scrapeIntervalSeconds,
+        );
 
         if (ruleResult.triggeredEvent) {
           result.triggered += 1;
@@ -130,6 +152,7 @@ export class EvaluateMetricRulesUseCase {
   private async evaluateSingleRule(
     rule: MetricRule,
     now: Date,
+    scrapeIntervalSeconds: number,
   ): Promise<{
     triggeredEvent: MetricRuleViolation | null;
     recovered: boolean;
@@ -151,9 +174,8 @@ export class EvaluateMetricRulesUseCase {
 
     const end = now;
 
-    const start = new Date(
-      end.getTime() - Math.max(data.durationSeconds, 60) * 1000,
-    );
+    const freshnessWindowSeconds = Math.max(scrapeIntervalSeconds * 3, 30);
+    const start = new Date(end.getTime() - freshnessWindowSeconds * 1000);
 
     const summary = await this.queryMetricsSummaryUseCase.execute({
       assetId: data.assetId,

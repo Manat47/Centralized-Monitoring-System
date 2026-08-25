@@ -160,37 +160,54 @@ export const healthCheckTargets = pgTable(
 export type HealthCheckTargetRow = typeof healthCheckTargets.$inferSelect;
 export type NewHealthCheckTargetRow = typeof healthCheckTargets.$inferInsert;
 
-export const metricRules = pgTable('metric_rules', {
-  ruleId: uuid('rule_id').defaultRandom().primaryKey(),
+export const metricRules = pgTable(
+  'metric_rules',
+  {
+    ruleId: uuid('rule_id').defaultRandom().primaryKey(),
 
-  assetId: uuid('asset_id').notNull(),
+    assetId: uuid('asset_id').notNull(),
 
-  metricType: metricRuleTypeEnum('metric_type').notNull(),
+    metricType: metricRuleTypeEnum('metric_type').notNull(),
 
-  operator: metricRuleOperatorEnum('operator')
-    .default('GREATER_THAN_OR_EQUAL')
-    .notNull(),
+    operator: metricRuleOperatorEnum('operator')
+      .default('GREATER_THAN_OR_EQUAL')
+      .notNull(),
 
-  thresholdValue: integer('threshold_value').notNull(),
+    thresholdValue: integer('threshold_value').notNull(),
 
-  durationSeconds: integer('duration_seconds').default(300).notNull(),
+    durationSeconds: integer('duration_seconds').default(300).notNull(),
 
-  severity: metricRuleSeverityEnum('severity').notNull(),
+    severity: metricRuleSeverityEnum('severity').notNull(),
 
-  enabled: boolean('enabled').default(true).notNull(),
+    enabled: boolean('enabled').default(true).notNull(),
 
-  createdAt: timestamp('created_at', {
-    withTimezone: true,
-  })
-    .defaultNow()
-    .notNull(),
+    archivedAt: timestamp('archived_at', { withTimezone: true }),
 
-  updatedAt: timestamp('updated_at', {
-    withTimezone: true,
-  })
-    .defaultNow()
-    .notNull(),
-});
+    createdAt: timestamp('created_at', {
+      withTimezone: true,
+    })
+      .defaultNow()
+      .notNull(),
+
+    updatedAt: timestamp('updated_at', {
+      withTimezone: true,
+    })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    uniqueIndex('metric_rules_active_configuration_unique')
+      .on(
+        table.assetId,
+        table.metricType,
+        table.operator,
+        table.thresholdValue,
+        table.durationSeconds,
+        table.severity,
+      )
+      .where(sql`${table.archivedAt} is null`),
+  ],
+);
 
 export type MetricRuleRow = typeof metricRules.$inferSelect;
 export type NewMetricRuleRow = typeof metricRules.$inferInsert;

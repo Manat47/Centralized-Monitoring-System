@@ -462,4 +462,42 @@ describe('MetricRuleEvaluationState', () => {
     expect(result.status).toBe('NORMAL');
     expect(result.lastActualValue).toBeNull();
   });
+
+  it('UT-MRES-023: should preserve an alert when metric data is missing', () => {
+    const state = MetricRuleEvaluationState.create('state-023', {
+      ruleId: 'rule-001',
+      assetId: 'asset-001',
+    });
+    state.markViolating(new Date('2026-08-07T10:00:00.000Z'), 95);
+    state.markAlerted(new Date('2026-08-07T10:01:00.000Z'));
+
+    const evaluatedAt = new Date('2026-08-07T10:02:00.000Z');
+    state.markNoData(evaluatedAt);
+
+    expect(state.toObject()).toMatchObject({
+      status: 'ALERTED',
+      lastEvaluatedAt: evaluatedAt,
+      lastActualValue: null,
+    });
+  });
+
+  it('UT-MRES-024: should reset evaluation state for a fresh lifecycle', () => {
+    const state = MetricRuleEvaluationState.create('state-024', {
+      ruleId: 'rule-001',
+      assetId: 'asset-001',
+    });
+    state.markViolating(new Date('2026-08-07T10:00:00.000Z'), 95);
+    state.markAlerted(new Date('2026-08-07T10:01:00.000Z'));
+
+    state.reset(new Date('2026-08-07T10:02:00.000Z'));
+
+    expect(state.toObject()).toMatchObject({
+      status: 'NORMAL',
+      violatedSince: null,
+      lastEvaluatedAt: null,
+      lastActualValue: null,
+      lastTriggeredAt: null,
+      recoveredAt: null,
+    });
+  });
 });

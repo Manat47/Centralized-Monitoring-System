@@ -138,6 +138,39 @@ describe('ProcessAlertEventUseCase', () => {
     );
   });
 
+  it('resolves an active metric alert when its rule is disabled', async () => {
+    const ruleId = randomUUID();
+    const existingAlert = Alert.create(randomUUID(), {
+      ruleId,
+      assetId: randomUUID(),
+      metricType: 'MEMORY_USAGE',
+      severity: 'CRITICAL',
+      thresholdValue: 90,
+      actualValue: 95,
+      message: 'Memory usage exceeded threshold',
+      triggeredAt: new Date('2026-07-14T10:00:00.000Z'),
+    });
+    alertRepository.findActiveByDedupKey.mockResolvedValue(existingAlert);
+    alertRepository.update.mockImplementation((alert) =>
+      Promise.resolve(alert),
+    );
+
+    const result = await useCase.execute({
+      eventId: randomUUID(),
+      eventType: 'METRIC_RULE_STATE_CHANGED',
+      ruleId,
+      assetId: existingAlert.toObject().assetId,
+      state: 'DISABLED',
+      occurredAt: '2026-07-14T10:05:00.000Z',
+      message: 'Metric alert resolved because its rule was disabled',
+    });
+
+    expect(result?.toObject()).toMatchObject({
+      status: 'RESOLVED',
+      resolutionReason: 'METRIC_RULE_DISABLED',
+    });
+  });
+
   it('ignores a duplicate event id', async () => {
     alertRepository.claimEvent.mockResolvedValue(false);
 

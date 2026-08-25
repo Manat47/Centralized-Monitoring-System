@@ -154,6 +154,7 @@ describe('MetricRule', () => {
       durationSeconds: 120,
       severity: MetricRuleSeverity.CRITICAL,
       enabled: false,
+      archivedAt: null,
       createdAt,
       updatedAt,
     };
@@ -175,6 +176,7 @@ describe('MetricRule', () => {
       durationSeconds: 300,
       severity: MetricRuleSeverity.WARNING,
       enabled: true,
+      archivedAt: null,
       createdAt: new Date(),
       updatedAt: new Date(),
     };
@@ -323,5 +325,57 @@ describe('MetricRule', () => {
 
     expect(actualData.thresholdValue).toBe(80);
     expect(actualData.enabled).toBe(true);
+  });
+
+  it('UT-MR-021: should update its evaluation configuration', () => {
+    const rule = MetricRule.create('rule-021', {
+      assetId: 'asset-001',
+      metricType: MetricRuleType.CPU_USAGE,
+      thresholdValue: 80,
+      durationSeconds: 60,
+      severity: MetricRuleSeverity.WARNING,
+    });
+
+    rule.updateConfiguration({
+      metricType: MetricRuleType.MEMORY_USAGE,
+      operator: MetricRuleOperator.GREATER_THAN,
+      thresholdValue: 90,
+      durationSeconds: 120,
+      severity: MetricRuleSeverity.CRITICAL,
+    });
+
+    expect(rule.toObject()).toMatchObject({
+      metricType: MetricRuleType.MEMORY_USAGE,
+      operator: MetricRuleOperator.GREATER_THAN,
+      thresholdValue: 90,
+      durationSeconds: 120,
+      severity: MetricRuleSeverity.CRITICAL,
+    });
+  });
+
+  it('UT-MR-022: should archive and reject later mutations', () => {
+    const rule = MetricRule.create('rule-022', {
+      assetId: 'asset-001',
+      metricType: MetricRuleType.CPU_USAGE,
+      thresholdValue: 80,
+      severity: MetricRuleSeverity.WARNING,
+    });
+
+    rule.archive();
+
+    expect(rule.toObject().enabled).toBe(false);
+    expect(rule.toObject().archivedAt).toBeInstanceOf(Date);
+    expect(() => rule.enable()).toThrow(
+      'Archived metric rule cannot be enabled',
+    );
+    expect(() =>
+      rule.updateConfiguration({
+        metricType: MetricRuleType.CPU_USAGE,
+        operator: MetricRuleOperator.GREATER_THAN_OR_EQUAL,
+        thresholdValue: 70,
+        durationSeconds: 30,
+        severity: MetricRuleSeverity.WARNING,
+      }),
+    ).toThrow('Archived metric rule cannot be updated');
   });
 });

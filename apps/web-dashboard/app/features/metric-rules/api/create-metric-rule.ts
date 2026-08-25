@@ -16,7 +16,12 @@ export async function createMetricRule(
   });
 
   if (!response.ok) {
-    const message = await response.text();
+    const body = (await response.json().catch(() => null)) as {
+      message?: string | string[];
+    } | null;
+    const message = Array.isArray(body?.message)
+      ? body.message.join(", ")
+      : body?.message;
 
     throw new Error(
       message ||

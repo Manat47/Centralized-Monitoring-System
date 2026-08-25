@@ -85,6 +85,16 @@ export class MetricRuleEvaluationState {
     this.props.updatedAt = new Date();
   }
 
+  reset(evaluatedAt: Date = new Date()): void {
+    this.props.status = 'NORMAL';
+    this.props.violatedSince = null;
+    this.props.lastEvaluatedAt = null;
+    this.props.lastActualValue = null;
+    this.props.lastTriggeredAt = null;
+    this.props.recoveredAt = null;
+    this.props.updatedAt = evaluatedAt;
+  }
+
   markViolating(evaluatedAt: Date, actualValue: number): void {
     // ฟังก์ชันสำหรับบันทึกสถานะว่า Metric ตรงตามเงื่อนไขผิดกฎ
     if (this.props.status === 'NORMAL' || this.props.status === 'RECOVERED') {

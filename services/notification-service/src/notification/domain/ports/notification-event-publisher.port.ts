@@ -2,10 +2,7 @@ export interface NotificationEventBase {
   alertId: string;
   sourceType: 'METRIC_RULE' | 'HEALTH_CHECK';
   sourceId: string;
-  alertType:
-    | 'METRIC_THRESHOLD'
-    | 'ENDPOINT_UNAVAILABLE'
-    | 'HEALTH_CHECK_STALE';
+  alertType: 'METRIC_THRESHOLD' | 'ENDPOINT_UNAVAILABLE' | 'HEALTH_CHECK_STALE';
   ruleId: string | null;
   assetId: string;
   metricType: string;
@@ -20,6 +17,9 @@ export type NotificationEvent =
       eventType: 'ALERT_RESOLVED';
       resolutionReason:
         | 'METRIC_RECOVERED'
+        | 'METRIC_RULE_UPDATED'
+        | 'METRIC_RULE_DISABLED'
+        | 'METRIC_RULE_ARCHIVED'
         | 'HEALTH_CHECK_RECOVERED'
         | 'HEALTH_CHECK_DATA_STALE'
         | 'HEALTH_CHECK_DATA_RESUMED'

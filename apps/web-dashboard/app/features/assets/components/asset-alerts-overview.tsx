@@ -88,6 +88,15 @@ function formatResolutionReason(
     case "METRIC_RECOVERED":
       return "Metric recovered";
 
+    case "METRIC_RULE_UPDATED":
+      return "Metric rule updated";
+
+    case "METRIC_RULE_DISABLED":
+      return "Metric rule disabled";
+
+    case "METRIC_RULE_ARCHIVED":
+      return "Metric rule archived";
+
     case "ASSET_DEACTIVATED":
       return "Asset deactivated";
 
