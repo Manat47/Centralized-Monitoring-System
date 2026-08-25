@@ -13,6 +13,10 @@ export async function getAuditLogs(
 ): Promise<AuditLogListResponse> {
   const searchParams = new URLSearchParams();
 
+  if (params.search) {
+    searchParams.set("search", params.search);
+  }
+
   if (params.actorUserId) {
     searchParams.set("actorUserId", params.actorUserId);
   }

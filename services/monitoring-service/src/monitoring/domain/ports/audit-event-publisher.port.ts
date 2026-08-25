@@ -21,13 +21,18 @@ export type AuditResourceType =
 export interface AuditEvent {
   actorUserId: string;
   actorRole: UserRole;
+  actorEmail?: string | null;
 
   action: AuditAction;
 
   resourceType: AuditResourceType;
-  resourceId: string;
+  resourceId?: string | null;
+  resourceName?: string | null;
 
   result: 'SUCCESS' | 'FAILURE';
+  metadata?: Record<string, unknown> | null;
+  errorCode?: string | null;
+  errorMessage?: string | null;
 
   occurredAt: Date;
 }

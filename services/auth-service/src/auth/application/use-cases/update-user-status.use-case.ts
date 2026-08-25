@@ -20,6 +20,7 @@ export interface UpdateUserStatusInput {
   status: UserStatus;
   currentUserId: string;
   actorRole: UserRole;
+  actorEmail?: string | null;
 }
 
 export interface UpdateUserStatusOutput {
@@ -51,6 +52,8 @@ export class UpdateUserStatusUseCase {
       throw new NotFoundException('User not found');
     }
 
+    const previousStatus = user.toObject().status;
+
     if (input.status === 'ACTIVE') {
       user.activate();
     } else {
@@ -64,10 +67,16 @@ export class UpdateUserStatusUseCase {
     await this.auditEventPublisher.publish({
       actorUserId: input.currentUserId,
       actorRole: input.actorRole,
+      actorEmail: input.actorEmail,
       action: 'USER_STATUS_CHANGED',
       resourceType: 'USER',
       resourceId: data.userId,
+      resourceName: data.email,
       result: 'SUCCESS',
+      metadata: {
+        previousStatus,
+        status: data.status,
+      },
       occurredAt: new Date(),
     });
 

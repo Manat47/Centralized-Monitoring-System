@@ -46,11 +46,13 @@ export class HealthCheckTargetsController {
     @Body() dto: CreateHealthCheckTargetDto,
     @Headers('x-user-id') actorUserId: string,
     @Headers('x-user-role') actorRole: 'ADMIN' | 'OPERATOR',
+    @Headers('x-user-email') actorEmail: string | undefined,
   ) {
     const target = await this.createHealthCheckTargetUseCase.execute({
       ...dto,
       actorUserId,
       actorRole,
+      actorEmail,
     });
 
     return target.toObject();
@@ -61,10 +63,12 @@ export class HealthCheckTargetsController {
     @Param('id', new ParseUUIDPipe()) id: string,
     @Headers('x-user-id') actorUserId: string,
     @Headers('x-user-role') actorRole: 'ADMIN' | 'OPERATOR',
+    @Headers('x-user-email') actorEmail: string | undefined,
   ) {
     const target = await this.enableHealthCheckTargetUseCase.execute(id, {
       actorUserId,
       actorRole,
+      actorEmail,
     });
 
     return target.toObject();
@@ -75,10 +79,12 @@ export class HealthCheckTargetsController {
     @Param('id', new ParseUUIDPipe()) id: string,
     @Headers('x-user-id') actorUserId: string,
     @Headers('x-user-role') actorRole: 'ADMIN' | 'OPERATOR',
+    @Headers('x-user-email') actorEmail: string | undefined,
   ) {
     const target = await this.disableHealthCheckTargetUseCase.execute(id, {
       actorUserId,
       actorRole,
+      actorEmail,
     });
 
     return target.toObject();
@@ -90,11 +96,13 @@ export class HealthCheckTargetsController {
     @Body() dto: UpdateHealthCheckTargetDto,
     @Headers('x-user-id') actorUserId: string,
     @Headers('x-user-role') actorRole: 'ADMIN' | 'OPERATOR',
+    @Headers('x-user-email') actorEmail: string | undefined,
   ) {
     const target = await this.updateHealthCheckTargetUseCase.execute(id, {
       ...dto,
       actorUserId,
       actorRole,
+      actorEmail,
     });
 
     return target.toObject();
@@ -105,10 +113,12 @@ export class HealthCheckTargetsController {
     @Param('id', new ParseUUIDPipe()) id: string,
     @Headers('x-user-id') actorUserId: string,
     @Headers('x-user-role') actorRole: 'ADMIN' | 'OPERATOR',
+    @Headers('x-user-email') actorEmail: string | undefined,
   ) {
     return this.checkHealthTargetUseCase.execute(id, {
       actorUserId,
       actorRole,
+      actorEmail,
     });
   }
 
@@ -117,10 +127,12 @@ export class HealthCheckTargetsController {
     @Param('id', new ParseUUIDPipe()) id: string,
     @Headers('x-user-id') actorUserId: string,
     @Headers('x-user-role') actorRole: 'ADMIN' | 'OPERATOR',
+    @Headers('x-user-email') actorEmail: string | undefined,
   ) {
     const target = await this.archiveHealthCheckTargetUseCase.execute(id, {
       actorUserId,
       actorRole,
+      actorEmail,
     });
 
     return target.toObject();

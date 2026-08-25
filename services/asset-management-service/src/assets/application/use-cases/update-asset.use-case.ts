@@ -18,6 +18,7 @@ import {
 export type UpdateAssetInput = Partial<CreateAssetProps> & {
   actorUserId: string;
   actorRole: 'ADMIN' | 'OPERATOR';
+  actorEmail?: string | null;
 };
 
 @Injectable()
@@ -37,19 +38,39 @@ export class UpdateAssetUseCase {
       throw new NotFoundException(`Asset with ID ${assetId} not found`);
     }
 
-    const { actorUserId, actorRole, ...assetData } = input;
+    const before = asset.toObject();
+    const { actorUserId, actorRole, actorEmail, ...assetData } = input;
 
     asset.update(assetData);
 
     const updatedAsset = await this.assetRepository.update(asset);
+    const after = updatedAsset.toObject();
+    const changedFields = Object.keys(assetData);
 
     await this.auditEventPublisher.publish({
       actorUserId,
       actorRole,
+      actorEmail,
       action: 'ASSET_UPDATED',
       resourceType: 'ASSET',
       resourceId: assetId,
+      resourceName: after.name,
       result: 'SUCCESS',
+      metadata: {
+        changedFields,
+        before: Object.fromEntries(
+          changedFields.map((field) => [
+            field,
+            before[field as keyof typeof before],
+          ]),
+        ),
+        after: Object.fromEntries(
+          changedFields.map((field) => [
+            field,
+            after[field as keyof typeof after],
+          ]),
+        ),
+      },
       occurredAt: new Date(),
     });
 

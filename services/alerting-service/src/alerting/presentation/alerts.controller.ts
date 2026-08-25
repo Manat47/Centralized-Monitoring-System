@@ -45,10 +45,12 @@ export class AlertsController {
     @Param('id') alertId: string,
     @Headers('x-user-id') actorUserId: string,
     @Headers('x-user-role') actorRole: 'ADMIN' | 'OPERATOR',
+    @Headers('x-user-email') actorEmail: string | undefined,
   ) {
     return this.acknowledgeAlertUseCase.execute(alertId, {
       actorUserId,
       actorRole,
+      actorEmail,
     });
   }
 
@@ -57,10 +59,12 @@ export class AlertsController {
     @Param('id') alertId: string,
     @Headers('x-user-id') actorUserId: string,
     @Headers('x-user-role') actorRole: 'ADMIN' | 'OPERATOR',
+    @Headers('x-user-email') actorEmail: string | undefined,
   ) {
     return this.closeAlertUseCase.execute(alertId, {
       actorUserId,
       actorRole,
+      actorEmail,
     });
   }
 }

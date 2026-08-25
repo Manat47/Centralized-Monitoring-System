@@ -9,10 +9,15 @@ import {
   AUDIT_EVENT_PUBLISHER,
   type AuditEventPublisher,
 } from '../../domain/ports/audit-event-publisher.port';
+import {
+  ASSET_READER,
+  type AssetReader,
+} from '../../domain/ports/asset-reader.port';
 
 export interface DisableMonitoringInput {
   actorUserId: string;
   actorRole: 'ADMIN' | 'OPERATOR';
+  actorEmail?: string | null;
 }
 
 @Injectable()
@@ -23,6 +28,9 @@ export class DisableMonitoringUseCase {
 
     @Inject(AUDIT_EVENT_PUBLISHER)
     private readonly auditEventPublisher: AuditEventPublisher,
+
+    @Inject(ASSET_READER)
+    private readonly assetReader: AssetReader,
   ) {}
 
   async execute(
@@ -40,17 +48,25 @@ export class DisableMonitoringUseCase {
     target.disableMonitoring();
 
     const updatedTarget = await this.monitoringTargetRepository.update(target);
+    const data = updatedTarget.toObject();
+    const asset = await this.assetReader.findById(data.assetId);
 
     await this.auditEventPublisher.publish({
       actorUserId: input.actorUserId,
       actorRole: input.actorRole,
+      actorEmail: input.actorEmail,
 
       action: 'MONITORING_TARGET_DISABLED',
 
       resourceType: 'MONITORING_TARGET',
       resourceId: targetId,
+      resourceName: asset ? `${asset.name} monitoring target` : null,
 
       result: 'SUCCESS',
+      metadata: {
+        assetId: data.assetId,
+        monitoringEnabled: false,
+      },
 
       occurredAt: new Date(),
     });

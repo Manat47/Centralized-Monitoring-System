@@ -36,12 +36,14 @@ export class AssetsController {
     @Body() dto: CreateAssetDto,
     @Headers('x-user-id') actorUserId: string,
     @Headers('x-user-role') actorRole: 'ADMIN' | 'OPERATOR',
+    @Headers('x-user-email') actorEmail: string | undefined,
   ) {
     try {
       const asset = await this.createAssetUseCase.execute({
         ...dto,
         actorUserId,
         actorRole,
+        actorEmail,
       });
 
       return asset.toObject();
@@ -74,12 +76,14 @@ export class AssetsController {
     @Body() dto: UpdateAssetStatusDto,
     @Headers('x-user-id') actorUserId: string,
     @Headers('x-user-role') actorRole: 'ADMIN' | 'OPERATOR',
+    @Headers('x-user-email') actorEmail: string | undefined,
   ) {
     try {
       const asset = await this.updateAssetStatusUseCase.execute(id, {
         status: dto.status,
         actorUserId,
         actorRole,
+        actorEmail,
       });
 
       return asset.toObject();
@@ -101,11 +105,13 @@ export class AssetsController {
     @Param('id', new ParseUUIDPipe()) id: string,
     @Headers('x-user-id') actorUserId: string,
     @Headers('x-user-role') actorRole: 'ADMIN' | 'OPERATOR',
+    @Headers('x-user-email') actorEmail: string | undefined,
   ) {
     try {
       const asset = await this.deactivateAssetUseCase.execute(id, {
         actorUserId,
         actorRole,
+        actorEmail,
       });
 
       return asset.toObject();
@@ -128,12 +134,14 @@ export class AssetsController {
     @Body() dto: UpdateAssetDto,
     @Headers('x-user-id') actorUserId: string,
     @Headers('x-user-role') actorRole: 'ADMIN' | 'OPERATOR',
+    @Headers('x-user-email') actorEmail: string | undefined,
   ) {
     try {
       const asset = await this.updateAssetUseCase.execute(id, {
         ...dto,
         actorUserId,
         actorRole,
+        actorEmail,
       });
 
       return asset.toObject();

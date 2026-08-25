@@ -21,6 +21,7 @@ export interface UpdateUserInput {
 
   actorUserId: string;
   actorRole: UserRole;
+  actorEmail?: string | null;
 }
 
 export interface UpdateUserOutput {
@@ -52,6 +53,8 @@ export class UpdateUserUseCase {
       throw new NotFoundException('User not found');
     }
 
+    const before = user.toObject();
+
     if (input.displayName !== undefined) {
       user.changeDisplayName(input.displayName);
     }
@@ -67,10 +70,22 @@ export class UpdateUserUseCase {
     await this.auditEventPublisher.publish({
       actorUserId: input.actorUserId,
       actorRole: input.actorRole,
+      actorEmail: input.actorEmail,
       action: 'USER_UPDATED',
       resourceType: 'USER',
       resourceId: data.userId,
+      resourceName: data.email,
       result: 'SUCCESS',
+      metadata: {
+        before: {
+          displayName: before.displayName,
+          role: before.role,
+        },
+        after: {
+          displayName: data.displayName,
+          role: data.role,
+        },
+      },
       occurredAt: new Date(),
     });
 

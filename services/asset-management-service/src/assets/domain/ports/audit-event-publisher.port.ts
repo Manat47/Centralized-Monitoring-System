@@ -9,13 +9,16 @@ export type AuditAction =
 export interface AuditEvent {
   actorUserId: string;
   actorRole: UserRole;
+  actorEmail?: string | null;
 
   action: AuditAction;
 
   resourceType: 'ASSET';
   resourceId: string;
+  resourceName?: string | null;
 
   result: 'SUCCESS' | 'FAILURE';
+  metadata?: Record<string, unknown> | null;
 
   occurredAt: Date;
 }

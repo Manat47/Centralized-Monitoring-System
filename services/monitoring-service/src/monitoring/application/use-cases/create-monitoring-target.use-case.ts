@@ -35,6 +35,7 @@ export interface CreateMonitoringTargetInput {
 
   actorUserId: string;
   actorRole: 'ADMIN' | 'OPERATOR';
+  actorEmail?: string | null;
 }
 
 @Injectable()
@@ -149,13 +150,23 @@ export class CreateMonitoringTargetUseCase {
     await this.auditEventPublisher.publish({
       actorUserId: input.actorUserId,
       actorRole: input.actorRole,
+      actorEmail: input.actorEmail,
 
       action: 'MONITORING_TARGET_CREATED',
 
       resourceType: 'MONITORING_TARGET',
       resourceId: data.targetId,
+      resourceName: `${asset.name} monitoring target`,
 
       result: 'SUCCESS',
+      metadata: {
+        assetId: data.assetId,
+        monitoringType: data.monitoringType,
+        protocol: data.protocol,
+        port: data.port,
+        path: data.path,
+        scrapeIntervalSeconds: data.scrapeIntervalSeconds,
+      },
 
       occurredAt: new Date(),
     });

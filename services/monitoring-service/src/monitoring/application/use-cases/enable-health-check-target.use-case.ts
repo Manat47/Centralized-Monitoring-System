@@ -10,7 +10,10 @@ import {
   type HealthCheckTargetRepository,
 } from '../../domain/repositories/health-check-target.repository';
 
-import { HealthCheckTarget } from '../../domain/entities/health-check-target.entity';
+import {
+  getAuditSafeHealthCheckUrl,
+  HealthCheckTarget,
+} from '../../domain/entities/health-check-target.entity';
 
 import {
   AUDIT_EVENT_PUBLISHER,
@@ -30,6 +33,7 @@ import {
 export interface EnableHealthCheckTargetInput {
   actorUserId: string;
   actorRole: 'ADMIN' | 'OPERATOR';
+  actorEmail?: string | null;
 }
 
 @Injectable()
@@ -92,13 +96,20 @@ export class EnableHealthCheckTargetUseCase {
     await this.auditEventPublisher.publish({
       actorUserId: input.actorUserId,
       actorRole: input.actorRole,
+      actorEmail: input.actorEmail,
 
       action: 'HEALTH_CHECK_TARGET_ENABLED',
 
       resourceType: 'HEALTH_CHECK_TARGET',
       resourceId: healthCheckTargetId,
+      resourceName: `${asset.name} health check`,
 
       result: 'SUCCESS',
+      metadata: {
+        assetId: data.assetId,
+        url: getAuditSafeHealthCheckUrl(data.url),
+        state: 'RUNNING',
+      },
 
       occurredAt: new Date(),
     });

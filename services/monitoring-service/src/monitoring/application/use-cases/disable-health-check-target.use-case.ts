@@ -10,7 +10,10 @@ import {
   type HealthCheckTargetRepository,
 } from '../../domain/repositories/health-check-target.repository';
 
-import { HealthCheckTarget } from '../../domain/entities/health-check-target.entity';
+import {
+  getAuditSafeHealthCheckUrl,
+  HealthCheckTarget,
+} from '../../domain/entities/health-check-target.entity';
 
 import {
   AUDIT_EVENT_PUBLISHER,
@@ -25,6 +28,7 @@ import {
 export interface DisableHealthCheckTargetInput {
   actorUserId: string;
   actorRole: 'ADMIN' | 'OPERATOR';
+  actorEmail?: string | null;
 }
 
 @Injectable()
@@ -53,7 +57,9 @@ export class DisableHealthCheckTargetUseCase {
       );
     }
 
-    if (target.toObject().archivedAt) {
+    const data = target.toObject();
+
+    if (data.archivedAt) {
       throw new BadRequestException('Archived health check cannot be paused');
     }
 
@@ -64,13 +70,20 @@ export class DisableHealthCheckTargetUseCase {
     await this.auditEventPublisher.publish({
       actorUserId: input.actorUserId,
       actorRole: input.actorRole,
+      actorEmail: input.actorEmail,
 
       action: 'HEALTH_CHECK_TARGET_DISABLED',
 
       resourceType: 'HEALTH_CHECK_TARGET',
       resourceId: healthCheckTargetId,
+      resourceName: getAuditSafeHealthCheckUrl(data.url),
 
       result: 'SUCCESS',
+      metadata: {
+        assetId: data.assetId,
+        url: getAuditSafeHealthCheckUrl(data.url),
+        state: 'PAUSED',
+      },
 
       occurredAt: new Date(),
     });

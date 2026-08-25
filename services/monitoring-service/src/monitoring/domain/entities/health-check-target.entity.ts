@@ -122,3 +122,12 @@ export function normalizeHealthCheckUrl(input: string | URL): string {
 
   return url.toString();
 }
+
+export function getAuditSafeHealthCheckUrl(input: string): string {
+  const url = new URL(input);
+  url.username = '';
+  url.password = '';
+  url.search = '';
+  url.hash = '';
+  return url.toString();
+}

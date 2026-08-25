@@ -10,6 +10,7 @@ export class AuditLogController {
   @Get()
   async listAuditLogs(@Query() query: ListAuditLogsQueryDto) {
     return this.listAuditLogsUseCase.execute({
+      search: query.search,
       actorUserId: query.actorUserId,
       actorRole: query.actorRole,
       action: query.action,

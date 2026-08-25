@@ -10,6 +10,7 @@ import { randomUUID } from 'node:crypto';
 import {
   HealthCheckTarget,
   type CreateHealthCheckTargetProps,
+  getAuditSafeHealthCheckUrl,
   normalizeHealthCheckUrl,
 } from '../../domain/entities/health-check-target.entity';
 
@@ -39,6 +40,7 @@ export interface CreateHealthCheckTargetInput {
 
   actorUserId: string;
   actorRole: 'ADMIN' | 'OPERATOR';
+  actorEmail?: string | null;
 }
 
 @Injectable()
@@ -107,13 +109,20 @@ export class CreateHealthCheckTargetUseCase {
     await this.auditEventPublisher.publish({
       actorUserId: input.actorUserId,
       actorRole: input.actorRole,
+      actorEmail: input.actorEmail,
 
       action: 'HEALTH_CHECK_TARGET_CREATED',
 
       resourceType: 'HEALTH_CHECK_TARGET',
       resourceId: healthCheckTargetId,
+      resourceName: `${asset.name} health check`,
 
       result: 'SUCCESS',
+      metadata: {
+        assetId: asset.assetId,
+        url: getAuditSafeHealthCheckUrl(normalizedUrl),
+        checkIntervalSeconds: target.toObject().checkIntervalSeconds,
+      },
 
       occurredAt: new Date(),
     });

@@ -25,6 +25,7 @@ import {
 } from '../../domain/ports/asset-reader.port';
 
 import { AssetNotOperationalException } from '../errors/asset-not-operational.exception';
+import { getAuditSafeHealthCheckUrl } from '../../domain/entities/health-check-target.entity';
 import {
   AUDIT_EVENT_PUBLISHER,
   type AuditEventPublisher,
@@ -38,6 +39,7 @@ import {
 export interface CheckHealthTargetInput {
   actorUserId: string;
   actorRole: UserRole;
+  actorEmail?: string | null;
 }
 
 @Injectable()
@@ -128,10 +130,23 @@ export class CheckHealthTargetUseCase {
       await this.auditEventPublisher.publish({
         actorUserId: input.actorUserId,
         actorRole: input.actorRole,
+        actorEmail: input.actorEmail,
         action: 'HEALTH_CHECK_TARGET_CHECKED',
         resourceType: 'HEALTH_CHECK_TARGET',
         resourceId: healthCheckTargetId,
+        resourceName: `${asset.name} health check`,
         result: 'SUCCESS',
+        metadata: {
+          assetId: data.assetId,
+          url: getAuditSafeHealthCheckUrl(data.url),
+          statusCode: result.statusCode,
+          responseTimeMs: result.responseTimeMs,
+          available:
+            result.statusCode !== null &&
+            result.statusCode >= 200 &&
+            result.statusCode < 300,
+          error: result.error,
+        },
         occurredAt: new Date(),
       });
     }

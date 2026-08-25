@@ -15,7 +15,10 @@ import {
   type AuditEventPublisher,
   type UserRole,
 } from '../../domain/ports/audit-event-publisher.port';
-import type { HealthCheckTarget } from '../../domain/entities/health-check-target.entity';
+import {
+  getAuditSafeHealthCheckUrl,
+  type HealthCheckTarget,
+} from '../../domain/entities/health-check-target.entity';
 import {
   ALERT_EVENT_PUBLISHER,
   type AlertEventPublisher,
@@ -25,6 +28,7 @@ export interface UpdateHealthCheckTargetInput {
   checkIntervalSeconds: number;
   actorUserId: string;
   actorRole: UserRole;
+  actorEmail?: string | null;
 }
 
 @Injectable()
@@ -54,6 +58,7 @@ export class UpdateHealthCheckTargetUseCase {
       throw new BadRequestException('Archived health check cannot be updated');
     }
 
+    const previousData = target.toObject();
     target.updateInterval(input.checkIntervalSeconds);
 
     const updatedTarget = await this.repository.update(target);
@@ -61,10 +66,21 @@ export class UpdateHealthCheckTargetUseCase {
     await this.auditEventPublisher.publish({
       actorUserId: input.actorUserId,
       actorRole: input.actorRole,
+      actorEmail: input.actorEmail,
       action: 'HEALTH_CHECK_TARGET_UPDATED',
       resourceType: 'HEALTH_CHECK_TARGET',
       resourceId: healthCheckTargetId,
+      resourceName: getAuditSafeHealthCheckUrl(previousData.url),
       result: 'SUCCESS',
+      metadata: {
+        assetId: previousData.assetId,
+        changes: {
+          checkIntervalSeconds: {
+            before: previousData.checkIntervalSeconds,
+            after: input.checkIntervalSeconds,
+          },
+        },
+      },
       occurredAt: new Date(),
     });
 

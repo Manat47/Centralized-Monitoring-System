@@ -1,6 +1,7 @@
 import { describe, expect, it } from '@jest/globals';
 
 import {
+  getAuditSafeHealthCheckUrl,
   HealthCheckTarget,
   normalizeHealthCheckUrl,
 } from './health-check-target.entity';
@@ -27,6 +28,14 @@ describe('HealthCheckTarget', () => {
     expect(
       normalizeHealthCheckUrl('http://Example.com:80/Health?mode=full#debug'),
     ).toBe('http://example.com/Health?mode=full');
+  });
+
+  it('removes credentials and query parameters from audit URLs', () => {
+    expect(
+      getAuditSafeHealthCheckUrl(
+        'https://user:secret@example.com/health?token=sensitive#debug',
+      ),
+    ).toBe('https://example.com/health');
   });
 
   it('rejects unsupported URL protocols and short intervals', () => {

@@ -16,6 +16,7 @@ import {
 export interface CreateAssetInput extends CreateAssetProps {
   actorUserId: string;
   actorRole: 'ADMIN' | 'OPERATOR';
+  actorEmail?: string | null;
 }
 @Injectable()
 export class CreateAssetUseCase {
@@ -29,7 +30,7 @@ export class CreateAssetUseCase {
   async execute(input: CreateAssetInput): Promise<Asset> {
     Asset.validateTarget(input.targetType, input.ipAddress, input.endpoint);
 
-    const { actorUserId, actorRole, ...assetData } = input;
+    const { actorUserId, actorRole, actorEmail, ...assetData } = input;
 
     const createdAsset = await this.assetRepository.create(assetData);
 
@@ -38,13 +39,20 @@ export class CreateAssetUseCase {
     await this.auditEventPublisher.publish({
       actorUserId,
       actorRole,
+      actorEmail,
 
       action: 'ASSET_CREATED',
 
       resourceType: 'ASSET',
       resourceId: data.assetId,
+      resourceName: data.name,
 
       result: 'SUCCESS',
+      metadata: {
+        targetType: data.targetType,
+        environment: data.environment,
+        status: data.status,
+      },
 
       occurredAt: new Date(),
     });

@@ -19,6 +19,7 @@ import {
 export interface AcknowledgeAlertInput {
   actorUserId: string;
   actorRole: 'ADMIN' | 'OPERATOR';
+  actorEmail?: string | null;
 }
 
 @Injectable()
@@ -41,6 +42,8 @@ export class AcknowledgeAlertUseCase {
       throw new NotFoundException(`Alert with id ${alertId} was not found`);
     }
 
+    const previousStatus = alert.toObject().status;
+
     try {
       alert.acknowledge(input.actorUserId);
     } catch (error) {
@@ -51,7 +54,8 @@ export class AcknowledgeAlertUseCase {
     }
 
     const updatedAlert = await this.alertRepository.update(alert);
-    const acknowledgedAt = updatedAlert.toObject().acknowledgedAt ?? new Date();
+    const data = updatedAlert.toObject();
+    const acknowledgedAt = data.acknowledgedAt ?? new Date();
 
     await this.alertRepository.appendLifecycleEvent({
       lifecycleEventId: randomUUID(),
@@ -66,13 +70,22 @@ export class AcknowledgeAlertUseCase {
     await this.auditEventPublisher.publish({
       actorUserId: input.actorUserId,
       actorRole: input.actorRole,
+      actorEmail: input.actorEmail,
       action: 'ALERT_ACKNOWLEDGED',
       resourceType: 'ALERT',
       resourceId: alertId,
+      resourceName: `${data.severity} ${data.metricType} alert`,
       result: 'SUCCESS',
+      metadata: {
+        assetId: data.assetId,
+        sourceType: data.sourceType,
+        sourceId: data.sourceId,
+        previousStatus,
+        status: data.status,
+      },
       occurredAt: new Date(),
     });
 
-    return updatedAlert.toObject();
+    return data;
   }
 }

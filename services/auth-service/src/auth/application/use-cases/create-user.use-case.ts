@@ -23,6 +23,7 @@ export interface CreateUserInput {
 
   actorUserId: string;
   actorRole: UserRole;
+  actorEmail?: string | null;
 }
 
 export interface CreateUserOutput {
@@ -72,13 +73,20 @@ export class CreateUserUseCase {
     await this.auditEventPublisher.publish({
       actorUserId: input.actorUserId,
       actorRole: input.actorRole,
+      actorEmail: input.actorEmail,
 
       action: 'USER_CREATED',
 
       resourceType: 'USER',
       resourceId: data.userId,
+      resourceName: data.email,
 
       result: 'SUCCESS',
+      metadata: {
+        displayName: data.displayName,
+        role: data.role,
+        status: data.status,
+      },
 
       occurredAt: new Date(),
     });

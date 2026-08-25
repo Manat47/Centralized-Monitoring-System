@@ -14,7 +14,10 @@ import {
   type AuditEventPublisher,
   type UserRole,
 } from '../../domain/ports/audit-event-publisher.port';
-import type { HealthCheckTarget } from '../../domain/entities/health-check-target.entity';
+import {
+  getAuditSafeHealthCheckUrl,
+  type HealthCheckTarget,
+} from '../../domain/entities/health-check-target.entity';
 import { randomUUID } from 'node:crypto';
 import {
   ALERT_EVENT_PUBLISHER,
@@ -24,6 +27,7 @@ import {
 export interface ArchiveHealthCheckTargetInput {
   actorUserId: string;
   actorRole: UserRole;
+  actorEmail?: string | null;
 }
 
 @Injectable()
@@ -50,7 +54,9 @@ export class ArchiveHealthCheckTargetUseCase {
       );
     }
 
-    if (target.toObject().archivedAt) {
+    const data = target.toObject();
+
+    if (data.archivedAt) {
       throw new BadRequestException('Health check is already archived');
     }
 
@@ -61,10 +67,17 @@ export class ArchiveHealthCheckTargetUseCase {
     await this.auditEventPublisher.publish({
       actorUserId: input.actorUserId,
       actorRole: input.actorRole,
+      actorEmail: input.actorEmail,
       action: 'HEALTH_CHECK_TARGET_ARCHIVED',
       resourceType: 'HEALTH_CHECK_TARGET',
       resourceId: healthCheckTargetId,
+      resourceName: getAuditSafeHealthCheckUrl(data.url),
       result: 'SUCCESS',
+      metadata: {
+        assetId: data.assetId,
+        url: getAuditSafeHealthCheckUrl(data.url),
+        state: 'ARCHIVED',
+      },
       occurredAt: new Date(),
     });
 

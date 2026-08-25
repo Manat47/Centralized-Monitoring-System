@@ -50,6 +50,7 @@ export class UsersController {
 
       actorUserId: currentUser.userId,
       actorRole: currentUser.role,
+      actorEmail: currentUser.email,
     });
   }
 
@@ -82,6 +83,7 @@ export class UsersController {
 
       actorUserId: currentUser.userId,
       actorRole: currentUser.role,
+      actorEmail: currentUser.email,
     });
   }
 
@@ -96,6 +98,7 @@ export class UsersController {
       status: dto.status,
       currentUserId: currentUser.userId,
       actorRole: currentUser.role,
+      actorEmail: currentUser.email,
     });
   }
 }

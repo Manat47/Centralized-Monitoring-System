@@ -4,56 +4,41 @@ import {
   IsInt,
   IsISO8601,
   IsOptional,
+  IsString,
   IsUUID,
   Max,
+  MaxLength,
   Min,
 } from 'class-validator';
 
-const ACTOR_ROLES = ['ADMIN', 'OPERATOR'] as const;
-
-const AUDIT_ACTIONS = [
-  'USER_CREATED',
-  'USER_UPDATED',
-  'USER_STATUS_CHANGED',
-  'ASSET_CREATED',
-  'ASSET_UPDATED',
-  'ASSET_STATUS_CHANGED',
-  'ASSET_DEACTIVATED',
-  'MONITORING_TARGET_CREATED',
-  'MONITORING_TARGET_VERIFIED',
-  'MONITORING_TARGET_ENABLED',
-  'MONITORING_TARGET_DISABLED',
-  'METRIC_RULE_CREATED',
-  'ALERT_ACKNOWLEDGED',
-  'ALERT_CLOSED',
-] as const;
-
-const RESOURCE_TYPES = [
-  'USER',
-  'ASSET',
-  'MONITORING_TARGET',
-  'METRIC_RULE',
-  'ALERT',
-] as const;
-
-const AUDIT_RESULTS = ['SUCCESS', 'FAILURE'] as const;
+import {
+  AUDIT_ACTIONS,
+  AUDIT_ACTOR_ROLES,
+  AUDIT_RESOURCE_TYPES,
+  AUDIT_RESULTS,
+} from '../../domain/entities/audit-log.entity';
 
 export class ListAuditLogsQueryDto {
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  search?: string;
+
   @IsOptional()
   @IsUUID()
   actorUserId?: string;
 
   @IsOptional()
-  @IsIn(ACTOR_ROLES)
-  actorRole?: (typeof ACTOR_ROLES)[number];
+  @IsIn(AUDIT_ACTOR_ROLES)
+  actorRole?: (typeof AUDIT_ACTOR_ROLES)[number];
 
   @IsOptional()
   @IsIn(AUDIT_ACTIONS)
   action?: (typeof AUDIT_ACTIONS)[number];
 
   @IsOptional()
-  @IsIn(RESOURCE_TYPES)
-  resourceType?: (typeof RESOURCE_TYPES)[number];
+  @IsIn(AUDIT_RESOURCE_TYPES)
+  resourceType?: (typeof AUDIT_RESOURCE_TYPES)[number];
 
   @IsOptional()
   @IsIn(AUDIT_RESULTS)

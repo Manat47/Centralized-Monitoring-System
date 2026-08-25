@@ -5,6 +5,7 @@ import {
   AuditLog,
   type AuditAction,
   type AuditActorRole,
+  type AuditMetadata,
   type AuditResourceType,
   type AuditResult,
 } from '../../domain/entities/audit-log.entity';
@@ -14,15 +15,24 @@ import {
 } from '../../domain/repositories/audit-log.repository';
 
 export interface RecordAuditLogInput {
+  eventId: string;
+  schemaVersion?: number;
   actorUserId: string;
   actorRole: AuditActorRole;
+  actorEmail?: string | null;
 
   action: AuditAction;
 
   resourceType: AuditResourceType;
-  resourceId: string;
+  resourceId?: string | null;
+  resourceName?: string | null;
 
   result: AuditResult;
+  sourceService: string;
+  requestId?: string | null;
+  metadata?: AuditMetadata | null;
+  errorCode?: string | null;
+  errorMessage?: string | null;
 
   occurredAt?: Date;
 }
@@ -36,12 +46,21 @@ export class RecordAuditLogUseCase {
 
   async execute(input: RecordAuditLogInput): Promise<void> {
     const auditLog = AuditLog.create(randomUUID(), {
+      eventId: input.eventId,
+      schemaVersion: input.schemaVersion,
       actorUserId: input.actorUserId,
       actorRole: input.actorRole,
+      actorEmail: input.actorEmail,
       action: input.action,
       resourceType: input.resourceType,
       resourceId: input.resourceId,
+      resourceName: input.resourceName,
       result: input.result,
+      sourceService: input.sourceService,
+      requestId: input.requestId,
+      metadata: input.metadata,
+      errorCode: input.errorCode,
+      errorMessage: input.errorMessage,
       occurredAt: input.occurredAt ?? new Date(),
     });
 
