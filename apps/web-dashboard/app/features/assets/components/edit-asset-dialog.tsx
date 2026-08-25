@@ -6,7 +6,6 @@ import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -38,7 +37,8 @@ function createFormFromAsset(asset: Asset): UpdateAssetInput {
   return {
     name: asset.name,
     hostname: asset.hostname ?? "",
-    targetType: asset.targetType,
+    targetType:
+      asset.targetType === "SERVICE" ? "APPLICATION" : asset.targetType,
     ipAddress: asset.ipAddress ?? "",
     endpoint: asset.endpoint ?? "",
     environment: asset.environment,
@@ -125,15 +125,12 @@ export function EditAssetDialog({ asset }: EditAssetDialogProps) {
       <DialogContent className="sm:max-w-lg">
         <form onSubmit={handleSubmit}>
           <DialogHeader>
-            <DialogTitle>Edit asset</DialogTitle>
-            <DialogDescription>
-              Update the configuration for {asset.name}.
-            </DialogDescription>
+            <DialogTitle>Edit Asset</DialogTitle>
           </DialogHeader>
 
           <div className="grid gap-4 py-6">
             <div className="grid gap-2">
-              <Label htmlFor={`name-${asset.assetId}`}>Name</Label>
+              <Label htmlFor={`name-${asset.assetId}`}>Asset Name</Label>
               <Input
                 id={`name-${asset.assetId}`}
                 value={form.name ?? ""}
@@ -144,7 +141,9 @@ export function EditAssetDialog({ asset }: EditAssetDialogProps) {
             </div>
 
             <div className="grid gap-2">
-              <Label htmlFor={`hostname-${asset.assetId}`}>Hostname</Label>
+              <Label htmlFor={`hostname-${asset.assetId}`}>
+                Hostname (optional)
+              </Label>
               <Input
                 id={`hostname-${asset.assetId}`}
                 value={form.hostname ?? ""}
@@ -155,30 +154,52 @@ export function EditAssetDialog({ asset }: EditAssetDialogProps) {
               />
             </div>
 
-            <div className="grid gap-2">
-              <Label>Target type</Label>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="grid gap-2">
+                <Label>Type</Label>
 
-              <Select
-                value={targetType}
-                onValueChange={(value) =>
-                  handleTargetTypeChange(value as AssetTargetType)
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
+                <Select
+                  value={targetType}
+                  onValueChange={(value) =>
+                    handleTargetTypeChange(value as AssetTargetType)
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
 
-                <SelectContent>
-                  <SelectItem value="SERVER">Server</SelectItem>
-                  <SelectItem value="APPLICATION">Application</SelectItem>
-                  <SelectItem value="SERVICE">Service</SelectItem>
-                </SelectContent>
-              </Select>
+                  <SelectContent>
+                    <SelectItem value="SERVER">Server</SelectItem>
+                    <SelectItem value="APPLICATION">Application</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="grid gap-2">
+                <Label>Environment</Label>
+
+                <Select
+                  value={form.environment ?? asset.environment}
+                  onValueChange={(value) =>
+                    updateField("environment", value as AssetEnvironment)
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+
+                  <SelectContent>
+                    <SelectItem value="PRODUCTION">Production</SelectItem>
+                    <SelectItem value="STAGING">Staging</SelectItem>
+                    <SelectItem value="DEVELOPMENT">Development</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
 
             {isServer ? (
               <div className="grid gap-2">
-                <Label htmlFor={`ip-${asset.assetId}`}>IP address</Label>
+                <Label htmlFor={`ip-${asset.assetId}`}>IP Address</Label>
                 <Input
                   id={`ip-${asset.assetId}`}
                   value={form.ipAddress ?? ""}
@@ -190,7 +211,7 @@ export function EditAssetDialog({ asset }: EditAssetDialogProps) {
               </div>
             ) : (
               <div className="grid gap-2">
-                <Label htmlFor={`endpoint-${asset.assetId}`}>Endpoint</Label>
+                <Label htmlFor={`endpoint-${asset.assetId}`}>Endpoint URL</Label>
                 <Input
                   id={`endpoint-${asset.assetId}`}
                   value={form.endpoint ?? ""}
@@ -202,27 +223,6 @@ export function EditAssetDialog({ asset }: EditAssetDialogProps) {
                 />
               </div>
             )}
-
-            <div className="grid gap-2">
-              <Label>Environment</Label>
-
-              <Select
-                value={form.environment ?? asset.environment}
-                onValueChange={(value) =>
-                  updateField("environment", value as AssetEnvironment)
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-
-                <SelectContent>
-                  <SelectItem value="PRODUCTION">Production</SelectItem>
-                  <SelectItem value="STAGING">Staging</SelectItem>
-                  <SelectItem value="DEVELOPMENT">Development</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
 
             {updateMutation.isError && (
               <p className="text-sm text-destructive">

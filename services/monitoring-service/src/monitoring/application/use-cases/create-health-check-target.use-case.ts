@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   Inject,
   Injectable,
   NotFoundException,
@@ -9,6 +10,8 @@ import { randomUUID } from 'node:crypto';
 import {
   HealthCheckTarget,
   type CreateHealthCheckTargetProps,
+  getAuditSafeHealthCheckUrl,
+  normalizeHealthCheckUrl,
 } from '../../domain/entities/health-check-target.entity';
 
 import {
@@ -25,6 +28,10 @@ import {
   AUDIT_EVENT_PUBLISHER,
   type AuditEventPublisher,
 } from '../../domain/ports/audit-event-publisher.port';
+import {
+  ALERT_EVENT_PUBLISHER,
+  type AlertEventPublisher,
+} from '../../domain/ports/alert-event-publisher.port';
 
 export interface CreateHealthCheckTargetInput {
   assetId: string;
@@ -33,6 +40,7 @@ export interface CreateHealthCheckTargetInput {
 
   actorUserId: string;
   actorRole: 'ADMIN' | 'OPERATOR';
+  actorEmail?: string | null;
 }
 
 @Injectable()
@@ -46,6 +54,9 @@ export class CreateHealthCheckTargetUseCase {
 
     @Inject(AUDIT_EVENT_PUBLISHER)
     private readonly auditEventPublisher: AuditEventPublisher,
+
+    @Inject(ALERT_EVENT_PUBLISHER)
+    private readonly alertEventPublisher: AlertEventPublisher,
   ) {}
 
   async execute(
@@ -63,9 +74,29 @@ export class CreateHealthCheckTargetUseCase {
       );
     }
 
+    if (asset.assetType !== 'APPLICATION') {
+      throw new BadRequestException(
+        'Health checks can only be configured for application assets',
+      );
+    }
+
+    const normalizedUrl = normalizeHealthCheckUrl(input.url);
+
+    const existingTarget =
+      await this.healthCheckTargetRepository.findActiveByAssetIdAndUrl(
+        asset.assetId,
+        normalizedUrl,
+      );
+
+    if (existingTarget) {
+      throw new ConflictException(
+        'An active health check already exists for this application and URL',
+      );
+    }
+
     const createProps: CreateHealthCheckTargetProps = {
       assetId: asset.assetId,
-      url: input.url,
+      url: normalizedUrl,
       checkIntervalSeconds: input.checkIntervalSeconds,
     };
 
@@ -78,15 +109,35 @@ export class CreateHealthCheckTargetUseCase {
     await this.auditEventPublisher.publish({
       actorUserId: input.actorUserId,
       actorRole: input.actorRole,
+      actorEmail: input.actorEmail,
 
       action: 'HEALTH_CHECK_TARGET_CREATED',
 
       resourceType: 'HEALTH_CHECK_TARGET',
       resourceId: healthCheckTargetId,
+      resourceName: `${asset.name} health check`,
 
       result: 'SUCCESS',
+      metadata: {
+        assetId: asset.assetId,
+        url: getAuditSafeHealthCheckUrl(normalizedUrl),
+        checkIntervalSeconds: target.toObject().checkIntervalSeconds,
+      },
 
       occurredAt: new Date(),
+    });
+
+    const createdData = createdTarget.toObject();
+
+    await this.alertEventPublisher.publish({
+      eventId: randomUUID(),
+      eventType: 'HEALTH_CHECK_TARGET_STATE_CHANGED',
+      healthCheckTargetId,
+      assetId: createdData.assetId,
+      url: createdData.url,
+      checkIntervalSeconds: createdData.checkIntervalSeconds,
+      state: 'RUNNING',
+      occurredAt: createdData.createdAt,
     });
 
     return createdTarget;

@@ -7,6 +7,7 @@ import type {
 } from '../entities/audit-log.entity';
 
 export interface FindAuditLogsInput {
+  search?: string;
   actorUserId?: string;
   actorRole?: AuditActorRole;
   action?: AuditAction;

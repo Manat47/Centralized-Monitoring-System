@@ -1,0 +1,2 @@
+ALTER TABLE "metric_rules" ADD COLUMN "archived_at" timestamp with time zone;--> statement-breakpoint
+CREATE UNIQUE INDEX "metric_rules_active_configuration_unique" ON "metric_rules" USING btree ("asset_id","metric_type","operator","threshold_value","duration_seconds","severity") WHERE "metric_rules"."archived_at" is null;

@@ -23,6 +23,9 @@ export interface UserListItem {
   lastLoginAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
+  invitationStatus: 'PENDING' | 'EXPIRED' | 'REVOKED' | 'ACCEPTED' | null;
+  invitationExpiresAt: Date | null;
+  invitationSentAt: Date | null;
 }
 
 export interface ListUsersOutput {
@@ -64,6 +67,9 @@ export class ListUsersUseCase {
           lastLoginAt: data.lastLoginAt,
           createdAt: data.createdAt,
           updatedAt: data.updatedAt,
+          invitationStatus: user.invitationStatus(),
+          invitationExpiresAt: data.invitationExpiresAt,
+          invitationSentAt: data.invitationSentAt,
         };
       }),
       total: result.total,

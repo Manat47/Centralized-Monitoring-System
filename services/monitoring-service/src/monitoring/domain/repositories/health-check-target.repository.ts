@@ -13,6 +13,11 @@ export interface HealthCheckTargetRepository {
 
   findAllByAssetId(assetId: string): Promise<HealthCheckTarget[]>;
 
+  findActiveByAssetIdAndUrl(
+    assetId: string,
+    url: string,
+  ): Promise<HealthCheckTarget | null>;
+
   findEnabled(): Promise<HealthCheckTarget[]>;
 
   update(target: HealthCheckTarget): Promise<HealthCheckTarget>;

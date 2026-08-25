@@ -27,6 +27,7 @@ export interface MetricRuleProps {
   durationSeconds: number; // ระยะเวลาในการตรวจ (วินาที)
   severity: MetricRuleSeverity; // ระดับความรุนแรง
   enabled: boolean; // สถานะการใช้งาน
+  archivedAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -59,6 +60,7 @@ export class MetricRule {
       durationSeconds: input.durationSeconds ?? 300,
       severity: input.severity,
       enabled: true,
+      archivedAt: null,
       createdAt: now,
       updatedAt: now,
     });
@@ -82,9 +84,43 @@ export class MetricRule {
   }
 
   enable(): void {
+    if (this.props.archivedAt) {
+      throw new Error('Archived metric rule cannot be enabled');
+    }
     // ฟังก์ชันสำหรับเปิดการใช้งาน MetricRule
     this.props.enabled = true; // เปลี่ยนสถานะกฎเป็นเปิดใช้งาน
     this.props.updatedAt = new Date();
+  }
+
+  updateConfiguration(input: {
+    metricType: MetricRuleType;
+    operator: MetricRuleOperator;
+    thresholdValue: number;
+    durationSeconds: number;
+    severity: MetricRuleSeverity;
+  }): void {
+    if (this.props.archivedAt) {
+      throw new Error('Archived metric rule cannot be updated');
+    }
+
+    this.props.metricType = input.metricType;
+    this.props.operator = input.operator;
+    this.props.thresholdValue = input.thresholdValue;
+    this.props.durationSeconds = input.durationSeconds;
+    this.props.severity = input.severity;
+    this.props.updatedAt = new Date();
+    this.validate();
+  }
+
+  archive(): void {
+    if (this.props.archivedAt) {
+      throw new Error('Metric rule is already archived');
+    }
+
+    const now = new Date();
+    this.props.enabled = false;
+    this.props.archivedAt = now;
+    this.props.updatedAt = now;
   }
 
   matches(value: number): boolean {

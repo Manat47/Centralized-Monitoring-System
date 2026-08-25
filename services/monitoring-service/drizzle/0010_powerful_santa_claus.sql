@@ -1,0 +1,1 @@
+ALTER TABLE "metric_rule_evaluation_states" ADD COLUMN "last_sample_at" timestamp with time zone;

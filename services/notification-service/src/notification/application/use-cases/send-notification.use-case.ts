@@ -31,6 +31,12 @@ export class SendNotificationUseCase {
       title = `${event.severity} alert triggered`;
     } else if (event.resolutionReason === 'ASSET_DEACTIVATED') {
       title = `${event.severity} alert ended — asset deactivated`;
+    } else if (event.resolutionReason === 'METRIC_RULE_UPDATED') {
+      title = `${event.severity} alert ended — metric rule updated`;
+    } else if (event.resolutionReason === 'METRIC_RULE_DISABLED') {
+      title = `${event.severity} alert ended — metric rule disabled`;
+    } else if (event.resolutionReason === 'METRIC_RULE_ARCHIVED') {
+      title = `${event.severity} alert ended — metric rule archived`;
     } else {
       title = `${event.severity} alert resolved`;
     }
@@ -55,6 +61,14 @@ export class SendNotificationUseCase {
           alertId: event.alertId,
           assetId: event.assetId,
           severity: event.severity,
+          status:
+            event.eventType === 'ALERT_TRIGGERED' ? 'TRIGGERED' : 'RESOLVED',
+          alertType: event.alertType,
+          metricType: event.metricType,
+          resolutionReason:
+            event.eventType === 'ALERT_RESOLVED'
+              ? event.resolutionReason
+              : undefined,
           title,
           message: event.message,
           occurredAt: new Date(event.occurredAt),

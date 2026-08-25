@@ -1,13 +1,17 @@
 export type VerificationStatus = "NOT_VERIFIED" | "VERIFIED" | "FAILED";
+export type MonitoringType = "NODE_EXPORTER" | "PROMETHEUS_APPLICATION";
+export type MonitoringProtocol = "HTTP" | "HTTPS";
 
 export interface MonitoringTarget {
   targetId: string;
   assetId: string;
-  host: string;
+  monitoringType: MonitoringType;
+  protocol: MonitoringProtocol | null;
   port: number;
   path: string;
   scrapeIntervalSeconds: number;
   verificationStatus: VerificationStatus;
+  verifiedConfigFingerprint: string | null;
   monitoringEnabled: boolean;
 
   lastVerifiedAt: string | null;
@@ -19,6 +23,7 @@ export interface MonitoringTarget {
 
 export interface CreateMonitoringTargetInput {
   assetId: string;
+  protocol?: MonitoringProtocol;
   port?: number;
   path?: string;
   scrapeIntervalSeconds?: number;

@@ -10,6 +10,7 @@ import {
   uuid,
   varchar,
 } from 'drizzle-orm/pg-core';
+import { sql } from 'drizzle-orm';
 
 export const verificationStatusEnum = pgEnum('verification_status', [
   'NOT_VERIFIED',
@@ -112,70 +113,101 @@ export const monitoringTargets = pgTable(
 export type MonitoringTargetRow = typeof monitoringTargets.$inferSelect;
 export type NewMonitoringTargetRow = typeof monitoringTargets.$inferInsert;
 
-export const healthCheckTargets = pgTable('health_check_targets', {
-  healthCheckTargetId: uuid('health_check_target_id')
-    .defaultRandom()
-    .primaryKey(),
+export const healthCheckTargets = pgTable(
+  'health_check_targets',
+  {
+    healthCheckTargetId: uuid('health_check_target_id')
+      .defaultRandom()
+      .primaryKey(),
 
-  assetId: uuid('asset_id').notNull(),
+    assetId: uuid('asset_id').notNull(),
 
-  url: varchar('url', { length: 2048 }).notNull(),
+    url: varchar('url', { length: 2048 }).notNull(),
 
-  checkIntervalSeconds: integer('check_interval_seconds').default(15).notNull(),
+    checkIntervalSeconds: integer('check_interval_seconds')
+      .default(15)
+      .notNull(),
 
-  enabled: boolean('enabled').default(false).notNull(),
+    enabled: boolean('enabled').default(true).notNull(),
 
-  lastCheckedAt: timestamp('last_checked_at', {
-    withTimezone: true,
-  }),
+    archivedAt: timestamp('archived_at', {
+      withTimezone: true,
+    }),
 
-  createdAt: timestamp('created_at', {
-    withTimezone: true,
-  })
-    .defaultNow()
-    .notNull(),
+    lastCheckedAt: timestamp('last_checked_at', {
+      withTimezone: true,
+    }),
 
-  updatedAt: timestamp('updated_at', {
-    withTimezone: true,
-  })
-    .defaultNow()
-    .notNull(),
-});
+    createdAt: timestamp('created_at', {
+      withTimezone: true,
+    })
+      .defaultNow()
+      .notNull(),
+
+    updatedAt: timestamp('updated_at', {
+      withTimezone: true,
+    })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    uniqueIndex('health_check_targets_active_asset_url_unique')
+      .on(table.assetId, table.url)
+      .where(sql`${table.archivedAt} is null`),
+  ],
+);
 
 export type HealthCheckTargetRow = typeof healthCheckTargets.$inferSelect;
 export type NewHealthCheckTargetRow = typeof healthCheckTargets.$inferInsert;
 
-export const metricRules = pgTable('metric_rules', {
-  ruleId: uuid('rule_id').defaultRandom().primaryKey(),
+export const metricRules = pgTable(
+  'metric_rules',
+  {
+    ruleId: uuid('rule_id').defaultRandom().primaryKey(),
 
-  assetId: uuid('asset_id').notNull(),
+    assetId: uuid('asset_id').notNull(),
 
-  metricType: metricRuleTypeEnum('metric_type').notNull(),
+    metricType: metricRuleTypeEnum('metric_type').notNull(),
 
-  operator: metricRuleOperatorEnum('operator')
-    .default('GREATER_THAN_OR_EQUAL')
-    .notNull(),
+    operator: metricRuleOperatorEnum('operator')
+      .default('GREATER_THAN_OR_EQUAL')
+      .notNull(),
 
-  thresholdValue: integer('threshold_value').notNull(),
+    thresholdValue: integer('threshold_value').notNull(),
 
-  durationSeconds: integer('duration_seconds').default(300).notNull(),
+    durationSeconds: integer('duration_seconds').default(300).notNull(),
 
-  severity: metricRuleSeverityEnum('severity').notNull(),
+    severity: metricRuleSeverityEnum('severity').notNull(),
 
-  enabled: boolean('enabled').default(true).notNull(),
+    enabled: boolean('enabled').default(true).notNull(),
 
-  createdAt: timestamp('created_at', {
-    withTimezone: true,
-  })
-    .defaultNow()
-    .notNull(),
+    archivedAt: timestamp('archived_at', { withTimezone: true }),
 
-  updatedAt: timestamp('updated_at', {
-    withTimezone: true,
-  })
-    .defaultNow()
-    .notNull(),
-});
+    createdAt: timestamp('created_at', {
+      withTimezone: true,
+    })
+      .defaultNow()
+      .notNull(),
+
+    updatedAt: timestamp('updated_at', {
+      withTimezone: true,
+    })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    uniqueIndex('metric_rules_active_configuration_unique')
+      .on(
+        table.assetId,
+        table.metricType,
+        table.operator,
+        table.thresholdValue,
+        table.durationSeconds,
+        table.severity,
+      )
+      .where(sql`${table.archivedAt} is null`),
+  ],
+);
 
 export type MetricRuleRow = typeof metricRules.$inferSelect;
 export type NewMetricRuleRow = typeof metricRules.$inferInsert;
@@ -198,6 +230,10 @@ export const metricRuleEvaluationStates = pgTable(
     }),
 
     lastEvaluatedAt: timestamp('last_evaluated_at', {
+      withTimezone: true,
+    }),
+
+    lastSampleAt: timestamp('last_sample_at', {
       withTimezone: true,
     }),
 

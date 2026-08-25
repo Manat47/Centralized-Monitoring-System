@@ -20,6 +20,14 @@ export class RabbitMqAuditEventPublisher implements AuditEventPublisher {
   async publish(event: AuditEvent): Promise<void> {
     console.log('[AuditPublisher] publishing:', event);
 
-    await lastValueFrom(this.client.emit(AUDIT_EVENT_PATTERN, event));
+    await lastValueFrom(
+      this.client.emit(AUDIT_EVENT_PATTERN, {
+        ...event,
+        eventId: randomUUID(),
+        schemaVersion: 1,
+        sourceService: 'alerting-service',
+      }),
+    );
   }
 }
+import { randomUUID } from 'node:crypto';

@@ -22,10 +22,15 @@ import {
   AUDIT_EVENT_PUBLISHER,
   type AuditEventPublisher,
 } from '../../domain/ports/audit-event-publisher.port';
+import {
+  MONITORING_TARGET_REPOSITORY,
+  type MonitoringTargetRepository,
+} from '../../domain/repositories/monitoring-target.repository';
 
 export interface CreateMetricRuleInput extends CreateMetricRuleProps {
   actorUserId: string;
   actorRole: 'ADMIN' | 'OPERATOR';
+  actorEmail?: string | null;
 }
 
 @Injectable()
@@ -39,10 +44,13 @@ export class CreateMetricRuleUseCase {
 
     @Inject(AUDIT_EVENT_PUBLISHER)
     private readonly auditEventPublisher: AuditEventPublisher,
+
+    @Inject(MONITORING_TARGET_REPOSITORY)
+    private readonly monitoringTargetRepository: MonitoringTargetRepository,
   ) {}
 
   async execute(input: CreateMetricRuleInput): Promise<MetricRule> {
-    const { actorUserId, actorRole, ...ruleData } = input;
+    const { actorUserId, actorRole, actorEmail, ...ruleData } = input;
 
     const asset = await this.assetReader.findById(ruleData.assetId);
 
@@ -64,15 +72,49 @@ export class CreateMetricRuleUseCase {
       );
     }
 
+    const target =
+      await this.monitoringTargetRepository.findByAssetIdAndMonitoringType(
+        ruleData.assetId,
+        'NODE_EXPORTER',
+      );
+    const targetData = target?.toObject();
+
+    if (
+      !targetData ||
+      targetData.verificationStatus !== 'VERIFIED' ||
+      !targetData.monitoringEnabled
+    ) {
+      throw new BadRequestException(
+        'Metric rules require a verified and enabled monitoring target',
+      );
+    }
+
     const ruleId = randomUUID();
 
     const rule = MetricRule.create(ruleId, ruleData);
 
-    const createdRule = await this.metricRuleRepository.create(rule);
+    if (await this.metricRuleRepository.findDuplicate(rule)) {
+      throw new BadRequestException(
+        'An active metric rule with the same configuration already exists',
+      );
+    }
+
+    let createdRule: MetricRule;
+    try {
+      createdRule = await this.metricRuleRepository.create(rule);
+    } catch (error) {
+      if (this.isDuplicateViolation(error)) {
+        throw new BadRequestException(
+          'An active metric rule with the same configuration already exists',
+        );
+      }
+      throw error;
+    }
 
     await this.auditEventPublisher.publish({
       actorUserId,
       actorRole,
+      actorEmail,
 
       action: 'METRIC_RULE_CREATED',
 
@@ -85,5 +127,14 @@ export class CreateMetricRuleUseCase {
     });
 
     return createdRule;
+  }
+
+  private isDuplicateViolation(error: unknown): boolean {
+    return (
+      typeof error === 'object' &&
+      error !== null &&
+      'code' in error &&
+      error.code === '23505'
+    );
   }
 }

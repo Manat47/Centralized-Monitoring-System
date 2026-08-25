@@ -21,6 +21,18 @@ export async function getAlerts(
     searchParams.set("assetId", params.assetId);
   }
 
+  if (params.sourceType) {
+    searchParams.set("sourceType", params.sourceType);
+  }
+
+  if (params.alertType) {
+    searchParams.set("alertType", params.alertType);
+  }
+
+  if (params.search) {
+    searchParams.set("search", params.search);
+  }
+
   searchParams.set("page", String(params.page ?? 1));
   searchParams.set("limit", String(params.limit ?? 20));
 

@@ -25,6 +25,10 @@ import { CloseAlertUseCase } from './application/use-cases/close-alert.use-case'
 import { QueryAlertReportSummaryUseCase } from './application/use-cases/query-alert-report-summary.use-case';
 import { AssetLifecycleEventConsumer } from './infrastructure/messaging/asset-lifecycle-event.consumer';
 import { ResolveAlertsForDeactivatedAssetUseCase } from './application/use-cases/resolve-alerts-for-deactivated-asset.use-case';
+import { HEALTH_CHECK_ALERT_STATE_REPOSITORY } from './domain/repositories/health-check-alert-state.repository';
+import { DrizzleHealthCheckAlertStateRepository } from './infrastructure/persistence/drizzle-health-check-alert-state.repository';
+import { EvaluateStaleHealthChecksUseCase } from './application/use-cases/evaluate-stale-health-checks.use-case';
+import { AlertEvaluationScheduler } from './infrastructure/schedulers/alert-evaluation.scheduler';
 
 @Module({
   imports: [
@@ -104,9 +108,15 @@ import { ResolveAlertsForDeactivatedAssetUseCase } from './application/use-cases
     CloseAlertUseCase,
     QueryAlertReportSummaryUseCase,
     ResolveAlertsForDeactivatedAssetUseCase,
+    EvaluateStaleHealthChecksUseCase,
+    AlertEvaluationScheduler,
     {
       provide: ALERT_REPOSITORY,
       useClass: DrizzleAlertRepository,
+    },
+    {
+      provide: HEALTH_CHECK_ALERT_STATE_REPOSITORY,
+      useClass: DrizzleHealthCheckAlertStateRepository,
     },
     {
       provide: NOTIFICATION_EVENT_PUBLISHER,

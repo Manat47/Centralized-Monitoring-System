@@ -12,6 +12,7 @@ import {
 } from '../../domain/repositories/audit-log.repository';
 
 export interface ListAuditLogsInput {
+  search?: string;
   actorUserId?: string;
   actorRole?: AuditActorRole;
   action?: AuditAction;
@@ -35,6 +36,7 @@ export class ListAuditLogsUseCase {
     const limit = input.limit ?? 20;
 
     const result = await this.auditLogRepository.findMany({
+      search: input.search,
       actorUserId: input.actorUserId,
       actorRole: input.actorRole,
       action: input.action,

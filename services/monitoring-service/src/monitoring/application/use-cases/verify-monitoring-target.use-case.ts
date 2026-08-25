@@ -15,10 +15,15 @@ import {
 } from '../../domain/ports/audit-event-publisher.port';
 import { MonitoringEndpointResolver } from '../services/monitoring-endpoint-resolver.service';
 import { MonitoringConfigFingerprintService } from '../services/monitoring-config-fingerprint.service';
+import {
+  ASSET_READER,
+  type AssetReader,
+} from '../../domain/ports/asset-reader.port';
 
 export interface VerifyMonitoringTargetInput {
   actorUserId: string;
   actorRole: 'ADMIN' | 'OPERATOR';
+  actorEmail?: string | null;
 }
 
 @Injectable()
@@ -32,6 +37,9 @@ export class VerifyMonitoringTargetUseCase {
 
     @Inject(AUDIT_EVENT_PUBLISHER)
     private readonly auditEventPublisher: AuditEventPublisher,
+
+    @Inject(ASSET_READER)
+    private readonly assetReader: AssetReader,
 
     private readonly monitoringEndpointResolver: MonitoringEndpointResolver,
     private readonly monitoringConfigFingerprintService: MonitoringConfigFingerprintService,
@@ -72,17 +80,31 @@ export class VerifyMonitoringTargetUseCase {
     }
 
     const updatedTarget = await this.monitoringTargetRepository.update(target);
+    const data = updatedTarget.toObject();
+    const asset = await this.assetReader.findById(data.assetId);
 
     await this.auditEventPublisher.publish({
       actorUserId: input.actorUserId,
       actorRole: input.actorRole,
+      actorEmail: input.actorEmail,
 
       action: 'MONITORING_TARGET_VERIFIED',
 
       resourceType: 'MONITORING_TARGET',
       resourceId: targetId,
+      resourceName: asset ? `${asset.name} monitoring target` : null,
 
       result: result.success ? 'SUCCESS' : 'FAILURE',
+      metadata: {
+        assetId: data.assetId,
+        monitoringType: data.monitoringType,
+        protocol: data.protocol,
+        port: data.port,
+        path: data.path,
+        verificationStatus: data.verificationStatus,
+      },
+      errorCode: result.success ? null : 'MONITORING_VERIFICATION_FAILED',
+      errorMessage: result.success ? null : result.errorMessage,
 
       occurredAt: new Date(),
     });

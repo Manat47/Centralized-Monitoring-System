@@ -25,6 +25,7 @@ import { MonitoringVerificationRequiredException } from '../errors/monitoring-ve
 export interface EnableMonitoringInput {
   actorUserId: string;
   actorRole: 'ADMIN' | 'OPERATOR';
+  actorEmail?: string | null;
 }
 
 @Injectable()
@@ -107,13 +108,19 @@ export class EnableMonitoringUseCase {
     await this.auditEventPublisher.publish({
       actorUserId: input.actorUserId,
       actorRole: input.actorRole,
+      actorEmail: input.actorEmail,
 
       action: 'MONITORING_TARGET_ENABLED',
 
       resourceType: 'MONITORING_TARGET',
       resourceId: targetId,
+      resourceName: `${asset.name} monitoring target`,
 
       result: 'SUCCESS',
+      metadata: {
+        assetId: targetData.assetId,
+        monitoringEnabled: true,
+      },
 
       occurredAt: new Date(),
     });

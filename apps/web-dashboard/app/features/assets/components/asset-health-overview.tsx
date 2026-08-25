@@ -1,11 +1,9 @@
 "use client";
 
-import { useQueries } from "@tanstack/react-query";
 import { Activity } from "lucide-react";
 
-import { getLatestHealthCheck } from "@/app/features/health-checks/api/get-latest-health-check";
 import { useHealthCheckTargets } from "@/app/features/health-checks/api/use-health-check-targets";
-import type { LatestHealthCheck } from "@/app/features/health-checks/types/health-check";
+import { getHealthResultStatus } from "@/app/features/health-checks/components/health-check-status";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -19,26 +17,6 @@ import {
 
 interface AssetHealthOverviewProps {
   assetId: string;
-}
-
-type HealthStatus = "AVAILABLE" | "UNAVAILABLE" | "UNKNOWN";
-
-function getHealthStatus(
-  latest: LatestHealthCheck | null | undefined,
-): HealthStatus {
-  if (!latest) {
-    return "UNKNOWN";
-  }
-
-  if (
-    latest.statusCode !== null &&
-    latest.statusCode >= 200 &&
-    latest.statusCode < 300
-  ) {
-    return "AVAILABLE";
-  }
-
-  return "UNAVAILABLE";
 }
 
 function formatCheckedAt(value: string | null | undefined): string {
@@ -56,18 +34,8 @@ export function AssetHealthOverview({ assetId }: AssetHealthOverviewProps) {
   const targetsQuery = useHealthCheckTargets();
 
   const assetTargets = (targetsQuery.data ?? []).filter(
-    (target) => target.assetId === assetId,
+    (target) => target.assetId === assetId && !target.archivedAt,
   );
-
-  const latestQueries = useQueries({
-    queries: assetTargets.map((target) => ({
-      queryKey: ["health-check-targets", target.healthCheckTargetId, "latest"],
-
-      queryFn: () => getLatestHealthCheck(target.healthCheckTargetId),
-
-      refetchInterval: 15_000,
-    })),
-  });
 
   if (targetsQuery.isLoading) {
     return (
@@ -117,11 +85,9 @@ export function AssetHealthOverview({ assetId }: AssetHealthOverviewProps) {
           <Table>
             <TableHeader>
               <TableRow className="bg-slate-50/70 hover:bg-slate-50/70">
-                <TableHead className="text-xs">Endpoint</TableHead>
+                <TableHead className="text-xs">URL</TableHead>
 
-                <TableHead className="w-28 text-xs">Check</TableHead>
-
-                <TableHead className="w-32 text-xs">Latest Result</TableHead>
+                <TableHead className="w-32 text-xs">Status</TableHead>
 
                 <TableHead className="w-20 text-xs">HTTP</TableHead>
 
@@ -136,10 +102,12 @@ export function AssetHealthOverview({ assetId }: AssetHealthOverviewProps) {
             </TableHeader>
 
             <TableBody>
-              {assetTargets.map((target, index) => {
-                const latest = latestQueries[index]?.data;
+              {assetTargets.map((target) => {
+                const latest = target.latest;
 
-                const status = getHealthStatus(latest);
+                const status = target.enabled
+                  ? getHealthResultStatus(target)
+                  : "DISABLED";
 
                 return (
                   <TableRow key={target.healthCheckTargetId}>
@@ -156,26 +124,12 @@ export function AssetHealthOverview({ assetId }: AssetHealthOverviewProps) {
                       <div className="flex items-center gap-2">
                         <span
                           className={
-                            target.enabled
-                              ? "size-2 rounded-full bg-blue-500"
-                              : "size-2 rounded-full bg-slate-300"
-                          }
-                        />
-
-                        <span className="text-xs text-slate-600">
-                          {target.enabled ? "Enabled" : "Disabled"}
-                        </span>
-                      </div>
-                    </TableCell>
-
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        <span
-                          className={
                             status === "AVAILABLE"
                               ? "size-2 rounded-full bg-emerald-500"
                               : status === "UNAVAILABLE"
                                 ? "size-2 rounded-full bg-rose-500"
+                                : status === "STALE"
+                                  ? "size-2 rounded-full bg-amber-500"
                                 : "size-2 rounded-full bg-slate-300"
                           }
                         />
@@ -185,7 +139,11 @@ export function AssetHealthOverview({ assetId }: AssetHealthOverviewProps) {
                             ? "Available"
                             : status === "UNAVAILABLE"
                               ? "Unavailable"
-                              : "Unknown"}
+                              : status === "STALE"
+                                ? "Stale"
+                              : status === "DISABLED"
+                                ? "Disabled"
+                                : "Unknown"}
                         </span>
                       </div>
                     </TableCell>

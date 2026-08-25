@@ -1,5 +1,10 @@
 export type UserRole = "ADMIN" | "OPERATOR";
-export type UserStatus = "ACTIVE" | "INACTIVE";
+export type UserStatus = "INVITED" | "ACTIVE" | "INACTIVE";
+export type UserInvitationStatus =
+  | "PENDING"
+  | "EXPIRED"
+  | "REVOKED"
+  | "ACCEPTED";
 
 export interface User {
   userId: string;
@@ -7,6 +12,9 @@ export interface User {
   displayName: string;
   role: UserRole;
   status: UserStatus;
+  invitationStatus: UserInvitationStatus | null;
+  invitationExpiresAt: string | null;
+  invitationSentAt: string | null;
   lastLoginAt: string | null;
   createdAt: string;
   updatedAt: string;
@@ -29,7 +37,6 @@ export interface ListUsersQuery {
 
 export interface CreateUserInput {
   email: string;
-  password: string;
   displayName: string;
   role: UserRole;
 }

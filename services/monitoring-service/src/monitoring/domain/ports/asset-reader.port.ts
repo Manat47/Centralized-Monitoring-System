@@ -4,6 +4,7 @@ export type AssetStatus = 'ACTIVATE' | 'INACTIVATE' | 'DEACTIVATE';
 
 export interface AssetSnapshot {
   assetId: string;
+  name: string;
   assetType: AssetType;
   ipAddress: string | null;
   hostname: string | null;

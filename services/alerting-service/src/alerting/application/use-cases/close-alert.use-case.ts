@@ -4,6 +4,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { randomUUID } from 'node:crypto';
 
 import type { AlertProps } from '../../domain/entities/alert.entity';
 import {
@@ -18,6 +19,7 @@ import {
 export interface CloseAlertInput {
   actorUserId: string;
   actorRole: 'ADMIN' | 'OPERATOR';
+  actorEmail?: string | null;
 }
 
 @Injectable()
@@ -37,8 +39,10 @@ export class CloseAlertUseCase {
       throw new NotFoundException(`Alert with id ${alertId} was not found`);
     }
 
+    const previousStatus = alert.toObject().status;
+
     try {
-      alert.close();
+      alert.close(input.actorUserId);
     } catch (error) {
       const message =
         error instanceof Error ? error.message : 'Unable to close alert';
@@ -47,17 +51,38 @@ export class CloseAlertUseCase {
     }
 
     const updatedAlert = await this.alertRepository.update(alert);
+    const data = updatedAlert.toObject();
+    const closedAt = data.closedAt ?? new Date();
+
+    await this.alertRepository.appendLifecycleEvent({
+      lifecycleEventId: randomUUID(),
+      alertId,
+      eventType: 'CLOSED',
+      actorUserId: input.actorUserId,
+      reason: null,
+      context: null,
+      occurredAt: closedAt,
+    });
 
     await this.auditEventPublisher.publish({
       actorUserId: input.actorUserId,
       actorRole: input.actorRole,
+      actorEmail: input.actorEmail,
       action: 'ALERT_CLOSED',
       resourceType: 'ALERT',
       resourceId: alertId,
+      resourceName: `${data.severity} ${data.metricType} alert`,
       result: 'SUCCESS',
+      metadata: {
+        assetId: data.assetId,
+        sourceType: data.sourceType,
+        sourceId: data.sourceId,
+        previousStatus,
+        status: data.status,
+      },
       occurredAt: new Date(),
     });
 
-    return updatedAlert.toObject();
+    return data;
   }
 }

@@ -5,12 +5,8 @@ import {
   type AlertRepository,
 } from '../../domain/repositories/alert.repository';
 
-import {
-  NOTIFICATION_EVENT_PUBLISHER,
-  type NotificationEventPublisher,
-} from '../../domain/port/notification-event-publisher.port';
-
 import type { AssetLifecycleEvent } from '../contracts/asset-lifecycle-event';
+import { ProcessAlertEventUseCase } from './process-alert-event.use-case';
 
 @Injectable()
 export class ResolveAlertsForDeactivatedAssetUseCase {
@@ -18,8 +14,7 @@ export class ResolveAlertsForDeactivatedAssetUseCase {
     @Inject(ALERT_REPOSITORY)
     private readonly alertRepository: AlertRepository,
 
-    @Inject(NOTIFICATION_EVENT_PUBLISHER)
-    private readonly notificationEventPublisher: NotificationEventPublisher,
+    private readonly processAlertEventUseCase: ProcessAlertEventUseCase,
   ) {}
 
   async execute(event: AssetLifecycleEvent): Promise<number> {
@@ -34,24 +29,13 @@ export class ResolveAlertsForDeactivatedAssetUseCase {
     const resolvedAt = new Date(event.occurredAt);
 
     for (const alert of activeAlerts) {
-      alert.resolve(null, resolvedAt, 'ASSET_DEACTIVATED');
-
-      const updatedAlert = await this.alertRepository.update(alert);
-
-      const data = updatedAlert.toObject();
-
-      await this.notificationEventPublisher.publish({
-        eventType: 'ALERT_RESOLVED',
-        alertId: data.alertId,
-        ruleId: data.ruleId,
-        assetId: data.assetId,
-        metricType: data.metricType,
-        severity: data.severity,
-        message: 'Alert resolved because the asset was deactivated',
-        occurredAt: resolvedAt.toISOString(),
-
-        resolutionReason: 'ASSET_DEACTIVATED',
-      });
+      await this.processAlertEventUseCase.resolveAlert(
+        alert,
+        null,
+        resolvedAt,
+        'ASSET_DEACTIVATED',
+        'Alert resolved because the asset was deactivated',
+      );
     }
 
     return activeAlerts.length;

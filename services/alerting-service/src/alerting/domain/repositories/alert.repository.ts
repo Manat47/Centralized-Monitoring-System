@@ -3,11 +3,18 @@ import type {
   AlertSeverity,
   AlertStatus,
 } from '../entities/alert.entity';
+import type { AlertLifecycleEvent } from '../entities/alert-lifecycle-event';
 
 export interface FindAlertsFilters {
   status?: AlertStatus;
   severity?: AlertSeverity;
   assetId?: string;
+  sourceType?: 'METRIC_RULE' | 'HEALTH_CHECK';
+  alertType?:
+    | 'METRIC_THRESHOLD'
+    | 'ENDPOINT_UNAVAILABLE'
+    | 'HEALTH_CHECK_STALE';
+  search?: string;
 
   from?: Date;
   to?: Date;
@@ -33,6 +40,10 @@ export interface AlertRepository {
 
   findActiveByRuleId(ruleId: string): Promise<Alert | null>;
 
+  findActiveByDedupKey(dedupKey: string): Promise<Alert | null>;
+
+  findActiveBySource(sourceType: string, sourceId: string): Promise<Alert[]>;
+
   findActiveByAssetId(assetId: string): Promise<Alert[]>;
 
   findAll(filters?: FindAlertsFilters): Promise<FindAlertsResult>;
@@ -42,4 +53,12 @@ export interface AlertRepository {
   findById(alertId: string): Promise<Alert | null>;
 
   update(alert: Alert): Promise<Alert>;
+
+  appendLifecycleEvent(event: AlertLifecycleEvent): Promise<void>;
+
+  findLifecycleEvents(alertId: string): Promise<AlertLifecycleEvent[]>;
+
+  claimEvent(eventId: string): Promise<boolean>;
+
+  releaseEvent(eventId: string): Promise<void>;
 }

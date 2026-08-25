@@ -15,6 +15,9 @@ export interface GetUserByIdOutput {
   lastLoginAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
+  invitationStatus: 'PENDING' | 'EXPIRED' | 'REVOKED' | 'ACCEPTED' | null;
+  invitationExpiresAt: Date | null;
+  invitationSentAt: Date | null;
 }
 
 @Injectable()
@@ -42,6 +45,9 @@ export class GetUserByIdUseCase {
       lastLoginAt: data.lastLoginAt,
       createdAt: data.createdAt,
       updatedAt: data.updatedAt,
+      invitationStatus: user.invitationStatus(),
+      invitationExpiresAt: data.invitationExpiresAt,
+      invitationSentAt: data.invitationSentAt,
     };
   }
 }

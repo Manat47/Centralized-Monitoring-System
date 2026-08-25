@@ -13,6 +13,7 @@ import {
 export interface DeactivateAssetInput {
   actorUserId: string;
   actorRole: 'ADMIN' | 'OPERATOR';
+  actorEmail?: string | null;
 }
 
 @Injectable()
@@ -32,6 +33,7 @@ export class DeactivateAssetUseCase {
       throw new NotFoundException(`Asset with ID ${assetId} not found`);
     }
 
+    const previousStatus = asset.toObject().status;
     asset.deactivate();
 
     const updatedAsset = await this.assetRepository.update(asset);
@@ -39,13 +41,19 @@ export class DeactivateAssetUseCase {
     await this.auditEventPublisher.publish({
       actorUserId: input.actorUserId,
       actorRole: input.actorRole,
+      actorEmail: input.actorEmail,
 
       action: 'ASSET_DEACTIVATED',
 
       resourceType: 'ASSET',
       resourceId: assetId,
+      resourceName: updatedAsset.toObject().name,
 
       result: 'SUCCESS',
+      metadata: {
+        previousStatus,
+        status: updatedAsset.toObject().status,
+      },
 
       occurredAt: new Date(),
     });

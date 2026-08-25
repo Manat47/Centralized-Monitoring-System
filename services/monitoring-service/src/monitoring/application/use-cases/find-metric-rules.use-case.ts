@@ -1,8 +1,8 @@
 import { Inject, Injectable } from '@nestjs/common';
 
-import { MetricRule } from '../../domain/entities/metric-rule.entity';
 import {
   METRIC_RULE_REPOSITORY,
+  type MetricRuleListItem,
   type MetricRuleRepository,
 } from '../../domain/repositories/metric-rule.repository';
 
@@ -13,7 +13,7 @@ export class FindMetricRulesUseCase {
     private readonly metricRuleRepository: MetricRuleRepository,
   ) {}
 
-  async execute(): Promise<MetricRule[]> {
-    return this.metricRuleRepository.findAll();
+  async execute(includeArchived = false): Promise<MetricRuleListItem[]> {
+    return this.metricRuleRepository.findAll(includeArchived);
   }
 }

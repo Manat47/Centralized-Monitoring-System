@@ -28,7 +28,7 @@ function formatTargetType(asset: Asset): string {
       return "Application";
 
     case "SERVICE":
-      return "Service";
+      return "Application";
   }
 }
 
@@ -56,6 +56,38 @@ function formatStatus(asset: Asset): string {
     case "DEACTIVATE":
       return "Deactivated";
   }
+}
+
+function formatRuntimeState(asset: Asset): string {
+  switch (asset.status) {
+    case "ACTIVATE":
+      return "Running";
+
+    case "INACTIVATE":
+      return "Paused";
+
+    case "DEACTIVATE":
+      return "Retired";
+  }
+}
+
+function getStatusClass(asset: Asset): string {
+  switch (asset.status) {
+    case "ACTIVATE":
+      return "border-emerald-200 bg-emerald-50 text-emerald-700";
+
+    case "INACTIVATE":
+      return "border-amber-200 bg-amber-50 text-amber-700";
+
+    case "DEACTIVATE":
+      return "border-slate-200 bg-slate-50 text-slate-600";
+  }
+}
+
+function getMonitoringClass(asset: Asset): string {
+  return asset.monitoringEnable
+    ? "border-blue-200 bg-blue-50 text-blue-700"
+    : "border-slate-200 bg-slate-50 text-slate-600";
 }
 
 function getAddress(asset: Asset): string {
@@ -177,6 +209,10 @@ export function AssetDetail() {
     );
   }
 
+  const availableTabs = tabs.filter(
+    (tab) => tab.value !== "metrics" || asset.targetType === "SERVER",
+  );
+
   return (
     <section className="space-y-6">
       {/* Header */}
@@ -200,7 +236,19 @@ export function AssetDetail() {
 
       {/* Asset summary */}
       <Card className="border-slate-200 bg-white shadow-none">
-        <CardContent className="grid gap-6 p-5 sm:grid-cols-2 xl:grid-cols-4">
+        <CardContent className="grid gap-6 p-5 sm:grid-cols-2 xl:grid-cols-6">
+          <SummaryItem label="Status">
+            <Badge variant="outline" className={getStatusClass(asset)}>
+              {formatStatus(asset)}
+            </Badge>
+          </SummaryItem>
+
+          <SummaryItem label="Monitoring">
+            <Badge variant="outline" className={getMonitoringClass(asset)}>
+              {asset.monitoringEnable ? "Enabled" : "Disabled"}
+            </Badge>
+          </SummaryItem>
+
           <SummaryItem label="Type">{formatTargetType(asset)}</SummaryItem>
 
           <SummaryItem label="Environment">
@@ -217,9 +265,22 @@ export function AssetDetail() {
         </CardContent>
       </Card>
 
+      {asset.status === "DEACTIVATE" && (
+        <div className="rounded-lg border border-slate-200 bg-slate-50 px-5 py-4">
+          <p className="text-sm font-medium text-slate-900">
+            This asset is deactivated
+          </p>
+
+          <p className="mt-1 text-xs text-slate-500">
+            It is retained for history and should not be activated through the
+            normal lifecycle action.
+          </p>
+        </div>
+      )}
+
       {/* Tabs */}
       <div className="inline-flex rounded-lg bg-slate-100 p-1">
-        {tabs.map((tab) => (
+        {availableTabs.map((tab) => (
           <button
             key={tab.value}
             type="button"
@@ -238,7 +299,9 @@ export function AssetDetail() {
       {/* Tab content */}
       {activeTab === "overview" && <AssetOverview asset={asset} />}
 
-      {activeTab === "metrics" && <AssetMetricsSummary />}
+      {activeTab === "metrics" && asset.targetType === "SERVER" && (
+        <AssetMetricsSummary />
+      )}
 
       {activeTab === "health" && (
         <AssetHealthOverview assetId={asset.assetId} />
@@ -342,13 +405,25 @@ function AssetOverview({ asset }: { asset: Asset }) {
 
         <CardContent className="grid gap-4 p-5 md:grid-cols-2 xl:grid-cols-4">
           <OverviewStatus
-            label="Asset status"
+            label="Asset lifecycle"
             value={formatStatus(asset)}
             tone={asset.status === "ACTIVATE" ? "success" : "neutral"}
           />
 
           <OverviewStatus
-            label="Monitoring target"
+            label="Runtime state"
+            value={formatRuntimeState(asset)}
+            tone={
+              asset.status === "ACTIVATE"
+                ? "success"
+                : asset.status === "INACTIVATE"
+                  ? "warning"
+                  : "neutral"
+            }
+          />
+
+          <OverviewStatus
+            label="Monitoring config"
             value={
               !monitoringTarget
                 ? "Not configured"
@@ -357,24 +432,6 @@ function AssetOverview({ asset }: { asset: Asset }) {
                   : "Disabled"
             }
             tone={monitoringTarget?.monitoringEnabled ? "info" : "neutral"}
-          />
-
-          <OverviewStatus
-            label="Verification"
-            value={
-              monitoringTarget
-                ? monitoringTarget.verificationStatus
-                    .toLowerCase()
-                    .replaceAll("_", " ")
-                : "No target"
-            }
-            tone={
-              monitoringTarget?.verificationStatus === "VERIFIED"
-                ? "success"
-                : monitoringTarget?.verificationStatus === "FAILED"
-                  ? "danger"
-                  : "neutral"
-            }
           />
 
           <OverviewStatus
@@ -492,11 +549,12 @@ function OverviewStatus({
 }: {
   label: string;
   value: string;
-  tone: "success" | "info" | "danger" | "neutral";
+  tone: "success" | "info" | "warning" | "danger" | "neutral";
 }) {
   const toneClass = {
     success: "text-emerald-600",
     info: "text-blue-600",
+    warning: "text-amber-600",
     danger: "text-rose-600",
     neutral: "text-slate-600",
   }[tone];

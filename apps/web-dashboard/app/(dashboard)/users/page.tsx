@@ -6,10 +6,10 @@ export default function UsersPage() {
     <section className="space-y-6">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold">Users</h1>
+          <h1 className="text-2xl font-semibold">Users</h1>
 
-          <p className="text-muted-foreground">
-            Manage administrator and operator accounts.
+          <p className="mt-1 text-sm text-muted-foreground">
+            Manage access, roles, and account lifecycle.
           </p>
         </div>
 

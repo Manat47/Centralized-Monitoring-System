@@ -7,6 +7,7 @@ export enum UserRoleFilterDto {
 }
 
 export enum UserStatusFilterDto {
+  INVITED = 'INVITED',
   ACTIVE = 'ACTIVE',
   INACTIVE = 'INACTIVE',
 }

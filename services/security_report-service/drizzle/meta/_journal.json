@@ -15,6 +15,20 @@
       "when": 1787030364973,
       "tag": "0001_brief_jasper_sitwell",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1787588697114,
+      "tag": "0002_new_polaris",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1787642934450,
+      "tag": "0003_dapper_wild_pack",
+      "breakpoints": true
     }
   ]
 }

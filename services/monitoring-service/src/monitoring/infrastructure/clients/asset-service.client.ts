@@ -12,6 +12,7 @@ import { AxiosError } from 'axios';
 interface AssetServiceResponse {
   id?: string;
   assetId?: string;
+  name?: string;
   type?: string;
   assetType?: string;
   targetType?: string;
@@ -56,12 +57,13 @@ export class AssetServiceClient implements AssetReader {
       const resolvedAssetType =
         asset.assetType ?? asset.type ?? asset.targetType;
 
-      if (!resolvedAssetId || !resolvedAssetType || !asset.status) {
+      if (!resolvedAssetId || !asset.name || !resolvedAssetType || !asset.status) {
         throw new Error('Asset Service returned an invalid response');
       }
 
       return {
         assetId: resolvedAssetId,
+        name: asset.name,
         assetType: resolvedAssetType as AssetSnapshot['assetType'],
         ipAddress: asset.ipAddress ?? null,
         hostname: asset.hostname ?? null,

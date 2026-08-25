@@ -2,14 +2,18 @@ import { pgEnum, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
 
 export const userRoleEnum = pgEnum('user_role', ['ADMIN', 'OPERATOR']);
 
-export const userStatusEnum = pgEnum('user_status', ['ACTIVE', 'INACTIVE']);
+export const userStatusEnum = pgEnum('user_status', [
+  'INVITED',
+  'ACTIVE',
+  'INACTIVE',
+]);
 
 export const users = pgTable('users', {
   userId: uuid('user_id').primaryKey(),
 
   email: text('email').notNull().unique(),
 
-  passwordHash: text('password_hash').notNull(),
+  passwordHash: text('password_hash'),
 
   displayName: text('display_name').notNull(),
 
@@ -18,6 +22,24 @@ export const users = pgTable('users', {
   status: userStatusEnum('status').notNull(),
 
   lastLoginAt: timestamp('last_login_at', {
+    withTimezone: true,
+  }),
+
+  invitationTokenHash: text('invitation_token_hash').unique(),
+
+  invitationExpiresAt: timestamp('invitation_expires_at', {
+    withTimezone: true,
+  }),
+
+  invitationSentAt: timestamp('invitation_sent_at', {
+    withTimezone: true,
+  }),
+
+  invitationAcceptedAt: timestamp('invitation_accepted_at', {
+    withTimezone: true,
+  }),
+
+  invitationRevokedAt: timestamp('invitation_revoked_at', {
     withTimezone: true,
   }),
 

@@ -3,6 +3,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import type {
   NotificationSender,
   SendNotificationInput,
+  SendUserInvitationInput,
 } from '../../domain/ports/notification-sender.port';
 
 @Injectable()
@@ -17,6 +18,25 @@ export class ConsoleNotificationSender implements NotificationSender {
       title: input.title,
       message: input.message,
       occurredAt: input.occurredAt.toISOString(),
+    });
+
+    return Promise.resolve();
+  }
+
+  sendTest(recipientEmail: string): Promise<void> {
+    this.logger.log({
+      recipientEmail,
+      title: 'Monitoring notification test',
+    });
+
+    return Promise.resolve();
+  }
+
+  sendUserInvitation(input: SendUserInvitationInput): Promise<void> {
+    this.logger.log({
+      recipientEmail: input.recipientEmail,
+      title: 'You are invited to Centralized Monitoring',
+      expiresAt: input.expiresAt.toISOString(),
     });
 
     return Promise.resolve();

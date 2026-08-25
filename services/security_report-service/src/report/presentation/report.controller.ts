@@ -7,6 +7,7 @@ import {
   ParseUUIDPipe,
   NotFoundException,
   Post,
+  Query,
   StreamableFile,
 } from '@nestjs/common';
 
@@ -19,6 +20,7 @@ import { GenerateReportDto } from './dto/generate-report.dto';
 import { ListReportsUseCase } from '../application/use-cases/list-reports.use-case';
 import { FindReportByIdUseCase } from '../application/use-cases/find-report-by-id.use-case';
 import { GetReportDownloadUseCase } from '../application/use-cases/get-report-download.use-case';
+import { ListReportsQueryDto } from './dto/list-reports-query.dto';
 
 @Controller('reports')
 export class ReportController {
@@ -30,8 +32,14 @@ export class ReportController {
   ) {}
 
   @Get()
-  async findAll() {
-    return this.listReportsUseCase.execute();
+  async findAll(@Query() query: ListReportsQueryDto) {
+    return this.listReportsUseCase.execute({
+      reportType: query.reportType,
+      status: query.status,
+      assetId: query.assetId,
+      page: query.page,
+      limit: query.limit,
+    });
   }
 
   @Get(':id')
@@ -65,6 +73,8 @@ export class ReportController {
   async generate(
     @Body() dto: GenerateReportDto,
     @Headers('x-user-id') generatedBy: string,
+    @Headers('x-user-role') generatedByRole: 'ADMIN' | 'OPERATOR',
+    @Headers('x-user-email') generatedByEmail: string | undefined,
   ) {
     return this.generateReportUseCase.execute({
       reportType: 'ON_DEMAND',
@@ -75,6 +85,8 @@ export class ReportController {
       periodEnd: new Date(dto.periodEnd),
 
       generatedBy,
+      generatedByRole,
+      generatedByEmail,
     });
   }
 }

@@ -1,11 +1,15 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { eq } from 'drizzle-orm';
+import { and, eq, isNull, ne } from 'drizzle-orm';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 
 import { DRIZZLE_DB } from '../../../database/database.provider';
 import * as schema from '../../../database/schema/monitoring-targets.schema';
 import { MetricRule } from '../../domain/entities/metric-rule.entity';
-import type { MetricRuleRepository } from '../../domain/repositories/metric-rule.repository';
+import type {
+  MetricRuleListItem,
+  MetricRuleRepository,
+} from '../../domain/repositories/metric-rule.repository';
+import { MetricRuleEvaluationState } from '../../domain/entities/metric-rule-evaluation-state.entity';
 import {
   MetricRuleOperator,
   MetricRuleSeverity,
@@ -35,6 +39,7 @@ export class DrizzleMetricRuleRepository implements MetricRuleRepository {
         durationSeconds: data.durationSeconds,
         severity: data.severity,
         enabled: data.enabled,
+        archivedAt: data.archivedAt,
         createdAt: data.createdAt,
         updatedAt: data.updatedAt,
       })
@@ -47,28 +52,72 @@ export class DrizzleMetricRuleRepository implements MetricRuleRepository {
     return this.toDomain(row);
   }
 
-  async findAll(): Promise<MetricRule[]> {
-    const rows = await this.db.select().from(schema.metricRules);
+  async findAll(includeArchived = false): Promise<MetricRuleListItem[]> {
+    const rows = await this.db
+      .select({
+        rule: schema.metricRules,
+        evaluation: schema.metricRuleEvaluationStates,
+      })
+      .from(schema.metricRules)
+      .leftJoin(
+        schema.metricRuleEvaluationStates,
+        eq(schema.metricRuleEvaluationStates.ruleId, schema.metricRules.ruleId),
+      )
+      .where(
+        includeArchived ? undefined : isNull(schema.metricRules.archivedAt),
+      );
 
-    return rows.map((row) => this.toDomain(row));
+    return rows.map((row) => ({
+      rule: this.toDomain(row.rule).toObject(),
+      evaluation: row.evaluation
+        ? MetricRuleEvaluationState.restore(row.evaluation).toObject()
+        : null,
+    }));
   }
 
   async findEnabled(): Promise<MetricRule[]> {
     const rows = await this.db
       .select()
       .from(schema.metricRules)
-      .where(eq(schema.metricRules.enabled, true));
+      .where(
+        and(
+          eq(schema.metricRules.enabled, true),
+          isNull(schema.metricRules.archivedAt),
+        ),
+      );
 
     return rows.map((row) => this.toDomain(row));
   }
 
-  async findByAssetId(assetId: string): Promise<MetricRule[]> {
+  async findByAssetId(
+    assetId: string,
+    includeArchived = false,
+  ): Promise<MetricRuleListItem[]> {
     const rows = await this.db
-      .select()
+      .select({
+        rule: schema.metricRules,
+        evaluation: schema.metricRuleEvaluationStates,
+      })
       .from(schema.metricRules)
-      .where(eq(schema.metricRules.assetId, assetId));
+      .leftJoin(
+        schema.metricRuleEvaluationStates,
+        eq(schema.metricRuleEvaluationStates.ruleId, schema.metricRules.ruleId),
+      )
+      .where(
+        includeArchived
+          ? eq(schema.metricRules.assetId, assetId)
+          : and(
+              eq(schema.metricRules.assetId, assetId),
+              isNull(schema.metricRules.archivedAt),
+            ),
+      );
 
-    return rows.map((row) => this.toDomain(row));
+    return rows.map((row) => ({
+      rule: this.toDomain(row.rule).toObject(),
+      evaluation: row.evaluation
+        ? MetricRuleEvaluationState.restore(row.evaluation).toObject()
+        : null,
+    }));
   }
 
   async findById(ruleId: string): Promise<MetricRule | null> {
@@ -93,6 +142,7 @@ export class DrizzleMetricRuleRepository implements MetricRuleRepository {
         durationSeconds: data.durationSeconds,
         severity: data.severity,
         enabled: data.enabled,
+        archivedAt: data.archivedAt,
         updatedAt: data.updatedAt,
       })
       .where(eq(schema.metricRules.ruleId, data.ruleId))
@@ -105,6 +155,34 @@ export class DrizzleMetricRuleRepository implements MetricRuleRepository {
     return this.toDomain(row);
   }
 
+  async findDuplicate(
+    rule: MetricRule,
+    excludeRuleId?: string,
+  ): Promise<MetricRule | null> {
+    const data = rule.toObject();
+    const conditions = [
+      eq(schema.metricRules.assetId, data.assetId),
+      eq(schema.metricRules.metricType, data.metricType),
+      eq(schema.metricRules.operator, data.operator),
+      eq(schema.metricRules.thresholdValue, data.thresholdValue),
+      eq(schema.metricRules.durationSeconds, data.durationSeconds),
+      eq(schema.metricRules.severity, data.severity),
+      isNull(schema.metricRules.archivedAt),
+    ];
+
+    if (excludeRuleId) {
+      conditions.push(ne(schema.metricRules.ruleId, excludeRuleId));
+    }
+
+    const [row] = await this.db
+      .select()
+      .from(schema.metricRules)
+      .where(and(...conditions))
+      .limit(1);
+
+    return row ? this.toDomain(row) : null;
+  }
+
   private toDomain(row: MetricRuleRow): MetricRule {
     return MetricRule.restore({
       ruleId: row.ruleId,
@@ -115,6 +193,7 @@ export class DrizzleMetricRuleRepository implements MetricRuleRepository {
       durationSeconds: row.durationSeconds,
       severity: this.toMetricRuleSeverity(row.severity),
       enabled: row.enabled,
+      archivedAt: row.archivedAt,
       createdAt: row.createdAt,
       updatedAt: row.updatedAt,
     });

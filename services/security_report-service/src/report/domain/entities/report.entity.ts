@@ -16,11 +16,19 @@ export interface ReportProps {
   // monthly report อาจไม่มี user เป็นคนกด
   generatedBy: string | null;
 
+  generatedByEmail: string | null;
+
   status: ReportStatus;
 
   summary: Record<string, unknown> | null;
 
   pdfPath: string | null;
+
+  templateVersion: string | null;
+
+  failureCode: string | null;
+
+  failureMessage: string | null;
 
   generatedAt: Date | null;
 
@@ -36,6 +44,8 @@ export interface CreateReportProps {
   periodEnd: Date;
 
   generatedBy?: string | null;
+
+  generatedByEmail?: string | null;
 }
 
 export class Report {
@@ -55,11 +65,15 @@ export class Report {
       periodStart: input.periodStart,
       periodEnd: input.periodEnd,
       generatedBy: input.generatedBy ?? null,
+      generatedByEmail: input.generatedByEmail ?? null,
 
       status: 'GENERATING',
 
       summary: null,
       pdfPath: null,
+      templateVersion: null,
+      failureCode: null,
+      failureMessage: null,
       generatedAt: null,
 
       createdAt: now,
@@ -71,16 +85,25 @@ export class Report {
     return new Report(props);
   }
 
-  complete(summary: Record<string, unknown>, pdfPath: string): void {
+  complete(
+    summary: Record<string, unknown>,
+    pdfPath: string,
+    templateVersion: string,
+  ): void {
     this.props.summary = summary;
     this.props.pdfPath = pdfPath;
+    this.props.templateVersion = templateVersion;
+    this.props.failureCode = null;
+    this.props.failureMessage = null;
     this.props.status = 'COMPLETED';
     this.props.generatedAt = new Date();
     this.props.updatedAt = new Date();
   }
 
-  fail(): void {
+  fail(error: { code: string; message: string }): void {
     this.props.status = 'FAILED';
+    this.props.failureCode = error.code;
+    this.props.failureMessage = error.message;
     this.props.updatedAt = new Date();
   }
 

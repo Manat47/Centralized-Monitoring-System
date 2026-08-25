@@ -26,6 +26,10 @@ import {
 } from '../../domain/ports/asset-reader.port';
 
 import { QueryMetricsSummaryUseCase } from './query-metrics-summary.use-case';
+import {
+  MONITORING_TARGET_REPOSITORY,
+  type MonitoringTargetRepository,
+} from '../../domain/repositories/monitoring-target.repository';
 
 export interface MetricRuleViolation {
   ruleId: string;
@@ -64,6 +68,9 @@ export class EvaluateMetricRulesUseCase {
     private readonly assetReader: AssetReader,
 
     private readonly queryMetricsSummaryUseCase: QueryMetricsSummaryUseCase,
+
+    @Inject(MONITORING_TARGET_REPOSITORY)
+    private readonly monitoringTargetRepository: MonitoringTargetRepository,
   ) {}
 
   async execute(): Promise<EvaluateMetricRulesResult> {
@@ -104,7 +111,22 @@ export class EvaluateMetricRulesUseCase {
           continue;
         }
 
-        const ruleResult = await this.evaluateSingleRule(rule, now);
+        const target =
+          await this.monitoringTargetRepository.findByAssetIdAndMonitoringType(
+            data.assetId,
+            'NODE_EXPORTER',
+          );
+
+        if (!target?.toObject().monitoringEnabled) {
+          result.skipped += 1;
+          continue;
+        }
+
+        const ruleResult = await this.evaluateSingleRule(
+          rule,
+          now,
+          target.toObject().scrapeIntervalSeconds,
+        );
 
         if (ruleResult.triggeredEvent) {
           result.triggered += 1;
@@ -130,6 +152,7 @@ export class EvaluateMetricRulesUseCase {
   private async evaluateSingleRule(
     rule: MetricRule,
     now: Date,
+    scrapeIntervalSeconds: number,
   ): Promise<{
     triggeredEvent: MetricRuleViolation | null;
     recovered: boolean;
@@ -151,9 +174,8 @@ export class EvaluateMetricRulesUseCase {
 
     const end = now;
 
-    const start = new Date(
-      end.getTime() - Math.max(data.durationSeconds, 60) * 1000,
-    );
+    const freshnessWindowSeconds = Math.max(scrapeIntervalSeconds * 3, 30);
+    const start = new Date(end.getTime() - freshnessWindowSeconds * 1000);
 
     const summary = await this.queryMetricsSummaryUseCase.execute({
       assetId: data.assetId,
@@ -161,27 +183,36 @@ export class EvaluateMetricRulesUseCase {
       end,
     });
 
-    const actualValue = this.getActualValue(data.metricType, summary);
+    const sample = this.getMetricSample(data.metricType, summary);
 
-    if (actualValue === null) {
-      state.markNormal(now, null);
+    if (sample === null) {
+      state.markNoData(now);
       await this.stateRepository.update(state);
 
       return {
         triggeredEvent: null,
-        recovered:
-          previousStatus === 'VIOLATING' || previousStatus === 'ALERTED',
+        recovered: false,
       };
     }
+
+    if (state.hasProcessedSample(sample.sampleAt)) {
+      return {
+        triggeredEvent: null,
+        recovered: false,
+      };
+    }
+
+    const { value: actualValue, sampleAt } = sample;
 
     const isViolating = rule.matches(actualValue);
 
     if (!isViolating) {
-      state.markNormal(now, actualValue);
+      state.markNormal(now, sampleAt, actualValue);
       await this.stateRepository.update(state);
 
       if (previousStatus === 'ALERTED') {
         await this.alertEventPublisher.publish({
+          eventId: randomUUID(),
           eventType: 'METRIC_THRESHOLD_RECOVERED',
           ruleId: data.ruleId,
           assetId: data.assetId,
@@ -202,10 +233,10 @@ export class EvaluateMetricRulesUseCase {
       };
     }
 
-    state.markViolating(now, actualValue);
+    state.markViolating(now, sampleAt, actualValue);
 
     const shouldTriggerAlert = state.shouldTriggerAlert(
-      now,
+      sampleAt,
       data.durationSeconds,
     );
 
@@ -236,6 +267,7 @@ export class EvaluateMetricRulesUseCase {
     await this.stateRepository.update(state);
 
     const alertEvent: AlertEvent = {
+      eventId: randomUUID(),
       eventType: 'METRIC_THRESHOLD_EXCEEDED',
       ruleId: data.ruleId,
       assetId: data.assetId,
@@ -255,26 +287,40 @@ export class EvaluateMetricRulesUseCase {
     };
   }
 
-  private getActualValue(
+  private getMetricSample(
     metricType: MetricRuleType,
     summary: {
       cpu: {
         averageUsagePercent: number | null;
+        cores: Array<{
+          timestamp: Date;
+        }>;
       };
       memory: {
         usagePercent: number;
+        timestamp: Date;
       } | null;
       disks: Array<{
         usagePercent: number;
+        timestamp: Date;
       }>;
     },
-  ): number | null {
+  ): { value: number; sampleAt: Date } | null {
     if (metricType === MetricRuleType.CPU_USAGE) {
-      return summary.cpu.averageUsagePercent;
+      const sampleAt = summary.cpu.cores[0]?.timestamp;
+
+      return summary.cpu.averageUsagePercent !== null && sampleAt
+        ? { value: summary.cpu.averageUsagePercent, sampleAt }
+        : null;
     }
 
     if (metricType === MetricRuleType.MEMORY_USAGE) {
-      return summary.memory?.usagePercent ?? null;
+      return summary.memory
+        ? {
+            value: summary.memory.usagePercent,
+            sampleAt: summary.memory.timestamp,
+          }
+        : null;
     }
 
     if (metricType === MetricRuleType.DISK_USAGE) {
@@ -282,7 +328,20 @@ export class EvaluateMetricRulesUseCase {
         return null;
       }
 
-      return Math.max(...summary.disks.map((disk) => disk.usagePercent));
+      const latestTimestamp = Math.max(
+        ...summary.disks.map((disk) => disk.timestamp.getTime()),
+      );
+      const latestDisks = summary.disks.filter(
+        (disk) => disk.timestamp.getTime() === latestTimestamp,
+      );
+      const highestUsageDisk = latestDisks.reduce((highest, disk) =>
+        disk.usagePercent > highest.usagePercent ? disk : highest,
+      );
+
+      return {
+        value: highestUsageDisk.usagePercent,
+        sampleAt: highestUsageDisk.timestamp,
+      };
     }
 
     return null;

@@ -22,6 +22,14 @@ export interface UserRepository {
 
   findByEmail(email: string): Promise<User | null>;
 
+  findByInvitationTokenHash(tokenHash: string): Promise<User | null>;
+
+  acceptInvitation(
+    tokenHash: string,
+    passwordHash: string,
+    acceptedAt: Date,
+  ): Promise<User | null>;
+
   findAll(filters?: FindUsersFilters): Promise<FindUsersResult>;
 
   update(user: User): Promise<User>;

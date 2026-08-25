@@ -10,7 +10,10 @@ import {
   type HealthCheckTargetRepository,
 } from '../../domain/repositories/health-check-target.repository';
 
-import { HealthCheckTarget } from '../../domain/entities/health-check-target.entity';
+import {
+  getAuditSafeHealthCheckUrl,
+  HealthCheckTarget,
+} from '../../domain/entities/health-check-target.entity';
 
 import {
   AUDIT_EVENT_PUBLISHER,
@@ -21,10 +24,16 @@ import {
   ASSET_READER,
   type AssetReader,
 } from '../../domain/ports/asset-reader.port';
+import { randomUUID } from 'node:crypto';
+import {
+  ALERT_EVENT_PUBLISHER,
+  type AlertEventPublisher,
+} from '../../domain/ports/alert-event-publisher.port';
 
 export interface EnableHealthCheckTargetInput {
   actorUserId: string;
   actorRole: 'ADMIN' | 'OPERATOR';
+  actorEmail?: string | null;
 }
 
 @Injectable()
@@ -38,6 +47,9 @@ export class EnableHealthCheckTargetUseCase {
 
     @Inject(ASSET_READER)
     private readonly assetReader: AssetReader,
+
+    @Inject(ALERT_EVENT_PUBLISHER)
+    private readonly alertEventPublisher: AlertEventPublisher,
   ) {}
 
   async execute(
@@ -55,6 +67,10 @@ export class EnableHealthCheckTargetUseCase {
 
     const data = target.toObject();
 
+    if (data.archivedAt) {
+      throw new BadRequestException('Archived health check cannot be resumed');
+    }
+
     const asset = await this.assetReader.findById(data.assetId);
 
     if (!asset) {
@@ -67,6 +83,12 @@ export class EnableHealthCheckTargetUseCase {
       );
     }
 
+    if (asset.assetType !== 'APPLICATION') {
+      throw new BadRequestException(
+        'Health checks can only run for application assets',
+      );
+    }
+
     target.enable();
 
     const updatedTarget = await this.healthCheckTargetRepository.update(target);
@@ -74,15 +96,34 @@ export class EnableHealthCheckTargetUseCase {
     await this.auditEventPublisher.publish({
       actorUserId: input.actorUserId,
       actorRole: input.actorRole,
+      actorEmail: input.actorEmail,
 
       action: 'HEALTH_CHECK_TARGET_ENABLED',
 
       resourceType: 'HEALTH_CHECK_TARGET',
       resourceId: healthCheckTargetId,
+      resourceName: `${asset.name} health check`,
 
       result: 'SUCCESS',
+      metadata: {
+        assetId: data.assetId,
+        url: getAuditSafeHealthCheckUrl(data.url),
+        state: 'RUNNING',
+      },
 
       occurredAt: new Date(),
+    });
+
+    const updatedData = updatedTarget.toObject();
+    await this.alertEventPublisher.publish({
+      eventId: randomUUID(),
+      eventType: 'HEALTH_CHECK_TARGET_STATE_CHANGED',
+      healthCheckTargetId,
+      assetId: updatedData.assetId,
+      url: updatedData.url,
+      checkIntervalSeconds: updatedData.checkIntervalSeconds,
+      state: 'RUNNING',
+      occurredAt: updatedData.updatedAt,
     });
 
     return updatedTarget;

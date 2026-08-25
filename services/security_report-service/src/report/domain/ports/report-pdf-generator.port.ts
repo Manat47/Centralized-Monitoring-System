@@ -11,6 +11,7 @@ export interface GenerateReportPdfInput {
 
 export interface GenerateReportPdfResult {
   pdfPath: string;
+  templateVersion: string;
 }
 
 export const REPORT_PDF_GENERATOR = Symbol('REPORT_PDF_GENERATOR');

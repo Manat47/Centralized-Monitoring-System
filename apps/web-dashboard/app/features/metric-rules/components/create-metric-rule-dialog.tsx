@@ -102,7 +102,7 @@ export function CreateMetricRuleDialog() {
           Create rule
         </DialogTrigger>
 
-        <DialogContent className="sm:max-w-lg">
+        <DialogContent className="sm:max-w-2xl">
           <form onSubmit={handleSubmit}>
             <DialogHeader>
               <DialogTitle>Create metric rule</DialogTitle>
@@ -144,116 +144,120 @@ export function CreateMetricRuleDialog() {
                 )}
               </div>
 
-              <div className="grid gap-2">
-                <Label>Metric type</Label>
+              <div className="grid gap-4 sm:grid-cols-[1fr_1.15fr_0.8fr]">
+                <div className="grid gap-2">
+                  <Label>Metric</Label>
 
-                <Select
-                  value={form.metricType}
-                  onValueChange={(value) =>
-                    setForm((current) => ({
-                      ...current,
-                      metricType: (value ?? "CPU_USAGE") as MetricRuleType,
-                    }))
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
+                  <Select
+                    value={form.metricType}
+                    onValueChange={(value) =>
+                      setForm((current) => ({
+                        ...current,
+                        metricType: (value ?? "CPU_USAGE") as MetricRuleType,
+                      }))
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
 
-                  <SelectContent>
-                    <SelectItem value="CPU_USAGE">CPU Usage</SelectItem>
-                    <SelectItem value="MEMORY_USAGE">Memory Usage</SelectItem>
-                    <SelectItem value="DISK_USAGE">Disk Usage</SelectItem>
-                  </SelectContent>
-                </Select>
+                    <SelectContent>
+                      <SelectItem value="CPU_USAGE">CPU Usage</SelectItem>
+                      <SelectItem value="MEMORY_USAGE">Memory Usage</SelectItem>
+                      <SelectItem value="DISK_USAGE">Disk Usage</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="grid gap-2">
+                  <Label>Operator</Label>
+
+                  <Select
+                    value={form.operator ?? "GREATER_THAN_OR_EQUAL"}
+                    onValueChange={(value) =>
+                      setForm((current) => ({
+                        ...current,
+                        operator: (value ??
+                          "GREATER_THAN_OR_EQUAL") as MetricRuleOperator,
+                      }))
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+
+                    <SelectContent>
+                      <SelectItem value="GREATER_THAN">
+                        Greater than (&gt;)
+                      </SelectItem>
+                      <SelectItem value="GREATER_THAN_OR_EQUAL">
+                        Greater than or equal (&gt;=)
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="grid gap-2">
+                  <Label htmlFor="rule-threshold">Threshold (%)</Label>
+
+                  <Input
+                    id="rule-threshold"
+                    type="number"
+                    min={0}
+                    max={100}
+                    value={form.thresholdValue}
+                    required
+                    onChange={(event) =>
+                      setForm((current) => ({
+                        ...current,
+                        thresholdValue: Number(event.target.value),
+                      }))
+                    }
+                  />
+                </div>
               </div>
 
-              <div className="grid gap-2">
-                <Label>Operator</Label>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="grid gap-2">
+                  <Label htmlFor="rule-duration">Duration (seconds)</Label>
 
-                <Select
-                  value={form.operator ?? "GREATER_THAN_OR_EQUAL"}
-                  onValueChange={(value) =>
-                    setForm((current) => ({
-                      ...current,
-                      operator: (value ??
-                        "GREATER_THAN_OR_EQUAL") as MetricRuleOperator,
-                    }))
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
+                  <Input
+                    id="rule-duration"
+                    type="number"
+                    min={0}
+                    value={form.durationSeconds ?? 300}
+                    required
+                    onChange={(event) =>
+                      setForm((current) => ({
+                        ...current,
+                        durationSeconds: Number(event.target.value),
+                      }))
+                    }
+                  />
+                </div>
 
-                  <SelectContent>
-                    <SelectItem value="GREATER_THAN">
-                      Greater than (&gt;)
-                    </SelectItem>
-                    <SelectItem value="GREATER_THAN_OR_EQUAL">
-                      Greater than or equal (≥)
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+                <div className="grid gap-2">
+                  <Label>Severity</Label>
 
-              <div className="grid gap-2">
-                <Label htmlFor="rule-threshold">Threshold (%)</Label>
+                  <Select
+                    value={form.severity}
+                    onValueChange={(value) =>
+                      setForm((current) => ({
+                        ...current,
+                        severity: (value ?? "WARNING") as MetricRuleSeverity,
+                      }))
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
 
-                <Input
-                  id="rule-threshold"
-                  type="number"
-                  min={0}
-                  max={100}
-                  value={form.thresholdValue}
-                  required
-                  onChange={(event) =>
-                    setForm((current) => ({
-                      ...current,
-                      thresholdValue: Number(event.target.value),
-                    }))
-                  }
-                />
-              </div>
-
-              <div className="grid gap-2">
-                <Label htmlFor="rule-duration">Duration (seconds)</Label>
-
-                <Input
-                  id="rule-duration"
-                  type="number"
-                  min={0}
-                  value={form.durationSeconds ?? 300}
-                  required
-                  onChange={(event) =>
-                    setForm((current) => ({
-                      ...current,
-                      durationSeconds: Number(event.target.value),
-                    }))
-                  }
-                />
-              </div>
-
-              <div className="grid gap-2">
-                <Label>Severity</Label>
-
-                <Select
-                  value={form.severity}
-                  onValueChange={(value) =>
-                    setForm((current) => ({
-                      ...current,
-                      severity: (value ?? "WARNING") as MetricRuleSeverity,
-                    }))
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-
-                  <SelectContent>
-                    <SelectItem value="WARNING">Warning</SelectItem>
-                    <SelectItem value="CRITICAL">Critical</SelectItem>
-                  </SelectContent>
-                </Select>
+                    <SelectContent>
+                      <SelectItem value="WARNING">Warning</SelectItem>
+                      <SelectItem value="CRITICAL">Critical</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
 
               {createMutation.isError && (

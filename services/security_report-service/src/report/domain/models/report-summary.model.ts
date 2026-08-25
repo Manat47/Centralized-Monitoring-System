@@ -25,6 +25,7 @@ export interface ReportSummary {
   scope: {
     type: 'ALL_ASSETS' | 'ASSET';
     assetId: string | null;
+    assetName: string | null;
   };
 
   period: {

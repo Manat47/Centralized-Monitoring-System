@@ -22,6 +22,12 @@ const ALERT_STATUSES: AlertStatus[] = [
 ];
 
 const ALERT_SEVERITIES: AlertSeverity[] = ['WARNING', 'CRITICAL'];
+const ALERT_SOURCE_TYPES = ['METRIC_RULE', 'HEALTH_CHECK'] as const;
+const ALERT_TYPES = [
+  'METRIC_THRESHOLD',
+  'ENDPOINT_UNAVAILABLE',
+  'HEALTH_CHECK_STALE',
+] as const;
 
 export class FindAlertsQueryDto {
   @IsOptional()
@@ -36,6 +42,21 @@ export class FindAlertsQueryDto {
   @IsString()
   @IsUUID()
   assetId?: string;
+
+  @IsOptional()
+  @IsIn(ALERT_SOURCE_TYPES)
+  sourceType?: 'METRIC_RULE' | 'HEALTH_CHECK';
+
+  @IsOptional()
+  @IsIn(ALERT_TYPES)
+  alertType?:
+    | 'METRIC_THRESHOLD'
+    | 'ENDPOINT_UNAVAILABLE'
+    | 'HEALTH_CHECK_STALE';
+
+  @IsOptional()
+  @IsString()
+  search?: string;
 
   @IsOptional()
   @IsDateString()

@@ -16,6 +16,8 @@ const PUBLIC_ROUTES = new Set([
   '/api/auth/login',
   '/api/auth/refresh',
   '/api/auth/logout',
+  '/api/auth/invitations/validate',
+  '/api/auth/invitations/accept',
   '/api/metrics',
 ]);
 

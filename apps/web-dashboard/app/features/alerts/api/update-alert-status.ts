@@ -9,7 +9,7 @@ async function updateAlertStatus(
   action: "acknowledge" | "close",
 ): Promise<Alert> {
   const response = await authenticatedFetch(
-    `${API_GATEWAY_URL}/alerts/${alertId}/acknowledge`,
+    `${API_GATEWAY_URL}/alerts/${alertId}/${action}`,
     {
       method: "PATCH",
     },

@@ -29,6 +29,13 @@ import { LogoutUseCase } from './application/use-cases/logout.use-case';
 import { AUDIT_EVENTS_CLIENT } from './infrastructure/messaging/rabbitmq.constants';
 import { AUDIT_EVENT_PUBLISHER } from './domain/ports/audit-event-publisher.port';
 import { RabbitMqAuditEventPublisher } from './infrastructure/publishers/rabbitmq-audit-event.publisher';
+import { INVITATION_EVENT_PUBLISHER } from './domain/ports/invitation-event-publisher.port';
+import { RabbitMqInvitationEventPublisher } from './infrastructure/publishers/rabbitmq-invitation-event.publisher';
+import { NOTIFICATION_EVENTS_CLIENT } from './infrastructure/messaging/rabbitmq.constants';
+import { ValidateInvitationUseCase } from './application/use-cases/validate-invitation.use-case';
+import { AcceptInvitationUseCase } from './application/use-cases/accept-invitation.use-case';
+import { ResendUserInvitationUseCase } from './application/use-cases/resend-user-invitation.use-case';
+import { RevokeUserInvitationUseCase } from './application/use-cases/revoke-user-invitation.use-case';
 
 @Module({
   imports: [
@@ -63,6 +70,30 @@ import { RabbitMqAuditEventPublisher } from './infrastructure/publishers/rabbitm
           };
         },
       },
+      {
+        name: NOTIFICATION_EVENTS_CLIENT,
+        imports: [ConfigModule],
+        inject: [ConfigService],
+        useFactory: (configService: ConfigService) => {
+          const rabbitMqUrl = configService.get<string>('RABBITMQ_URL');
+          const queue =
+            configService.get<string>('RABBITMQ_NOTIFICATION_QUEUE') ??
+            'notification_events';
+
+          if (!rabbitMqUrl) {
+            throw new Error('RABBITMQ_URL is not defined');
+          }
+
+          return {
+            transport: Transport.RMQ,
+            options: {
+              urls: [rabbitMqUrl],
+              queue,
+              queueOptions: { durable: true },
+            },
+          };
+        },
+      },
     ]),
   ],
 
@@ -80,6 +111,10 @@ import { RabbitMqAuditEventPublisher } from './infrastructure/publishers/rabbitm
     UpdateUserUseCase,
     RefreshAccessTokenUseCase,
     LogoutUseCase,
+    ValidateInvitationUseCase,
+    AcceptInvitationUseCase,
+    ResendUserInvitationUseCase,
+    RevokeUserInvitationUseCase,
 
     {
       provide: USER_REPOSITORY,
@@ -107,6 +142,10 @@ import { RabbitMqAuditEventPublisher } from './infrastructure/publishers/rabbitm
     {
       provide: AUDIT_EVENT_PUBLISHER,
       useClass: RabbitMqAuditEventPublisher,
+    },
+    {
+      provide: INVITATION_EVENT_PUBLISHER,
+      useClass: RabbitMqInvitationEventPublisher,
     },
   ],
 

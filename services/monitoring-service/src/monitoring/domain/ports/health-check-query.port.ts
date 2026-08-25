@@ -21,4 +21,8 @@ export interface HealthCheckQuery {
   queryLatest(
     healthCheckTargetId: string,
   ): Promise<HealthCheckHistoryPoint | null>;
+
+  queryLatestMany(
+    healthCheckTargetIds: string[],
+  ): Promise<Map<string, HealthCheckHistoryPoint>>;
 }

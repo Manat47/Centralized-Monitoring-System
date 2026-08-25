@@ -55,12 +55,14 @@ export class MonitoringTargetsController {
     @Body() dto: CreateMonitoringTargetDto,
     @Headers('x-user-id') actorUserId: string,
     @Headers('x-user-role') actorRole: 'ADMIN' | 'OPERATOR',
+    @Headers('x-user-email') actorEmail: string | undefined,
   ) {
     try {
       const target = await this.createMonitoringTargetUseCase.execute({
         ...dto,
         actorRole,
         actorUserId,
+        actorEmail,
       });
 
       return target.toObject();
@@ -82,10 +84,12 @@ export class MonitoringTargetsController {
     @Param('id', new ParseUUIDPipe()) id: string,
     @Headers('x-user-id') actorUserId: string,
     @Headers('x-user-role') actorRole: 'ADMIN' | 'OPERATOR',
+    @Headers('x-user-email') actorEmail: string | undefined,
   ) {
     const target = await this.verifyMonitoringTargetUseCase.execute(id, {
       actorUserId,
       actorRole,
+      actorEmail,
     });
 
     return target.toObject();
@@ -96,10 +100,12 @@ export class MonitoringTargetsController {
     @Param('id', new ParseUUIDPipe()) id: string,
     @Headers('x-user-id') actorUserId: string,
     @Headers('x-user-role') actorRole: 'ADMIN' | 'OPERATOR',
+    @Headers('x-user-email') actorEmail: string | undefined,
   ) {
     const target = await this.enableMonitoringUseCase.execute(id, {
       actorUserId,
       actorRole,
+      actorEmail,
     });
 
     return target.toObject();
@@ -110,10 +116,12 @@ export class MonitoringTargetsController {
     @Param('id', new ParseUUIDPipe()) id: string,
     @Headers('x-user-id') actorUserId: string,
     @Headers('x-user-role') actorRole: 'ADMIN' | 'OPERATOR',
+    @Headers('x-user-email') actorEmail: string | undefined,
   ) {
     const target = await this.disableMonitoringUseCase.execute(id, {
       actorUserId,
       actorRole,
+      actorEmail,
     });
 
     return target.toObject();
