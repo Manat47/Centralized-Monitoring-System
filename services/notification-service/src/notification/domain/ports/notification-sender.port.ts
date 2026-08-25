@@ -10,6 +10,8 @@ export interface SendNotificationInput {
 
 export interface NotificationSender {
   send(input: SendNotificationInput): Promise<void>;
+
+  sendTest(recipientEmail: string): Promise<void>;
 }
 
 export const NOTIFICATION_SENDER = Symbol('NOTIFICATION_SENDER');

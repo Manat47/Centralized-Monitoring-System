@@ -63,6 +63,7 @@ const auditActions: AuditAction[] = [
   "ALERT_CLOSED",
   "REPORT_GENERATED",
   "NOTIFICATION_RECIPIENTS_UPDATED",
+  "NOTIFICATION_TEST_SENT",
 ];
 
 const resourceTypes: AuditResourceType[] = [

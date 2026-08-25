@@ -10,9 +10,16 @@ import {
   NOTIFICATION_RECIPIENT_REPOSITORY,
   type NotificationRecipientRepository,
 } from '../../domain/ports/notification-recipient.repository';
+import {
+  AUDIT_EVENT_PUBLISHER,
+  type AuditEventPublisher,
+} from '../../domain/ports/audit-event-publisher.port';
 
 export interface UpdateNotificationRecipientsInput {
   emails: string[];
+  actorUserId: string;
+  actorRole: 'ADMIN' | 'OPERATOR';
+  actorEmail?: string | null;
 }
 
 @Injectable()
@@ -20,6 +27,8 @@ export class UpdateNotificationRecipientsUseCase {
   constructor(
     @Inject(NOTIFICATION_RECIPIENT_REPOSITORY)
     private readonly notificationRecipientRepository: NotificationRecipientRepository,
+    @Inject(AUDIT_EVENT_PUBLISHER)
+    private readonly auditEventPublisher: AuditEventPublisher,
   ) {}
 
   async execute(
@@ -56,6 +65,30 @@ export class UpdateNotificationRecipientsUseCase {
     });
 
     await this.notificationRecipientRepository.replaceAll(recipients);
+
+    const previousEmails = new Set(
+      existingRecipients.map((recipient) => recipient.email),
+    );
+    const nextEmails = new Set(normalizedEmails);
+    const added = normalizedEmails.filter((email) => !previousEmails.has(email));
+    const removed = [...previousEmails].filter((email) => !nextEmails.has(email));
+
+    await this.auditEventPublisher.publish({
+      actorUserId: input.actorUserId,
+      actorRole: input.actorRole,
+      actorEmail: input.actorEmail,
+      action: 'NOTIFICATION_RECIPIENTS_UPDATED',
+      resourceType: 'NOTIFICATION_SETTINGS',
+      resourceId: null,
+      resourceName: 'Alert notification recipients',
+      result: 'SUCCESS',
+      metadata: {
+        added,
+        removed,
+        recipientCount: normalizedEmails.length,
+      },
+      occurredAt: new Date(),
+    });
 
     return recipients.map((recipient) => recipient.toObject());
   }

@@ -39,6 +39,7 @@ export const AUDIT_ACTIONS = [
   'ALERT_CLOSED',
   'REPORT_GENERATED',
   'NOTIFICATION_RECIPIENTS_UPDATED',
+  'NOTIFICATION_TEST_SENT',
 ] as const;
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];
 

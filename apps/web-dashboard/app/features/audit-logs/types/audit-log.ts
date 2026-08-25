@@ -34,7 +34,8 @@ export type AuditAction =
   | "ALERT_ACKNOWLEDGED"
   | "ALERT_CLOSED"
   | "REPORT_GENERATED"
-  | "NOTIFICATION_RECIPIENTS_UPDATED";
+  | "NOTIFICATION_RECIPIENTS_UPDATED"
+  | "NOTIFICATION_TEST_SENT";
 
 export interface AuditLog {
   auditLogId: string;

@@ -21,4 +21,13 @@ export class ConsoleNotificationSender implements NotificationSender {
 
     return Promise.resolve();
   }
+
+  sendTest(recipientEmail: string): Promise<void> {
+    this.logger.log({
+      recipientEmail,
+      title: 'Monitoring notification test',
+    });
+
+    return Promise.resolve();
+  }
 }

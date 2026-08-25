@@ -110,7 +110,6 @@ const navigationGroups: NavigationGroup[] = [
         label: "Notification Settings",
         icon: Mail,
         roles: ["ADMIN"],
-        disabled: true,
       },
     ],
   },

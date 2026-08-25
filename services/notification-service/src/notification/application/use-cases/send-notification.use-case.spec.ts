@@ -11,6 +11,7 @@ describe('SendNotificationUseCase', () => {
   beforeEach(() => {
     notificationSender = {
       send: jest.fn(),
+      sendTest: jest.fn(),
     };
     notificationRecipientRepository = {
       findAll: jest.fn().mockResolvedValue([

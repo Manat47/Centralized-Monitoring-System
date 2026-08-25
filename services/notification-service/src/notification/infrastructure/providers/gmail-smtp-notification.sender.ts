@@ -48,4 +48,18 @@ export class GmailSmtpNotificationSender implements NotificationSender {
       ].join('\n'),
     });
   }
+
+  async sendTest(recipientEmail: string): Promise<void> {
+    await this.transporter.sendMail({
+      from: this.senderEmail,
+      to: recipientEmail,
+      subject: 'Monitoring notification test',
+      text: [
+        'Monitoring notification test',
+        '',
+        'Email notifications are configured correctly for this recipient.',
+        `Sent at: ${new Date().toISOString()}`,
+      ].join('\n'),
+    });
+  }
 }
