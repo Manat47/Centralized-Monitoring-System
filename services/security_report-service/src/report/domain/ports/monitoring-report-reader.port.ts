@@ -70,6 +70,7 @@ export interface HealthCheckTargetSnapshot {
   assetId: string;
   url: string;
   enabled: boolean;
+  archivedAt: string | null;
 }
 
 export const MONITORING_REPORT_READER = Symbol('MONITORING_REPORT_READER');

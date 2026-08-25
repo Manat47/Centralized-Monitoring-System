@@ -125,6 +125,8 @@ export interface ReportTemplateData {
   totalAuditActions: number;
   successfulAuditActions: number;
   failedAuditActions: number;
+
+  auditEmptyMessage: string;
 }
 
 export function buildReportTemplateData(
@@ -135,9 +137,11 @@ export function buildReportTemplateData(
   const assets: ReportTemplateData['assets'] = summary.assets.map(
     ({ asset, metrics }) => ({
       name: asset.name,
-      type: asset.targetType,
-      environment: asset.environment,
-      status: asset.status,
+      type: formatLabel(
+        asset.targetType === 'SERVICE' ? 'APPLICATION' : asset.targetType,
+      ),
+      environment: formatLabel(asset.environment),
+      status: formatAssetStatus(asset.status),
 
       cpuAverage: formatPercent(metrics.cpu.averageUsagePercent),
       memoryAverage: formatPercent(metrics.memory.averageUsagePercent),
@@ -147,7 +151,7 @@ export function buildReportTemplateData(
   const metricRows: ReportTemplateData['metricRows'] = summary.assets.map(
     ({ asset, metrics }) => ({
       assetName: asset.name,
-      environment: asset.environment,
+      environment: formatLabel(asset.environment),
 
       cpuAverage: formatPercent(metrics.cpu.averageUsagePercent),
       cpuP95: formatPercent(metrics.cpu.p95UsagePercent),
@@ -221,27 +225,27 @@ export function buildReportTemplateData(
   const alertMetricRows: ReportTemplateData['alertMetricRows'] = Object.entries(
     summary.alerts.metricTypes,
   ).map(([metricType, count]) => ({
-    metricType,
+    metricType: formatLabel(metricType),
     count,
   }));
 
   const auditActorRoleRows: ReportTemplateData['auditActorRoleRows'] =
     Object.entries(summary.audit.summary.actorRoles).map(([role, count]) => ({
-      role,
+      role: formatLabel(role),
       count,
     }));
 
   const auditActionRows: ReportTemplateData['auditActionRows'] = Object.entries(
     summary.audit.summary.actions,
   ).map(([action, count]) => ({
-    action,
+    action: formatLabel(action),
     count,
   }));
 
   const auditResourceRows: ReportTemplateData['auditResourceRows'] =
     Object.entries(summary.audit.summary.resources).map(
       ([resourceType, count]) => ({
-        resourceType,
+        resourceType: formatLabel(resourceType),
         count,
       }),
     );
@@ -259,7 +263,7 @@ export function buildReportTemplateData(
     scope:
       summary.scope.type === 'ALL_ASSETS'
         ? 'All Assets'
-        : (summary.scope.assetId ?? '-'),
+        : (summary.scope.assetName ?? summary.scope.assetId ?? '-'),
 
     assets,
     metricRows,
@@ -296,6 +300,10 @@ export function buildReportTemplateData(
     totalAuditActions: summary.audit.summary.totalActions,
     successfulAuditActions: summary.audit.summary.result.success,
     failedAuditActions: summary.audit.summary.result.failure,
+    auditEmptyMessage:
+      summary.audit.summary.totalActions === 0
+        ? 'No audit activity was recorded during this period.'
+        : '',
 
     auditActorRoleRows,
     auditActionRows,
@@ -376,4 +384,42 @@ function formatSeconds(value: number | null): string {
   }
 
   return `${value.toFixed(2)} s`;
+}
+
+function formatAssetStatus(status: string): string {
+  const labels: Record<string, string> = {
+    ACTIVATE: 'Active',
+    INACTIVATE: 'Inactive',
+    DEACTIVATE: 'Deactivated',
+  };
+
+  return labels[status] ?? formatLabel(status);
+}
+
+function formatLabel(value: string): string {
+  const acronyms = new Set([
+    'API',
+    'CPU',
+    'HTTP',
+    'HTTPS',
+    'ID',
+    'IP',
+    'RX',
+    'TX',
+    'URL',
+  ]);
+
+  return value
+    .split(/[_\s-]+/)
+    .filter(Boolean)
+    .map((part) => {
+      const upper = part.toUpperCase();
+
+      if (acronyms.has(upper)) {
+        return upper;
+      }
+
+      return `${part.charAt(0).toUpperCase()}${part.slice(1).toLowerCase()}`;
+    })
+    .join(' ');
 }

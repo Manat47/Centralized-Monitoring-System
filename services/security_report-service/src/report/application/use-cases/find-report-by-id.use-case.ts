@@ -19,6 +19,8 @@ export class FindReportByIdUseCase {
       throw new NotFoundException(`Report ${reportId} was not found`);
     }
 
-    return report.toObject();
+    const { pdfPath: _pdfPath, ...result } = report.toObject();
+
+    return result;
   }
 }

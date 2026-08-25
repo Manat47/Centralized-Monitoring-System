@@ -91,7 +91,6 @@ const navigationGroups: NavigationGroup[] = [
         href: "/reports",
         label: "Reports",
         icon: FileText,
-        disabled: true,
       },
     ],
   },

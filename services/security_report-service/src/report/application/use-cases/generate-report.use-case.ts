@@ -14,6 +14,8 @@ import {
 } from '../../domain/ports/report-pdf-generator.port';
 
 import { BuildReportSummaryUseCase } from './build-report-summary.use-case';
+import { RecordAuditLogUseCase } from '../../../audit/application/use-cases/record-audit-log.use-case';
+import type { AuditActorRole } from '../../../audit/domain/entities/audit-log.entity';
 
 export interface GenerateReportInput {
   reportType: ReportType;
@@ -23,6 +25,8 @@ export interface GenerateReportInput {
   periodEnd: Date;
 
   generatedBy?: string | null;
+  generatedByRole?: AuditActorRole | null;
+  generatedByEmail?: string | null;
 }
 
 @Injectable()
@@ -35,18 +39,49 @@ export class GenerateReportUseCase {
 
     @Inject(REPORT_PDF_GENERATOR)
     private readonly reportPdfGenerator: ReportPdfGenerator,
+
+    private readonly recordAuditLogUseCase: RecordAuditLogUseCase,
   ) {}
 
   async execute(input: GenerateReportInput) {
+    if (input.reportType === 'MONTHLY') {
+      const existing =
+        await this.reportRepository.findPendingOrCompletedMonthly(
+          input.periodStart,
+          input.periodEnd,
+        );
+
+      if (existing) {
+        return this.toMetadata(existing.toObject());
+      }
+    }
+
     const report = Report.create(randomUUID(), {
       reportType: input.reportType,
       assetId: input.assetId,
       periodStart: input.periodStart,
       periodEnd: input.periodEnd,
       generatedBy: input.generatedBy,
+      generatedByEmail: input.generatedByEmail,
     });
 
-    await this.reportRepository.create(report);
+    try {
+      await this.reportRepository.create(report);
+    } catch (error) {
+      if (input.reportType === 'MONTHLY') {
+        const existing =
+          await this.reportRepository.findPendingOrCompletedMonthly(
+            input.periodStart,
+            input.periodEnd,
+          );
+
+        if (existing) {
+          return this.toMetadata(existing.toObject());
+        }
+      }
+
+      throw error;
+    }
 
     try {
       const summary = await this.buildReportSummaryUseCase.execute({
@@ -62,21 +97,80 @@ export class GenerateReportUseCase {
         reportType: reportData.reportType,
         periodStart: reportData.periodStart,
         periodEnd: reportData.periodEnd,
-        generatedBy: reportData.generatedBy,
+        generatedBy:
+          reportData.generatedByEmail ?? reportData.generatedBy ?? null,
         summary,
       });
 
-      report.complete({ ...summary }, pdf.pdfPath);
+      report.complete({ ...summary }, pdf.pdfPath, pdf.templateVersion);
 
       await this.reportRepository.update(report);
 
-      return report.toObject();
+      await this.recordUserAuditEvent(report.toObject(), input, 'SUCCESS');
+
+      return this.toMetadata(report.toObject());
     } catch (error) {
-      report.fail();
+      const failure = error instanceof Error ? error : new Error(String(error));
+      report.fail({
+        code: failure.name || 'REPORT_GENERATION_FAILED',
+        message: this.sanitizeFailureMessage(failure.message),
+      });
 
       await this.reportRepository.update(report);
+
+      await this.recordUserAuditEvent(
+        report.toObject(),
+        input,
+        'FAILURE',
+        failure,
+      );
 
       throw error;
     }
+  }
+
+  private sanitizeFailureMessage(message: string): string {
+    const normalized = message.replace(/\s+/g, ' ').trim();
+
+    return (normalized || 'Report generation failed').slice(0, 500);
+  }
+
+  private toMetadata(report: ReturnType<Report['toObject']>) {
+    const { summary: _summary, pdfPath: _pdfPath, ...metadata } = report;
+
+    return metadata;
+  }
+
+  private async recordUserAuditEvent(
+    report: ReturnType<Report['toObject']>,
+    input: GenerateReportInput,
+    result: 'SUCCESS' | 'FAILURE',
+    error?: Error,
+  ): Promise<void> {
+    if (!input.generatedBy || !input.generatedByRole) {
+      return;
+    }
+
+    await this.recordAuditLogUseCase.execute({
+      eventId: randomUUID(),
+      schemaVersion: 1,
+      actorUserId: input.generatedBy,
+      actorRole: input.generatedByRole,
+      actorEmail: input.generatedByEmail,
+      action: 'REPORT_GENERATED',
+      resourceType: 'REPORT',
+      resourceId: report.reportId,
+      resourceName: `${report.reportType === 'ON_DEMAND' ? 'On-demand' : 'Monthly'} report`,
+      result,
+      sourceService: 'security-report-service',
+      metadata: {
+        assetId: report.assetId,
+        periodStart: report.periodStart.toISOString(),
+        periodEnd: report.periodEnd.toISOString(),
+      },
+      errorCode: error?.name,
+      errorMessage: error?.message,
+      occurredAt: new Date(),
+    });
   }
 }

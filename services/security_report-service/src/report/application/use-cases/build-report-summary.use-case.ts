@@ -50,9 +50,13 @@ export class BuildReportSummaryUseCase {
     const healthTargets =
       await this.monitoringReportReader.findHealthCheckTargets();
 
+    const activeHealthTargets = healthTargets.filter(
+      (target) => target.archivedAt === null,
+    );
+
     const assetSummaries = await Promise.all(
       assets.map(async (asset) => {
-        const targets = healthTargets.filter(
+        const targets = activeHealthTargets.filter(
           (target) => target.assetId === asset.assetId,
         );
 
@@ -100,6 +104,7 @@ export class BuildReportSummaryUseCase {
       scope: {
         type: input.assetId ? 'ASSET' : 'ALL_ASSETS',
         assetId: input.assetId ?? null,
+        assetName: input.assetId ? (assets[0]?.name ?? null) : null,
       },
 
       period: {
