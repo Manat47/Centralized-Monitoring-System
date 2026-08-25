@@ -12,6 +12,7 @@ export interface MetricRuleEvaluationStateProps {
   status: MetricRuleEvaluationStatus; // สถานะปัจจุบันของการประเมิน
   violatedSince: Date | null; // เก็บเวลาที่ Metric เริ่มผิดกฎต่อเนื่อง
   lastEvaluatedAt: Date | null; // เวลาที่ประเมิน Rule ล่าสุด
+  lastSampleAt: Date | null; // เวลาของ Metric sample ล่าสุดที่นำมาตรวจ
   lastActualValue: number | null; // ค่า Metric ล่าสุดที่นำมาตรวจ
   lastTriggeredAt: Date | null; // เวลาที่สร้าง Alert ล่าสุด
   recoveredAt: Date | null; // เวลาที่ค่า Metric กลับมาปกติ
@@ -42,6 +43,7 @@ export class MetricRuleEvaluationState {
       status: 'NORMAL',
       violatedSince: null, // ยังไม่มีการละเมิดกฎ
       lastEvaluatedAt: null, // ยังไม่มีการประเมิน Rule
+      lastSampleAt: null, // ยังไม่มี Metric sample ที่นำมาตรวจ
       lastActualValue: null, // ยังไม่มีค่า Metric ล่าสุด
       lastTriggeredAt: null, // ยังไม่มีการสร้าง Alert
       recoveredAt: null, // ยังไม่มีการกลับมาปกติ
@@ -64,7 +66,18 @@ export class MetricRuleEvaluationState {
     return state; // คืน Entity ที่ Restore แล้ว
   }
 
-  markNormal(evaluatedAt: Date, actualValue: number | null): void {
+  hasProcessedSample(sampleAt: Date): boolean {
+    return (
+      this.props.lastSampleAt !== null &&
+      sampleAt.getTime() <= this.props.lastSampleAt.getTime()
+    );
+  }
+
+  markNormal(
+    evaluatedAt: Date,
+    sampleAt: Date,
+    actualValue: number | null,
+  ): void {
     if (this.props.status === 'VIOLATING' || this.props.status === 'ALERTED') {
       // ถ้าสถานะปัจจุบันเป็น VIOLATING หรือ ALERTED หมายความว่าก่อนหน้านี้ค่ากำลังผิดกฎหรือเคย Alert ไปแล้ว แต่รอบนี้ค่ากลับมาปกติ
       this.props.status = 'RECOVERED'; // เปลี่ยนสถานะเป็น RECOVERED เพื่อบ่งบอกว่าค่ากลับมาปกติแล้ว
@@ -75,11 +88,17 @@ export class MetricRuleEvaluationState {
 
     this.props.violatedSince = null; // รีเซ็ตเวลาที่ค่าผิดกฎต่อเนื่อง เพราะค่ากลับมาปกติแล้ว
     this.props.lastEvaluatedAt = evaluatedAt; // บันทึกเวลาที่ประเมิน Rule ล่าสุด
+    this.props.lastSampleAt = sampleAt;
     this.props.lastActualValue = actualValue; // บันทึกค่า Metric ล่าสุดที่นำมาตรวจ
     this.props.updatedAt = new Date(); // บันทึกเวลาที่แก้ไข Evaluation State ล่าสุด
   }
 
   markNoData(evaluatedAt: Date): void {
+    if (this.props.status === 'VIOLATING') {
+      this.props.status = 'NORMAL';
+      this.props.violatedSince = null;
+    }
+
     this.props.lastEvaluatedAt = evaluatedAt;
     this.props.lastActualValue = null;
     this.props.updatedAt = new Date();
@@ -89,27 +108,33 @@ export class MetricRuleEvaluationState {
     this.props.status = 'NORMAL';
     this.props.violatedSince = null;
     this.props.lastEvaluatedAt = null;
+    this.props.lastSampleAt = null;
     this.props.lastActualValue = null;
     this.props.lastTriggeredAt = null;
     this.props.recoveredAt = null;
     this.props.updatedAt = evaluatedAt;
   }
 
-  markViolating(evaluatedAt: Date, actualValue: number): void {
+  markViolating(evaluatedAt: Date, sampleAt: Date, actualValue: number): void {
     // ฟังก์ชันสำหรับบันทึกสถานะว่า Metric ตรงตามเงื่อนไขผิดกฎ
-    if (this.props.status === 'NORMAL' || this.props.status === 'RECOVERED') {
+    if (
+      this.props.status === 'NORMAL' ||
+      this.props.status === 'RECOVERED' ||
+      (this.props.status === 'VIOLATING' && this.props.lastSampleAt === null)
+    ) {
       // ถ้าสถานะปัจจุบันเป็น NORMAL หรือ RECOVERED หมายความว่าก่อนหน้านี้ค่ากำลังปกติอยู่แล้ว แต่รอบนี้เป็นจุดเริ่มของการผิดกฎรอบใหม่
       this.props.status = 'VIOLATING'; // เปลี่ยนสถานะเป็น VIOLATING เพื่อบ่งบอกว่าค่ากำลังผิดกฎ
-      this.props.violatedSince = evaluatedAt; // บันทึกเวลาที่ค่าผิดกฎต่อเนื่องเป็นเวลาปัจจุบัน
+      this.props.violatedSince = sampleAt; // เริ่มนับจากเวลาของ Metric sample จริง
       this.props.recoveredAt = null; // รีเซ็ตเวลาที่ค่ากลับมาปกติ เพราะค่ากำลังผิดกฎอยู่
     }
 
     this.props.lastEvaluatedAt = evaluatedAt; // บันทึกเวลาที่ประเมิน Rule ล่าสุด
+    this.props.lastSampleAt = sampleAt;
     this.props.lastActualValue = actualValue; // บันทึกค่าที่ผิดกฎล่าสุด
     this.props.updatedAt = new Date(); // อัปเดตเวลาแก้ไข Entity
   }
 
-  shouldTriggerAlert(evaluatedAt: Date, durationSeconds: number): boolean {
+  shouldTriggerAlert(sampleAt: Date, durationSeconds: number): boolean {
     // ใช้ตรวจว่า Violation เกิดต่อเนื่องครบเวลาที่กำหนดแล้วหรือยัง
     if (this.props.status !== 'VIOLATING') {
       return false;
@@ -121,7 +146,7 @@ export class MetricRuleEvaluationState {
 
     //ตัวแปรเก็บจำนวนวินาทีที่ผิดกฎต่อเนื่อง
     const elapsedSeconds =
-      (evaluatedAt.getTime() - this.props.violatedSince.getTime()) / 1000; // คำนวณเวลาที่ผิดกฎต่อเนื่องเป็นวินาที
+      (sampleAt.getTime() - this.props.violatedSince.getTime()) / 1000; // คำนวณจากเวลาของ Metric samples
 
     return elapsedSeconds >= durationSeconds; // ถ้าเวลาที่ผิดกฎต่อเนื่องครบ Duration ที่กำหนดแล้ว ให้คืนค่า true เพื่อบอกว่าควร Trigger Alert
   }

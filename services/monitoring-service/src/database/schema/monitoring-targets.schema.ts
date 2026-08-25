@@ -233,6 +233,10 @@ export const metricRuleEvaluationStates = pgTable(
       withTimezone: true,
     }),
 
+    lastSampleAt: timestamp('last_sample_at', {
+      withTimezone: true,
+    }),
+
     lastActualValue: real('last_actual_value'),
 
     lastTriggeredAt: timestamp('last_triggered_at', {

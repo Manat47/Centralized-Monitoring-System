@@ -183,9 +183,9 @@ export class EvaluateMetricRulesUseCase {
       end,
     });
 
-    const actualValue = this.getActualValue(data.metricType, summary);
+    const sample = this.getMetricSample(data.metricType, summary);
 
-    if (actualValue === null) {
+    if (sample === null) {
       state.markNoData(now);
       await this.stateRepository.update(state);
 
@@ -195,10 +195,19 @@ export class EvaluateMetricRulesUseCase {
       };
     }
 
+    if (state.hasProcessedSample(sample.sampleAt)) {
+      return {
+        triggeredEvent: null,
+        recovered: false,
+      };
+    }
+
+    const { value: actualValue, sampleAt } = sample;
+
     const isViolating = rule.matches(actualValue);
 
     if (!isViolating) {
-      state.markNormal(now, actualValue);
+      state.markNormal(now, sampleAt, actualValue);
       await this.stateRepository.update(state);
 
       if (previousStatus === 'ALERTED') {
@@ -224,10 +233,10 @@ export class EvaluateMetricRulesUseCase {
       };
     }
 
-    state.markViolating(now, actualValue);
+    state.markViolating(now, sampleAt, actualValue);
 
     const shouldTriggerAlert = state.shouldTriggerAlert(
-      now,
+      sampleAt,
       data.durationSeconds,
     );
 
@@ -278,26 +287,40 @@ export class EvaluateMetricRulesUseCase {
     };
   }
 
-  private getActualValue(
+  private getMetricSample(
     metricType: MetricRuleType,
     summary: {
       cpu: {
         averageUsagePercent: number | null;
+        cores: Array<{
+          timestamp: Date;
+        }>;
       };
       memory: {
         usagePercent: number;
+        timestamp: Date;
       } | null;
       disks: Array<{
         usagePercent: number;
+        timestamp: Date;
       }>;
     },
-  ): number | null {
+  ): { value: number; sampleAt: Date } | null {
     if (metricType === MetricRuleType.CPU_USAGE) {
-      return summary.cpu.averageUsagePercent;
+      const sampleAt = summary.cpu.cores[0]?.timestamp;
+
+      return summary.cpu.averageUsagePercent !== null && sampleAt
+        ? { value: summary.cpu.averageUsagePercent, sampleAt }
+        : null;
     }
 
     if (metricType === MetricRuleType.MEMORY_USAGE) {
-      return summary.memory?.usagePercent ?? null;
+      return summary.memory
+        ? {
+            value: summary.memory.usagePercent,
+            sampleAt: summary.memory.timestamp,
+          }
+        : null;
     }
 
     if (metricType === MetricRuleType.DISK_USAGE) {
@@ -305,7 +328,20 @@ export class EvaluateMetricRulesUseCase {
         return null;
       }
 
-      return Math.max(...summary.disks.map((disk) => disk.usagePercent));
+      const latestTimestamp = Math.max(
+        ...summary.disks.map((disk) => disk.timestamp.getTime()),
+      );
+      const latestDisks = summary.disks.filter(
+        (disk) => disk.timestamp.getTime() === latestTimestamp,
+      );
+      const highestUsageDisk = latestDisks.reduce((highest, disk) =>
+        disk.usagePercent > highest.usagePercent ? disk : highest,
+      );
+
+      return {
+        value: highestUsageDisk.usagePercent,
+        sampleAt: highestUsageDisk.timestamp,
+      };
     }
 
     return null;

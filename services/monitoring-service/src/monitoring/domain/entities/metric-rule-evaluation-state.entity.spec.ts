@@ -17,6 +17,7 @@ describe('MetricRuleEvaluationState', () => {
     expect(result.status).toBe('NORMAL');
     expect(result.violatedSince).toBeNull();
     expect(result.lastEvaluatedAt).toBeNull();
+    expect(result.lastSampleAt).toBeNull();
     expect(result.lastActualValue).toBeNull();
     expect(result.lastTriggeredAt).toBeNull();
     expect(result.recoveredAt).toBeNull();
@@ -59,6 +60,7 @@ describe('MetricRuleEvaluationState', () => {
       status: 'VIOLATING' as const,
       violatedSince: now,
       lastEvaluatedAt: now,
+      lastSampleAt: now,
       lastActualValue: 85,
       lastTriggeredAt: null,
       recoveredAt: null,
@@ -83,6 +85,7 @@ describe('MetricRuleEvaluationState', () => {
       status: 'NORMAL' as const,
       violatedSince: null,
       lastEvaluatedAt: null,
+      lastSampleAt: null,
       lastActualValue: null,
       lastTriggeredAt: null,
       recoveredAt: null,
@@ -113,7 +116,7 @@ describe('MetricRuleEvaluationState', () => {
 
     const evaluatedAt = new Date('2026-08-07T10:00:00.000Z');
 
-    state.markNormal(evaluatedAt, 42);
+    state.markNormal(evaluatedAt, evaluatedAt, 42);
 
     const result = state.toObject();
 
@@ -134,8 +137,8 @@ describe('MetricRuleEvaluationState', () => {
     const violatingAt = new Date('2026-08-07T10:00:00.000Z');
     const recoveredAt = new Date('2026-08-07T10:01:00.000Z');
 
-    state.markViolating(violatingAt, 85);
-    state.markNormal(recoveredAt, 40);
+    state.markViolating(violatingAt, violatingAt, 85);
+    state.markNormal(recoveredAt, recoveredAt, 40);
 
     const result = state.toObject();
 
@@ -156,9 +159,9 @@ describe('MetricRuleEvaluationState', () => {
     const triggeredAt = new Date('2026-08-07T10:01:00.000Z');
     const recoveredAt = new Date('2026-08-07T10:02:00.000Z');
 
-    state.markViolating(violatingAt, 85);
+    state.markViolating(violatingAt, violatingAt, 85);
     state.markAlerted(triggeredAt);
-    state.markNormal(recoveredAt, 40);
+    state.markNormal(recoveredAt, recoveredAt, 40);
 
     const result = state.toObject();
 
@@ -179,12 +182,12 @@ describe('MetricRuleEvaluationState', () => {
     const firstNormalAt = new Date('2026-08-07T10:01:00.000Z');
     const secondNormalAt = new Date('2026-08-07T10:02:00.000Z');
 
-    state.markViolating(violatingAt, 85);
-    state.markNormal(firstNormalAt, 40);
+    state.markViolating(violatingAt, violatingAt, 85);
+    state.markNormal(firstNormalAt, firstNormalAt, 40);
 
     expect(state.toObject().status).toBe('RECOVERED');
 
-    state.markNormal(secondNormalAt, 35);
+    state.markNormal(secondNormalAt, secondNormalAt, 35);
 
     const result = state.toObject();
 
@@ -202,7 +205,7 @@ describe('MetricRuleEvaluationState', () => {
 
     const evaluatedAt = new Date('2026-08-07T10:00:00.000Z');
 
-    state.markViolating(evaluatedAt, 85);
+    state.markViolating(evaluatedAt, evaluatedAt, 85);
 
     const result = state.toObject();
 
@@ -223,9 +226,9 @@ describe('MetricRuleEvaluationState', () => {
     const recoveredAt = new Date('2026-08-07T10:01:00.000Z');
     const secondViolatingAt = new Date('2026-08-07T10:02:00.000Z');
 
-    state.markViolating(firstViolatingAt, 85);
-    state.markNormal(recoveredAt, 40);
-    state.markViolating(secondViolatingAt, 90);
+    state.markViolating(firstViolatingAt, firstViolatingAt, 85);
+    state.markNormal(recoveredAt, recoveredAt, 40);
+    state.markViolating(secondViolatingAt, secondViolatingAt, 90);
 
     const result = state.toObject();
 
@@ -246,9 +249,9 @@ describe('MetricRuleEvaluationState', () => {
     const recoveredAt = new Date('2026-08-07T10:01:00.000Z');
     const secondViolatingAt = new Date('2026-08-07T10:02:00.000Z');
 
-    state.markViolating(firstViolatingAt, 85);
-    state.markNormal(recoveredAt, 40);
-    state.markViolating(secondViolatingAt, 90);
+    state.markViolating(firstViolatingAt, firstViolatingAt, 85);
+    state.markNormal(recoveredAt, recoveredAt, 40);
+    state.markViolating(secondViolatingAt, secondViolatingAt, 90);
 
     const result = state.toObject();
 
@@ -268,8 +271,8 @@ describe('MetricRuleEvaluationState', () => {
     const firstEvaluatedAt = new Date('2026-08-07T10:00:00.000Z');
     const secondEvaluatedAt = new Date('2026-08-07T10:01:00.000Z');
 
-    state.markViolating(firstEvaluatedAt, 85);
-    state.markViolating(secondEvaluatedAt, 90);
+    state.markViolating(firstEvaluatedAt, firstEvaluatedAt, 85);
+    state.markViolating(secondEvaluatedAt, secondEvaluatedAt, 90);
 
     const result = state.toObject();
 
@@ -289,9 +292,9 @@ describe('MetricRuleEvaluationState', () => {
     const triggeredAt = new Date('2026-08-07T10:01:00.000Z');
     const nextEvaluatedAt = new Date('2026-08-07T10:02:00.000Z');
 
-    state.markViolating(violatingAt, 85);
+    state.markViolating(violatingAt, violatingAt, 85);
     state.markAlerted(triggeredAt);
-    state.markViolating(nextEvaluatedAt, 90);
+    state.markViolating(nextEvaluatedAt, nextEvaluatedAt, 90);
 
     const result = state.toObject();
 
@@ -311,13 +314,15 @@ describe('MetricRuleEvaluationState', () => {
 
     expect(state.shouldTriggerAlert(evaluatedAt, 60)).toBe(false);
 
-    state.markViolating(new Date('2026-08-07T10:00:00.000Z'), 85);
+    const violatingAt = new Date('2026-08-07T10:00:00.000Z');
+    state.markViolating(violatingAt, violatingAt, 85);
 
     state.markAlerted(new Date('2026-08-07T10:01:00.000Z'));
 
     expect(state.shouldTriggerAlert(evaluatedAt, 60)).toBe(false);
 
-    state.markNormal(new Date('2026-08-07T10:02:00.000Z'), 40);
+    const normalAt = new Date('2026-08-07T10:02:00.000Z');
+    state.markNormal(normalAt, normalAt, 40);
 
     expect(state.shouldTriggerAlert(evaluatedAt, 60)).toBe(false);
   });
@@ -332,6 +337,7 @@ describe('MetricRuleEvaluationState', () => {
       status: 'VIOLATING',
       violatedSince: null,
       lastEvaluatedAt: null,
+      lastSampleAt: null,
       lastActualValue: null,
       lastTriggeredAt: null,
       recoveredAt: null,
@@ -355,7 +361,7 @@ describe('MetricRuleEvaluationState', () => {
     const violatedSince = new Date('2026-08-07T10:00:00.000Z');
     const evaluatedAt = new Date('2026-08-07T10:00:59.000Z');
 
-    state.markViolating(violatedSince, 85);
+    state.markViolating(violatedSince, violatedSince, 85);
 
     const result = state.shouldTriggerAlert(evaluatedAt, 60);
 
@@ -371,7 +377,7 @@ describe('MetricRuleEvaluationState', () => {
     const violatedSince = new Date('2026-08-07T10:00:00.000Z');
     const evaluatedAt = new Date('2026-08-07T10:01:00.000Z');
 
-    state.markViolating(violatedSince, 85);
+    state.markViolating(violatedSince, violatedSince, 85);
 
     const result = state.shouldTriggerAlert(evaluatedAt, 60);
 
@@ -387,7 +393,7 @@ describe('MetricRuleEvaluationState', () => {
     const violatedSince = new Date('2026-08-07T10:00:00.000Z');
     const evaluatedAt = new Date('2026-08-07T10:01:30.000Z');
 
-    state.markViolating(violatedSince, 85);
+    state.markViolating(violatedSince, violatedSince, 85);
 
     const result = state.shouldTriggerAlert(evaluatedAt, 60);
 
@@ -402,7 +408,7 @@ describe('MetricRuleEvaluationState', () => {
 
     const evaluatedAt = new Date('2026-08-07T10:00:00.000Z');
 
-    state.markViolating(evaluatedAt, 85);
+    state.markViolating(evaluatedAt, evaluatedAt, 85);
 
     const result = state.shouldTriggerAlert(evaluatedAt, 0);
 
@@ -434,7 +440,7 @@ describe('MetricRuleEvaluationState', () => {
 
     const evaluatedAt = new Date('2026-08-07T10:00:00.000Z');
 
-    state.markNormal(evaluatedAt, null);
+    state.markNormal(evaluatedAt, evaluatedAt, null);
 
     const result = state.toObject();
 
@@ -468,7 +474,8 @@ describe('MetricRuleEvaluationState', () => {
       ruleId: 'rule-001',
       assetId: 'asset-001',
     });
-    state.markViolating(new Date('2026-08-07T10:00:00.000Z'), 95);
+    const violatingAt = new Date('2026-08-07T10:00:00.000Z');
+    state.markViolating(violatingAt, violatingAt, 95);
     state.markAlerted(new Date('2026-08-07T10:01:00.000Z'));
 
     const evaluatedAt = new Date('2026-08-07T10:02:00.000Z');
@@ -486,7 +493,8 @@ describe('MetricRuleEvaluationState', () => {
       ruleId: 'rule-001',
       assetId: 'asset-001',
     });
-    state.markViolating(new Date('2026-08-07T10:00:00.000Z'), 95);
+    const violatingAt = new Date('2026-08-07T10:00:00.000Z');
+    state.markViolating(violatingAt, violatingAt, 95);
     state.markAlerted(new Date('2026-08-07T10:01:00.000Z'));
 
     state.reset(new Date('2026-08-07T10:02:00.000Z'));
@@ -495,9 +503,72 @@ describe('MetricRuleEvaluationState', () => {
       status: 'NORMAL',
       violatedSince: null,
       lastEvaluatedAt: null,
+      lastSampleAt: null,
       lastActualValue: null,
       lastTriggeredAt: null,
       recoveredAt: null,
     });
+  });
+
+  it('UT-MRES-025: should not process the same or an older metric sample twice', () => {
+    const state = MetricRuleEvaluationState.create('state-025', {
+      ruleId: 'rule-001',
+      assetId: 'asset-001',
+    });
+    const sampleAt = new Date('2026-08-07T10:00:00.000Z');
+
+    state.markViolating(sampleAt, sampleAt, 95);
+
+    expect(state.hasProcessedSample(sampleAt)).toBe(true);
+    expect(state.hasProcessedSample(new Date('2026-08-07T09:59:59.000Z'))).toBe(
+      true,
+    );
+    expect(state.hasProcessedSample(new Date('2026-08-07T10:00:15.000Z'))).toBe(
+      false,
+    );
+  });
+
+  it('UT-MRES-026: should cancel a pending violation when metric data is missing', () => {
+    const state = MetricRuleEvaluationState.create('state-026', {
+      ruleId: 'rule-001',
+      assetId: 'asset-001',
+    });
+    const sampleAt = new Date('2026-08-07T10:00:00.000Z');
+    const evaluatedAt = new Date('2026-08-07T10:01:00.000Z');
+
+    state.markViolating(sampleAt, sampleAt, 95);
+    state.markNoData(evaluatedAt);
+
+    expect(state.toObject()).toMatchObject({
+      status: 'NORMAL',
+      violatedSince: null,
+      lastEvaluatedAt: evaluatedAt,
+      lastSampleAt: sampleAt,
+      lastActualValue: null,
+    });
+  });
+
+  it('UT-MRES-027: should start a fresh duration for a migrated pending state', () => {
+    const now = new Date('2026-08-07T10:05:00.000Z');
+    const sampleAt = new Date('2026-08-07T10:05:00.000Z');
+    const state = MetricRuleEvaluationState.restore({
+      stateId: 'state-027',
+      ruleId: 'rule-001',
+      assetId: 'asset-001',
+      status: 'VIOLATING',
+      violatedSince: new Date('2026-08-07T09:00:00.000Z'),
+      lastEvaluatedAt: new Date('2026-08-07T09:00:00.000Z'),
+      lastSampleAt: null,
+      lastActualValue: 95,
+      lastTriggeredAt: null,
+      recoveredAt: null,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    state.markViolating(now, sampleAt, 96);
+
+    expect(state.toObject().violatedSince).toEqual(sampleAt);
+    expect(state.shouldTriggerAlert(sampleAt, 60)).toBe(false);
   });
 });
