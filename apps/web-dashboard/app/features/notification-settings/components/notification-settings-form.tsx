@@ -1,8 +1,10 @@
 "use client";
 
-import { useMemo, useState, type FormEvent } from "react";
-import { Check, LoaderCircle, Mail, Plus, Send, X } from "lucide-react";
+import { useMemo, useState } from "react";
+import { Check, LoaderCircle, Mail, Send, UserRound, X } from "lucide-react";
 
+import { useAllUsers } from "@/app/features/users/api/use-users";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -12,23 +14,19 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-
 import {
   useNotificationRecipients,
   useSendTestNotification,
   useUpdateNotificationRecipients,
 } from "../api/use-notification-settings";
-
-const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+import { RecipientPicker } from "./recipient-picker";
 
 export function NotificationSettingsForm() {
   const recipientsQuery = useNotificationRecipients();
   const updateMutation = useUpdateNotificationRecipients();
   const testMutation = useSendTestNotification();
+  const usersQuery = useAllUsers();
   const [draftEmails, setDraftEmails] = useState<string[] | null>(null);
-  const [draftEmail, setDraftEmail] = useState("");
-  const [validationError, setValidationError] = useState<string | null>(null);
   const [savedMessage, setSavedMessage] = useState<string | null>(null);
 
   const savedEmails = useMemo(
@@ -38,38 +36,26 @@ export function NotificationSettingsForm() {
 
   const emails = draftEmails ?? savedEmails;
   const hasChanges = JSON.stringify(emails) !== JSON.stringify(savedEmails);
-  const normalizedDraft = draftEmail.trim().toLowerCase();
-  const canAdd =
-    emailPattern.test(normalizedDraft) && !emails.includes(normalizedDraft);
+  const usersByEmail = useMemo(
+    () =>
+      new Map(
+        (usersQuery.data ?? []).map((user) => [
+          user.email.trim().toLowerCase(),
+          user,
+        ]),
+      ),
+    [usersQuery.data],
+  );
 
   function clearFeedback() {
-    setValidationError(null);
     setSavedMessage(null);
     updateMutation.reset();
     testMutation.reset();
   }
 
-  function addEmail(event?: FormEvent) {
-    event?.preventDefault();
+  function addEmail(email: string) {
     clearFeedback();
-
-    if (!normalizedDraft) {
-      setValidationError("Enter an email address.");
-      return;
-    }
-
-    if (!emailPattern.test(normalizedDraft)) {
-      setValidationError("Enter a valid email address.");
-      return;
-    }
-
-    if (emails.includes(normalizedDraft)) {
-      setValidationError("This email address is already configured.");
-      return;
-    }
-
-    setDraftEmails([...emails, normalizedDraft]);
-    setDraftEmail("");
+    setDraftEmails([...emails, email]);
   }
 
   function removeEmail(email: string) {
@@ -80,7 +66,6 @@ export function NotificationSettingsForm() {
   function discardChanges() {
     clearFeedback();
     setDraftEmails(null);
-    setDraftEmail("");
   }
 
   async function saveChanges() {
@@ -158,21 +143,47 @@ export function NotificationSettingsForm() {
           {emails.length > 0 ? (
             <div className="flex flex-wrap gap-2" aria-label="Configured recipients">
               {emails.map((email) => (
-                <div
-                  key={email}
-                  className="flex h-8 max-w-full items-center gap-2 rounded-md border bg-muted/40 px-3 font-mono text-sm"
-                >
-                  <span className="truncate">{email}</span>
-                  <button
-                    type="button"
-                    onClick={() => removeEmail(email)}
-                    className="shrink-0 text-muted-foreground hover:text-foreground"
-                    aria-label={`Remove ${email}`}
-                    title={`Remove ${email}`}
-                  >
-                    <X className="size-4" />
-                  </button>
-                </div>
+                (() => {
+                  const user = usersByEmail.get(email);
+
+                  return (
+                    <div
+                      key={email}
+                      className="flex max-w-full items-center gap-2 rounded-md border bg-muted/40 px-3 py-2 text-sm"
+                    >
+                      {user ? (
+                        <UserRound className="size-4 shrink-0 text-primary" />
+                      ) : (
+                        <Mail className="size-4 shrink-0 text-muted-foreground" />
+                      )}
+                      <span className="min-w-0">
+                        {user && (
+                          <span className="block truncate font-medium">
+                            {user.displayName}
+                          </span>
+                        )}
+                        <span className="block truncate font-mono text-xs text-muted-foreground">
+                          {email}
+                        </span>
+                      </span>
+                      <Badge variant="outline" className="hidden sm:inline-flex">
+                        {user ? "System user" : "External"}
+                      </Badge>
+                      {user?.status === "INACTIVE" && (
+                        <Badge variant="destructive">Inactive user</Badge>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => removeEmail(email)}
+                        className="shrink-0 text-muted-foreground hover:text-foreground"
+                        aria-label={`Remove ${email}`}
+                        title={`Remove ${email}`}
+                      >
+                        <X className="size-4" />
+                      </button>
+                    </div>
+                  );
+                })()
               ))}
             </div>
           ) : (
@@ -181,32 +192,13 @@ export function NotificationSettingsForm() {
             </p>
           )}
 
-          <form onSubmit={addEmail} className="flex flex-col gap-2 sm:flex-row">
-            <div className="relative flex-1">
-              <Mail className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                type="email"
-                value={draftEmail}
-                onChange={(event) => {
-                  setDraftEmail(event.target.value);
-                  setValidationError(null);
-                }}
-                placeholder="Enter email address"
-                className="h-10 pl-9"
-                aria-invalid={Boolean(validationError)}
-              />
-            </div>
-            <Button type="submit" size="lg" disabled={!canAdd}>
-              <Plus className="size-4" />
-              Add
-            </Button>
-          </form>
-
-          {validationError && (
-            <p className="text-sm text-destructive" role="alert">
-              {validationError}
-            </p>
-          )}
+          <RecipientPicker
+            users={usersQuery.data ?? []}
+            emails={emails}
+            usersLoading={usersQuery.isLoading}
+            usersUnavailable={usersQuery.isError}
+            onAdd={addEmail}
+          />
           {mutationError && (
             <p className="text-sm text-destructive" role="alert">
               {mutationError instanceof Error
