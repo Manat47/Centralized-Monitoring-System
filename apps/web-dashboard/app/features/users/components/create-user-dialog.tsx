@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
+import { MailPlus } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -27,7 +28,6 @@ import type { CreateUserInput, UserRole } from "../types/user";
 
 const initialForm: CreateUserInput = {
   email: "",
-  password: "",
   displayName: "",
   role: "OPERATOR",
 };
@@ -55,7 +55,6 @@ export function CreateUserDialog() {
     try {
       await createMutation.mutateAsync({
         email: form.email.trim(),
-        password: form.password,
         displayName: form.displayName.trim(),
         role: form.role,
       });
@@ -69,15 +68,16 @@ export function CreateUserDialog() {
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger render={<Button type="button" />}>
-        Create user
+        <MailPlus className="size-4" />
+        Invite user
       </DialogTrigger>
 
       <DialogContent className="sm:max-w-lg">
         <form onSubmit={handleSubmit}>
           <DialogHeader>
-            <DialogTitle>Create user</DialogTitle>
+            <DialogTitle>Invite user</DialogTitle>
             <DialogDescription>
-              Create an administrator or operator account.
+              Send a one-time password setup link to a new administrator or operator.
             </DialogDescription>
           </DialogHeader>
 
@@ -112,25 +112,6 @@ export function CreateUserDialog() {
                   setForm((current) => ({
                     ...current,
                     email: event.target.value,
-                  }))
-                }
-              />
-            </div>
-
-            <div className="grid gap-2">
-              <Label htmlFor="user-password">Password</Label>
-
-              <Input
-                id="user-password"
-                type="password"
-                value={form.password}
-                minLength={8}
-                maxLength={72}
-                required
-                onChange={(event) =>
-                  setForm((current) => ({
-                    ...current,
-                    password: event.target.value,
                   }))
                 }
               />
@@ -180,7 +161,7 @@ export function CreateUserDialog() {
             </Button>
 
             <Button type="submit" disabled={createMutation.isPending}>
-              {createMutation.isPending ? "Creating..." : "Create user"}
+              {createMutation.isPending ? "Sending..." : "Send invitation"}
             </Button>
           </DialogFooter>
         </form>

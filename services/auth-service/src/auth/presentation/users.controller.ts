@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Post,
   Get,
   Patch,
@@ -24,6 +25,8 @@ import { UpdateUserUseCase } from '../application/use-cases/update-user.use-case
 import { UpdateUserDto } from './dto/update-user.dto';
 import { CurrentUser } from './decorators/current-user.decorator';
 import type { AuthenticatedUser } from './types/authenticated-user.type';
+import { ResendUserInvitationUseCase } from '../application/use-cases/resend-user-invitation.use-case';
+import { RevokeUserInvitationUseCase } from '../application/use-cases/revoke-user-invitation.use-case';
 
 @Controller('users')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -35,6 +38,8 @@ export class UsersController {
     private readonly getUserByIdUseCase: GetUserByIdUseCase,
     private readonly updateUserStatusUseCase: UpdateUserStatusUseCase,
     private readonly updateUserUseCase: UpdateUserUseCase,
+    private readonly resendUserInvitationUseCase: ResendUserInvitationUseCase,
+    private readonly revokeUserInvitationUseCase: RevokeUserInvitationUseCase,
   ) {}
 
   @Post()
@@ -44,10 +49,35 @@ export class UsersController {
   ) {
     return this.createUserUseCase.execute({
       email: dto.email,
-      password: dto.password,
       displayName: dto.displayName,
       role: dto.role,
 
+      actorUserId: currentUser.userId,
+      actorRole: currentUser.role,
+      actorEmail: currentUser.email,
+    });
+  }
+
+  @Post(':userId/invitations/resend')
+  resendInvitation(
+    @Param('userId', ParseUUIDPipe) userId: string,
+    @CurrentUser() currentUser: AuthenticatedUser,
+  ) {
+    return this.resendUserInvitationUseCase.execute({
+      userId,
+      actorUserId: currentUser.userId,
+      actorRole: currentUser.role,
+      actorEmail: currentUser.email,
+    });
+  }
+
+  @Delete(':userId/invitations')
+  revokeInvitation(
+    @Param('userId', ParseUUIDPipe) userId: string,
+    @CurrentUser() currentUser: AuthenticatedUser,
+  ) {
+    return this.revokeUserInvitationUseCase.execute({
+      userId,
       actorUserId: currentUser.userId,
       actorRole: currentUser.role,
       actorEmail: currentUser.email,

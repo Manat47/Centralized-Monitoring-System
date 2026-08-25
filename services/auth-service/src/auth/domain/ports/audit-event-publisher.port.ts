@@ -1,7 +1,13 @@
 import type { UserRole } from '../entities/user.entity';
 
 export type AuditAction =
-  'USER_CREATED' | 'USER_UPDATED' | 'USER_STATUS_CHANGED';
+  | 'USER_CREATED'
+  | 'USER_INVITED'
+  | 'USER_INVITATION_RESENT'
+  | 'USER_INVITATION_REVOKED'
+  | 'USER_INVITATION_ACCEPTED'
+  | 'USER_UPDATED'
+  | 'USER_STATUS_CHANGED';
 
 export interface AuditEvent {
   actorUserId: string;

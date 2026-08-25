@@ -75,8 +75,8 @@ export class LoginUseCase {
 
     const userData = user.toObject();
 
-    if (userData.status !== 'ACTIVE') {
-      throw new UnauthorizedException('User account is inactive');
+    if (userData.status !== 'ACTIVE' || !userData.passwordHash) {
+      throw new UnauthorizedException('User account is not active');
     }
 
     const passwordMatches = await this.passwordHasher.compare(

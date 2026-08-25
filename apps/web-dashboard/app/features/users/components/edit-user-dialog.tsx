@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
+import { Pencil } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -27,9 +28,10 @@ import type { User, UserRole } from "../types/user";
 
 interface EditUserDialogProps {
   user: User;
+  isCurrentUser: boolean;
 }
 
-export function EditUserDialog({ user }: EditUserDialogProps) {
+export function EditUserDialog({ user, isCurrentUser }: EditUserDialogProps) {
   const [open, setOpen] = useState(false);
   const [displayName, setDisplayName] = useState(user.displayName);
   const [role, setRole] = useState<UserRole>(user.role);
@@ -71,6 +73,7 @@ export function EditUserDialog({ user }: EditUserDialogProps) {
       <DialogTrigger
         render={<Button type="button" size="sm" variant="outline" />}
       >
+        <Pencil className="size-4" />
         Edit
       </DialogTrigger>
 
@@ -105,6 +108,7 @@ export function EditUserDialog({ user }: EditUserDialogProps) {
 
               <Select
                 value={role}
+                disabled={isCurrentUser}
                 onValueChange={(value) =>
                   setRole((value ?? user.role) as UserRole)
                 }
@@ -119,6 +123,12 @@ export function EditUserDialog({ user }: EditUserDialogProps) {
                   <SelectItem value="OPERATOR">Operator</SelectItem>
                 </SelectContent>
               </Select>
+              {isCurrentUser && (
+                <p className="text-xs text-muted-foreground">
+                  Your own role cannot be changed. Ask another administrator to
+                  update it.
+                </p>
+              )}
             </div>
 
             {updateMutation.isError && (

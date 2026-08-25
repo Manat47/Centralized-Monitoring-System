@@ -5,11 +5,15 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 
-import type { UserRole } from '../../domain/entities/user.entity';
+import type { UserRole, UserStatus } from '../../domain/entities/user.entity';
 import {
   USER_REPOSITORY,
   type UserRepository,
 } from '../../domain/repositories/user.repository';
+import {
+  REFRESH_SESSION_REPOSITORY,
+  type RefreshSessionRepository,
+} from '../../domain/repositories/refresh-session.repository';
 import {
   AUDIT_EVENT_PUBLISHER,
   type AuditEventPublisher,
@@ -29,7 +33,7 @@ export interface UpdateUserOutput {
   email: string;
   displayName: string;
   role: UserRole;
-  status: 'ACTIVE' | 'INACTIVE';
+  status: UserStatus;
   updatedAt: Date;
 }
 
@@ -38,6 +42,8 @@ export class UpdateUserUseCase {
   constructor(
     @Inject(USER_REPOSITORY)
     private readonly userRepository: UserRepository,
+    @Inject(REFRESH_SESSION_REPOSITORY)
+    private readonly refreshSessionRepository: RefreshSessionRepository,
     @Inject(AUDIT_EVENT_PUBLISHER)
     private readonly auditEventPublisher: AuditEventPublisher,
   ) {}
@@ -55,6 +61,14 @@ export class UpdateUserUseCase {
 
     const before = user.toObject();
 
+    if (
+      input.userId === input.actorUserId &&
+      input.role !== undefined &&
+      input.role !== before.role
+    ) {
+      throw new BadRequestException('You cannot change your own role');
+    }
+
     if (input.displayName !== undefined) {
       user.changeDisplayName(input.displayName);
     }
@@ -66,6 +80,14 @@ export class UpdateUserUseCase {
     const updatedUser = await this.userRepository.update(user);
 
     const data = updatedUser.toObject();
+    const roleChanged = before.role !== data.role;
+
+    if (roleChanged) {
+      await this.refreshSessionRepository.revokeAllByUserId(
+        data.userId,
+        new Date(),
+      );
+    }
 
     await this.auditEventPublisher.publish({
       actorUserId: input.actorUserId,
@@ -85,6 +107,7 @@ export class UpdateUserUseCase {
           displayName: data.displayName,
           role: data.role,
         },
+        refreshSessionsRevoked: roleChanged,
       },
       occurredAt: new Date(),
     });

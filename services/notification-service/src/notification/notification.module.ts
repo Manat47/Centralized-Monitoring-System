@@ -16,6 +16,7 @@ import { AUDIT_EVENT_PUBLISHER } from './domain/ports/audit-event-publisher.port
 import { AUDIT_EVENTS_CLIENT } from './infrastructure/messaging/rabbitmq.constants';
 import { RabbitMqAuditEventPublisher } from './infrastructure/messaging/rabbitmq-audit-event.publisher';
 import { SendTestNotificationUseCase } from './application/use-cases/send-test-notification.use-case';
+import { SendUserInvitationUseCase } from './application/use-cases/send-user-invitation.use-case';
 
 @Module({
   imports: [
@@ -52,6 +53,7 @@ import { SendTestNotificationUseCase } from './application/use-cases/send-test-n
     ListNotificationRecipientsUseCase,
     UpdateNotificationRecipientsUseCase,
     SendTestNotificationUseCase,
+    SendUserInvitationUseCase,
     {
       provide: AUDIT_EVENT_PUBLISHER,
       useClass: RabbitMqAuditEventPublisher,

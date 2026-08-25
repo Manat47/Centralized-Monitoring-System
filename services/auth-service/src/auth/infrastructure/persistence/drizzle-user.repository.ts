@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { and, count, desc, eq, ilike, or } from 'drizzle-orm';
+import { and, count, desc, eq, gt, ilike, isNull, or } from 'drizzle-orm';
 import type { SQL } from 'drizzle-orm';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 
@@ -34,6 +34,11 @@ export class DrizzleUserRepository implements UserRepository {
         role: data.role,
         status: data.status,
         lastLoginAt: data.lastLoginAt,
+        invitationTokenHash: data.invitationTokenHash,
+        invitationExpiresAt: data.invitationExpiresAt,
+        invitationSentAt: data.invitationSentAt,
+        invitationAcceptedAt: data.invitationAcceptedAt,
+        invitationRevokedAt: data.invitationRevokedAt,
         createdAt: data.createdAt,
         updatedAt: data.updatedAt,
       })
@@ -66,6 +71,45 @@ export class DrizzleUserRepository implements UserRepository {
       .limit(1);
 
     return row ? this.toDomain(row) : null;
+  }
+
+  async findByInvitationTokenHash(tokenHash: string): Promise<User | null> {
+    const [row] = await this.db
+      .select()
+      .from(users)
+      .where(eq(users.invitationTokenHash, tokenHash))
+      .limit(1);
+
+    return row ? this.toDomain(row) : null;
+  }
+
+  async acceptInvitation(
+    tokenHash: string,
+    passwordHash: string,
+    acceptedAt: Date,
+  ): Promise<User | null> {
+    const [updated] = await this.db
+      .update(users)
+      .set({
+        passwordHash,
+        status: 'ACTIVE',
+        invitationTokenHash: null,
+        invitationAcceptedAt: acceptedAt,
+        updatedAt: acceptedAt,
+      })
+      .where(
+        and(
+          eq(users.invitationTokenHash, tokenHash),
+          eq(users.status, 'INVITED'),
+          isNull(users.passwordHash),
+          gt(users.invitationExpiresAt, acceptedAt),
+          isNull(users.invitationAcceptedAt),
+          isNull(users.invitationRevokedAt),
+        ),
+      )
+      .returning();
+
+    return updated ? this.toDomain(updated) : null;
   }
 
   async findAll(filters?: FindUsersFilters): Promise<FindUsersResult> {
@@ -132,6 +176,11 @@ export class DrizzleUserRepository implements UserRepository {
         role: data.role,
         status: data.status,
         lastLoginAt: data.lastLoginAt,
+        invitationTokenHash: data.invitationTokenHash,
+        invitationExpiresAt: data.invitationExpiresAt,
+        invitationSentAt: data.invitationSentAt,
+        invitationAcceptedAt: data.invitationAcceptedAt,
+        invitationRevokedAt: data.invitationRevokedAt,
         updatedAt: data.updatedAt,
       })
       .where(eq(users.userId, data.userId))
@@ -153,6 +202,11 @@ export class DrizzleUserRepository implements UserRepository {
       role: row.role,
       status: row.status,
       lastLoginAt: row.lastLoginAt,
+      invitationTokenHash: row.invitationTokenHash,
+      invitationExpiresAt: row.invitationExpiresAt,
+      invitationSentAt: row.invitationSentAt,
+      invitationAcceptedAt: row.invitationAcceptedAt,
+      invitationRevokedAt: row.invitationRevokedAt,
       createdAt: row.createdAt,
       updatedAt: row.updatedAt,
     });

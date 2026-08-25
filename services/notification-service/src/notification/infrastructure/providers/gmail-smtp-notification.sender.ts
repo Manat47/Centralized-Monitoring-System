@@ -5,6 +5,7 @@ import * as nodemailer from 'nodemailer';
 import type {
   NotificationSender,
   SendNotificationInput,
+  SendUserInvitationInput,
 } from '../../domain/ports/notification-sender.port';
 
 @Injectable()
@@ -61,5 +62,42 @@ export class GmailSmtpNotificationSender implements NotificationSender {
         `Sent at: ${new Date().toISOString()}`,
       ].join('\n'),
     });
+  }
+
+  async sendUserInvitation(input: SendUserInvitationInput): Promise<void> {
+    const displayName = this.escapeHtml(input.displayName);
+    const invitationUrl = this.escapeHtml(input.invitationUrl);
+
+    await this.transporter.sendMail({
+      from: this.senderEmail,
+      to: input.recipientEmail,
+      subject: 'You are invited to Centralized Monitoring',
+      text: [
+        `Hello ${input.displayName},`,
+        '',
+        'You have been invited to Centralized Monitoring.',
+        'Set your password using this one-time link:',
+        input.invitationUrl,
+        '',
+        `This invitation expires at ${input.expiresAt.toISOString()}.`,
+        'If you were not expecting this invitation, you can ignore this email.',
+      ].join('\n'),
+      html: [
+        `<p>Hello ${displayName},</p>`,
+        '<p>You have been invited to Centralized Monitoring.</p>',
+        `<p><a href="${invitationUrl}">Set your password</a></p>`,
+        `<p>This one-time invitation expires at ${input.expiresAt.toISOString()}.</p>`,
+        '<p>If you were not expecting this invitation, you can ignore this email.</p>',
+      ].join(''),
+    });
+  }
+
+  private escapeHtml(value: string): string {
+    return value
+      .replaceAll('&', '&amp;')
+      .replaceAll('<', '&lt;')
+      .replaceAll('>', '&gt;')
+      .replaceAll('"', '&quot;')
+      .replaceAll("'", '&#039;');
   }
 }

@@ -1,4 +1,7 @@
-import { BadRequestException, ServiceUnavailableException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ServiceUnavailableException,
+} from '@nestjs/common';
 
 import { NotificationRecipient } from '../../domain/entities/notification-recipient.entity';
 import type { AuditEventPublisher } from '../../domain/ports/audit-event-publisher.port';
@@ -26,6 +29,7 @@ describe('SendTestNotificationUseCase', () => {
     sender = {
       send: jest.fn(),
       sendTest: jest.fn(),
+      sendUserInvitation: jest.fn(),
     };
     auditPublisher = {
       publish: jest.fn(),

@@ -1,5 +1,6 @@
 import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 
+import type { UserStatus } from '../../domain/entities/user.entity';
 import {
   USER_REPOSITORY,
   type UserRepository,
@@ -10,7 +11,7 @@ export interface GetCurrentUserOutput {
   email: string;
   displayName: string;
   role: 'ADMIN' | 'OPERATOR';
-  status: 'ACTIVE' | 'INACTIVE';
+  status: UserStatus;
   lastLoginAt: Date | null;
   createdAt: Date;
 }

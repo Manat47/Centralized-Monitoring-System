@@ -14,6 +14,10 @@ export type AuditResourceType =
 
 export type AuditAction =
   | "USER_CREATED"
+  | "USER_INVITED"
+  | "USER_INVITATION_RESENT"
+  | "USER_INVITATION_REVOKED"
+  | "USER_INVITATION_ACCEPTED"
   | "USER_UPDATED"
   | "USER_STATUS_CHANGED"
   | "ASSET_CREATED"

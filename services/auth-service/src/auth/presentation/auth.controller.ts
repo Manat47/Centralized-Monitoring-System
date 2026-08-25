@@ -21,6 +21,12 @@ import type { AuthenticatedUser } from './types/authenticated-user.type';
 import { RefreshAccessTokenUseCase } from '../application/use-cases/refresh-access-token.use-case';
 import type { RequestWithCookies } from './types/request-with-cookies.type';
 import { LogoutUseCase } from '../application/use-cases/logout.use-case';
+import { ValidateInvitationUseCase } from '../application/use-cases/validate-invitation.use-case';
+import { AcceptInvitationUseCase } from '../application/use-cases/accept-invitation.use-case';
+import {
+  AcceptInvitationDto,
+  ValidateInvitationDto,
+} from './dto/invitation.dto';
 
 const REFRESH_TOKEN_COOKIE = 'refresh_token';
 
@@ -31,7 +37,22 @@ export class AuthController {
     private readonly getCurrentUserUseCase: GetCurrentUserUseCase,
     private readonly refreshAccessTokenUseCase: RefreshAccessTokenUseCase,
     private readonly logoutUseCase: LogoutUseCase,
+    private readonly validateInvitationUseCase: ValidateInvitationUseCase,
+    private readonly acceptInvitationUseCase: AcceptInvitationUseCase,
   ) {}
+
+  @Post('invitations/validate')
+  validateInvitation(@Body() dto: ValidateInvitationDto) {
+    return this.validateInvitationUseCase.execute(dto.token);
+  }
+
+  @Post('invitations/accept')
+  acceptInvitation(@Body() dto: AcceptInvitationDto) {
+    return this.acceptInvitationUseCase.execute({
+      token: dto.token,
+      password: dto.password,
+    });
+  }
 
   @Post('login')
   async login(
