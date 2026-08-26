@@ -11,6 +11,34 @@ services:
       - "${ASSET_DB_PORT}:5432"
     volumes:
       - asset_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${ASSET_DB_USER} -d ${ASSET_DB_NAME}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  asset-service:
+    build:
+      context: ../services/asset-management-service
+      dockerfile: Dockerfile
+    image: centralized-monitoring/asset-service:dev
+    restart: unless-stopped
+
+    env_file:
+      - ../services/asset-management-service/.env
+
+    environment:
+      PORT: 3000
+      DATABASE_URL: postgresql://${ASSET_DB_USER}:${ASSET_DB_PASSWORD}@asset-db:5432/${ASSET_DB_NAME}
+      RABBITMQ_URL: amqp://${RABBITMQ_USER}:${RABBITMQ_PASSWORD}@rabbitmq:5672
+    ports:
+      - 3000:3000
+
+    depends_on:
+      asset-db:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
 
   influxdb:
     image: influxdb:2
@@ -39,6 +67,11 @@ services:
       - "${RABBITMQ_MANAGEMENT_PORT}:15672"
     volumes:
       - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
 
   nginx:
     image: nginx:latest
