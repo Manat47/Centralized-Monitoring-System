@@ -1,0 +1,144 @@
+.ambientRing {
+  position: absolute;
+  inset: 0;
+  border: 1px solid rgb(255 255 255 / 0.04);
+  border-radius: 9999px;
+}
+
+.orbitTrack {
+  --orbit-delay: 0s;
+  --orbit-duration: 30s;
+  position: absolute;
+  border-radius: 9999px;
+}
+
+.orbitLine {
+  position: absolute;
+  inset: 0;
+  border: 1px solid rgb(255 255 255 / 0.08);
+  border-radius: inherit;
+}
+
+.orbitTrack:nth-of-type(3) .orbitLine {
+  border-style: dashed;
+  border-color: rgb(255 255 255 / 0.11);
+}
+
+.orbitCarrier {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  animation: auth-orbit-clockwise var(--orbit-duration) linear infinite;
+  animation-delay: var(--orbit-delay);
+}
+
+.counterclockwise .orbitCarrier {
+  animation-name: auth-orbit-counterclockwise;
+}
+
+.orbitAnchor {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.orbitContent {
+  animation: auth-orbit-counterclockwise var(--orbit-duration) linear infinite;
+  animation-delay: var(--orbit-delay);
+}
+
+.counterclockwise .orbitContent {
+  animation-name: auth-orbit-clockwise;
+}
+
+.orbitLabel {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: max-content;
+  border: 1px solid rgb(255 255 255 / 0.11);
+  border-radius: 9999px;
+  background: rgb(17 20 25 / 0.96);
+  padding: 0.5rem 0.75rem;
+  color: rgb(226 232 240);
+  font-size: 0.75rem;
+  font-weight: 500;
+  line-height: 1rem;
+  box-shadow: 0 12px 30px rgb(0 0 0 / 0.3);
+  backdrop-filter: blur(10px);
+}
+
+.orbitDot {
+  position: absolute;
+  right: 7.5%;
+  bottom: 22%;
+  width: 0.35rem;
+  height: 0.35rem;
+  border: 1px solid rgb(255 255 255 / 0.28);
+  border-radius: 9999px;
+  background: rgb(11 13 17);
+  box-shadow: 0 0 0 4px rgb(255 255 255 / 0.025);
+}
+
+.coreHalo {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 7rem;
+  height: 7rem;
+  transform: translate(-50%, -50%);
+  border: 1px solid rgb(255 255 255 / 0.1);
+  border-radius: 9999px;
+  animation: auth-core-breathe 8s ease-in-out infinite;
+}
+
+.core {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  display: flex;
+  width: 5rem;
+  height: 5rem;
+  transform: translate(-50%, -50%);
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgb(255 255 255 / 0.18);
+  border-radius: 0.75rem;
+  background: rgb(248 250 252);
+  color: rgb(15 23 42);
+  box-shadow: 0 24px 70px rgb(0 0 0 / 0.45);
+}
+
+@keyframes auth-orbit-clockwise {
+  to {
+    transform: rotate(1turn);
+  }
+}
+
+@keyframes auth-orbit-counterclockwise {
+  to {
+    transform: rotate(-1turn);
+  }
+}
+
+@keyframes auth-core-breathe {
+  0%,
+  100% {
+    transform: translate(-50%, -50%) scale(0.96);
+    opacity: 0.28;
+  }
+
+  50% {
+    transform: translate(-50%, -50%) scale(1.04);
+    opacity: 0.52;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .orbitCarrier,
+  .orbitContent,
+  .coreHalo {
+    animation-play-state: paused;
+  }
+}

@@ -89,16 +89,6 @@ export function UsersTable() {
     setPage(1);
   }
 
-  if (usersQuery.isLoading) {
-    return (
-      <Card>
-        <CardContent className="py-12 text-center text-sm text-muted-foreground">
-          Loading users...
-        </CardContent>
-      </Card>
-    );
-  }
-
   if (usersQuery.isError) {
     return (
       <Card>
@@ -128,7 +118,10 @@ export function UsersTable() {
       <CardContent className="p-0">
         <div className="flex flex-wrap items-end gap-3 border-b p-4">
           <div className="min-w-64 flex-1 space-y-1.5">
-            <label htmlFor="user-search" className="text-xs font-medium text-muted-foreground">
+            <label
+              htmlFor="user-search"
+              className="text-xs font-medium text-muted-foreground"
+            >
               Search
             </label>
             <div className="relative">
@@ -147,7 +140,9 @@ export function UsersTable() {
           </div>
 
           <div className="space-y-1.5">
-            <span className="block text-xs font-medium text-muted-foreground">Role</span>
+            <span className="block text-xs font-medium text-muted-foreground">
+              Role
+            </span>
             <Select
               value={role}
               onValueChange={(value) => {
@@ -156,7 +151,9 @@ export function UsersTable() {
               }}
             >
               <SelectTrigger className="h-9 w-40">
-                <SelectValue>{role === "ALL" ? "All roles" : formatRole(role)}</SelectValue>
+                <SelectValue>
+                  {role === "ALL" ? "All roles" : formatRole(role)}
+                </SelectValue>
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="ALL">All roles</SelectItem>
@@ -167,7 +164,9 @@ export function UsersTable() {
           </div>
 
           <div className="space-y-1.5">
-            <span className="block text-xs font-medium text-muted-foreground">Status</span>
+            <span className="block text-xs font-medium text-muted-foreground">
+              Status
+            </span>
             <Select
               value={status}
               onValueChange={(value) => {
@@ -189,13 +188,21 @@ export function UsersTable() {
             </Select>
           </div>
 
-          <Button type="button" variant="ghost" size="sm" disabled={!hasFilters} onClick={resetFilters}>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            disabled={!hasFilters}
+            onClick={resetFilters}
+          >
             <X className="size-4" />
             Clear
           </Button>
 
           <span className="ml-auto pb-2 text-sm text-muted-foreground">
-            {usersQuery.isFetching ? "Updating..." : `${total} ${total === 1 ? "user" : "users"}`}
+            {usersQuery.isFetching
+              ? "Updating..."
+              : `${total} ${total === 1 ? "user" : "users"}`}
           </span>
         </div>
 
@@ -213,14 +220,33 @@ export function UsersTable() {
               </TableRow>
             </TableHeader>
 
-            <TableBody className={usersQuery.isFetching ? "opacity-60" : undefined}>
-              {users.length === 0 ? (
+            <TableBody
+              className={usersQuery.isFetching ? "opacity-60" : undefined}
+            >
+              {usersQuery.isLoading ? (
+                <TableRow>
+                  <TableCell
+                    colSpan={7}
+                    className="h-32 text-center text-sm text-muted-foreground"
+                  >
+                    Loading users...
+                  </TableCell>
+                </TableRow>
+              ) : users.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={7} className="h-32 text-center">
                     <p className="font-medium">No users found</p>
-                    <p className="mt-1 text-sm text-muted-foreground">Adjust the filters or clear the current search.</p>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      Adjust the filters or clear the current search.
+                    </p>
                     {hasFilters && (
-                      <Button type="button" variant="outline" size="sm" className="mt-4" onClick={resetFilters}>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="mt-4"
+                        onClick={resetFilters}
+                      >
                         Clear filters
                       </Button>
                     )}
@@ -234,13 +260,28 @@ export function UsersTable() {
                     <TableRow key={user.userId}>
                       <TableCell>
                         <div className="flex items-center gap-2">
-                          <span className="font-medium">{user.displayName}</span>
-                          {isCurrentUser && <Badge variant="outline" className="text-primary">You</Badge>}
+                          <span className="font-medium">
+                            {user.displayName}
+                          </span>
+                          {isCurrentUser && (
+                            <Badge variant="outline" className="text-primary">
+                              You
+                            </Badge>
+                          )}
                         </div>
                       </TableCell>
-                      <TableCell className="font-mono text-xs">{user.email}</TableCell>
+                      <TableCell className="font-mono text-xs">
+                        {user.email}
+                      </TableCell>
                       <TableCell>
-                        <Badge variant="outline" className={user.role === "ADMIN" ? "border-blue-200 bg-blue-50 text-blue-700" : undefined}>
+                        <Badge
+                          variant="outline"
+                          className={
+                            user.role === "ADMIN"
+                              ? "border-blue-200 bg-blue-50 text-blue-700"
+                              : undefined
+                          }
+                        >
                           {formatRole(user.role)}
                         </Badge>
                       </TableCell>
@@ -273,7 +314,11 @@ export function UsersTable() {
                         {user.invitationStatus === "PENDING" ||
                         user.invitationStatus === "EXPIRED" ? (
                           <div>
-                            <p>{user.invitationStatus === "PENDING" ? "Expires" : "Expired"}</p>
+                            <p>
+                              {user.invitationStatus === "PENDING"
+                                ? "Expires"
+                                : "Expired"}
+                            </p>
                             <p className="text-xs text-muted-foreground">
                               {formatDate(user.invitationExpiresAt)}
                             </p>
@@ -282,8 +327,12 @@ export function UsersTable() {
                           formatDate(user.lastLoginAt)
                         )}
                       </TableCell>
-                      <TableCell className="whitespace-nowrap text-sm">{formatDate(user.createdAt)}</TableCell>
-                      <TableCell className="text-right"><UserActions user={user} /></TableCell>
+                      <TableCell className="whitespace-nowrap text-sm">
+                        {formatDate(user.createdAt)}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <UserActions user={user} />
+                      </TableCell>
                     </TableRow>
                   );
                 })
@@ -293,15 +342,33 @@ export function UsersTable() {
         </div>
 
         <div className="flex flex-wrap items-center justify-between gap-3 border-t px-4 py-3">
-          <p className="text-sm text-muted-foreground">Showing {firstResult}-{lastResult} of {total}</p>
+          <p className="text-sm text-muted-foreground">
+            Showing {firstResult}-{lastResult} of {total}
+          </p>
           <div className="flex items-center gap-3">
-            <span className="text-sm text-muted-foreground">Page {usersQuery.data?.page ?? page} of {totalPages}</span>
+            <span className="text-sm text-muted-foreground">
+              Page {usersQuery.data?.page ?? page} of {totalPages}
+            </span>
             <div className="flex gap-1">
-              <Button type="button" variant="outline" size="icon-sm" disabled={page <= 1 || usersQuery.isFetching} onClick={() => setPage((value) => value - 1)} title="Previous page">
+              <Button
+                type="button"
+                variant="outline"
+                size="icon-sm"
+                disabled={page <= 1 || usersQuery.isFetching}
+                onClick={() => setPage((value) => value - 1)}
+                title="Previous page"
+              >
                 <ChevronLeft className="size-4" />
                 <span className="sr-only">Previous page</span>
               </Button>
-              <Button type="button" variant="outline" size="icon-sm" disabled={page >= totalPages || usersQuery.isFetching} onClick={() => setPage((value) => value + 1)} title="Next page">
+              <Button
+                type="button"
+                variant="outline"
+                size="icon-sm"
+                disabled={page >= totalPages || usersQuery.isFetching}
+                onClick={() => setPage((value) => value + 1)}
+                title="Next page"
+              >
                 <ChevronRight className="size-4" />
                 <span className="sr-only">Next page</span>
               </Button>

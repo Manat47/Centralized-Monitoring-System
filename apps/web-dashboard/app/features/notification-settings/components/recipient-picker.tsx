@@ -166,7 +166,7 @@ export function RecipientPicker({
           <div
             id="recipient-options"
             role="listbox"
-            className="absolute z-30 mt-2 max-h-72 w-full overflow-y-auto rounded-md border border-slate-300 bg-white p-1.5 text-slate-900 shadow-[0_12px_32px_rgba(15,23,42,0.18)] ring-1 ring-slate-950/5 sm:w-[calc(100%-7.75rem)]"
+            className="mt-2 max-h-72 w-full overflow-y-auto rounded-md border border-slate-300 bg-white p-1.5 text-slate-900 shadow-[0_12px_32px_rgba(15,23,42,0.18)] ring-1 ring-slate-950/5 sm:w-[calc(100%-7.75rem)]"
           >
             {usersLoading ? (
               <p className="px-3 py-3 text-sm text-muted-foreground">
