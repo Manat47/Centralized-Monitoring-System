@@ -93,10 +93,43 @@ services:
     volumes:
       - monitoring_db_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d monitoring_db"]
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${MONITORING_DB_USER} -d ${MONITORING_DB_NAME}",
+        ]
       interval: 5s
       timeout: 5s
       retries: 10
+
+  monitoring-service:
+    build:
+      context: ../services/monitoring-service
+      dockerfile: Dockerfile
+    image: centralized-monitoring/monitoring-service:dev
+    restart: unless-stopped
+    env_file:
+      - ../services/monitoring-service/.env
+    environment:
+      PORT: 3001
+      DATABASE_URL: postgresql://${MONITORING_DB_USER}:${MONITORING_DB_PASSWORD}@monitoring-db:5432/${MONITORING_DB_NAME}
+      ASSET_SERVICE_URL: http://asset-service:3000
+      INFLUXDB_URL: http://influxdb:8086
+      INFLUXDB_TOKEN: ${INFLUXDB_ADMIN_TOKEN}
+      INFLUXDB_ORG: ${INFLUXDB_ORG}
+      INFLUXDB_BUCKET: ${INFLUXDB_BUCKET}
+      RABBITMQ_URL: amqp://${RABBITMQ_USER}:${RABBITMQ_PASSWORD}@rabbitmq:5672
+    ports:
+      - "3001:3001"
+    depends_on:
+      monitoring-db:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      influxdb:
+        condition: service_started
+      asset-service:
+        condition: service_started
 
   alerting-db:
     image: postgres:17-alpine
