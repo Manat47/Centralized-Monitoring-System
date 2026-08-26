@@ -1,11 +1,6 @@
 import type { CSSProperties } from "react";
 import type { LucideIcon } from "lucide-react";
-import {
-  BellRing,
-  Gauge,
-  HeartPulse,
-  Server,
-} from "lucide-react";
+import { BellRing, Gauge, HeartPulse, Server } from "lucide-react";
 
 import styles from "./auth-system-visual.module.css";
 
@@ -57,9 +52,9 @@ function OrbitTrack({
 export function AuthSystemVisual() {
   return (
     <section className="relative hidden min-h-svh overflow-hidden border-l border-white/10 bg-[#0b0d11] lg:flex lg:flex-col lg:justify-between lg:px-10 lg:py-8 xl:px-14">
-      <div className="mx-auto flex w-full max-w-[620px] flex-1 items-center justify-center">
+      <div className="mx-auto flex w-full max-w-155 flex-1 items-center justify-center">
         <div
-          className="relative aspect-square w-full max-w-[560px]"
+          className="relative aspect-square w-full max-w-140"
           aria-label="Your systems surrounded by performance, availability, and alert monitoring"
           role="img"
         >
@@ -103,7 +98,8 @@ export function AuthSystemVisual() {
           See what is happening across your systems.
         </h2>
         <p className="mt-3 max-w-lg text-sm leading-6 text-slate-400">
-          Monitor performance, availability, and alerts from one operational view.
+          Monitor performance, availability, and alerts from one operational
+          view.
         </p>
       </div>
     </section>

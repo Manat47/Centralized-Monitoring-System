@@ -60,7 +60,9 @@ export function LoginForm() {
     }
   }, [isAuthenticated, router]);
 
-  async function handleSubmit(event: FormEvent<HTMLFormElement>): Promise<void> {
+  async function handleSubmit(
+    event: FormEvent<HTMLFormElement>,
+  ): Promise<void> {
     event.preventDefault();
     setErrorMessage(null);
     setIsSubmitting(true);
@@ -84,7 +86,7 @@ export function LoginForm() {
         <AuthBrand />
 
         <div className="flex flex-1 items-center py-16">
-          <div className="w-full max-w-[440px]">
+          <div className="w-full max-w-110">
             {isCheckingSession ? (
               <div className="flex items-center gap-3 text-sm text-slate-400">
                 <LoaderCircle className="size-4 animate-spin text-blue-400" />
@@ -97,13 +99,17 @@ export function LoginForm() {
                     Sign in to Monitoring
                   </h1>
                   <p className="mt-3 text-sm leading-6 text-slate-400">
-                    Access infrastructure metrics, health checks, alerts, and operational history.
+                    Access infrastructure metrics, health checks, alerts, and
+                    operational history.
                   </p>
                 </div>
 
                 <form className="space-y-5" onSubmit={handleSubmit}>
                   <div className="space-y-2">
-                    <Label htmlFor="email" className="text-sm font-medium text-slate-200">
+                    <Label
+                      htmlFor="email"
+                      className="text-sm font-medium text-slate-200"
+                    >
                       Work email
                     </Label>
                     <div className="relative">
@@ -124,7 +130,10 @@ export function LoginForm() {
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="password" className="text-sm font-medium text-slate-200">
+                    <Label
+                      htmlFor="password"
+                      className="text-sm font-medium text-slate-200"
+                    >
                       Password
                     </Label>
                     <div className="relative">

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   Bell,
+  BookOpen,
   Crosshair,
   FileText,
   Gauge,
@@ -44,6 +45,11 @@ const navigationGroups: NavigationGroup[] = [
         href: "/dashboard",
         label: "Dashboard",
         icon: LayoutDashboard,
+      },
+      {
+        href: "/getting-started",
+        label: "Getting Started",
+        icon: BookOpen,
       },
     ],
   },

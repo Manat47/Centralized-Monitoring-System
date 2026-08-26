@@ -30,7 +30,7 @@ function InvitationFrame({ children }: { children: ReactNode }) {
     <div className="flex min-h-svh flex-col px-6 py-7 sm:px-10">
       <AuthBrand />
       <div className="flex flex-1 items-center justify-center py-16">
-        <div className="w-full max-w-[480px]">{children}</div>
+        <div className="w-full max-w-120">{children}</div>
       </div>
     </div>
   );
@@ -130,12 +130,15 @@ export function AcceptInvitationForm({ token }: AcceptInvitationFormProps) {
         <div className="mb-5 flex size-11 items-center justify-center rounded-lg border border-amber-400/20 bg-amber-400/10 text-amber-300">
           <TriangleAlert className="size-5" />
         </div>
-        <h1 className="text-2xl font-semibold text-white">Invitation unavailable</h1>
+        <h1 className="text-2xl font-semibold text-white">
+          Invitation unavailable
+        </h1>
         <p className="mt-3 text-sm leading-6 text-slate-400">
           {validationError ?? "This invitation cannot be used."}
         </p>
         <p className="mt-2 text-sm leading-6 text-slate-500">
-          Ask an administrator to resend the invitation if you still need access.
+          Ask an administrator to resend the invitation if you still need
+          access.
         </p>
         <Link
           href="/login"
@@ -164,7 +167,8 @@ export function AcceptInvitationForm({ token }: AcceptInvitationFormProps) {
         <Link
           href="/login"
           className={buttonVariants({
-            className: "mt-7 h-11 w-full bg-white text-slate-950 hover:bg-slate-200",
+            className:
+              "mt-7 h-11 w-full bg-white text-slate-950 hover:bg-slate-200",
           })}
         >
           Sign in
@@ -191,13 +195,17 @@ export function AcceptInvitationForm({ token }: AcceptInvitationFormProps) {
         Join Monitoring Control Plane
       </h1>
       <p className="mt-3 text-sm leading-6 text-slate-400">
-        Set a password for <span className="font-medium text-slate-200">{details.email}</span>.
-        The invitation expires {formatExpiration(details.expiresAt)}.
+        Set a password for{" "}
+        <span className="font-medium text-slate-200">{details.email}</span>. The
+        invitation expires {formatExpiration(details.expiresAt)}.
       </p>
 
       <form className="mt-8 space-y-5" onSubmit={handleSubmit}>
         <div className="space-y-2">
-          <Label htmlFor="new-password" className="text-sm font-medium text-slate-200">
+          <Label
+            htmlFor="new-password"
+            className="text-sm font-medium text-slate-200"
+          >
             Password
           </Label>
           <div className="relative">
@@ -232,7 +240,10 @@ export function AcceptInvitationForm({ token }: AcceptInvitationFormProps) {
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="confirm-password" className="text-sm font-medium text-slate-200">
+          <Label
+            htmlFor="confirm-password"
+            className="text-sm font-medium text-slate-200"
+          >
             Confirm password
           </Label>
           <Input
@@ -271,7 +282,10 @@ export function AcceptInvitationForm({ token }: AcceptInvitationFormProps) {
 
       <p className="mt-6 text-center text-xs text-slate-500">
         Already activated your account?{" "}
-        <Link href="/login" className="text-slate-300 underline underline-offset-4 hover:text-white">
+        <Link
+          href="/login"
+          className="text-slate-300 underline underline-offset-4 hover:text-white"
+        >
           Sign in
         </Link>
       </p>
