@@ -180,12 +180,12 @@ export function CreateAssetDialog() {
                       <SelectValue />
                     </SelectTrigger>
 
-                      <SelectContent>
-                        <SelectItem value="SERVER">Server</SelectItem>
-                        <SelectItem value="APPLICATION">Application</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
+                    <SelectContent>
+                      <SelectItem value="SERVER">Server</SelectItem>
+                      <SelectItem value="APPLICATION">Application</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
 
                 <div className="grid gap-2">
                   <Label>Environment</Label>
@@ -257,7 +257,12 @@ export function CreateAssetDialog() {
                 Cancel
               </Button>
 
-              <Button type="submit" disabled={createMutation.isPending}>
+              <Button
+                type="submit"
+                disabled={createMutation.isPending}
+                aria-busy={createMutation.isPending}
+                className="min-w-[7.5rem]"
+              >
                 {createMutation.isPending ? "Registering..." : "Register asset"}
               </Button>
             </DialogFooter>

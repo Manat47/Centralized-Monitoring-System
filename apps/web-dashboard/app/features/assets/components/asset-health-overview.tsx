@@ -6,6 +6,7 @@ import { useHealthCheckTargets } from "@/app/features/health-checks/api/use-heal
 import { getHealthResultStatus } from "@/app/features/health-checks/components/health-check-status";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
   TableBody,
@@ -39,9 +40,16 @@ export function AssetHealthOverview({ assetId }: AssetHealthOverviewProps) {
 
   if (targetsQuery.isLoading) {
     return (
-      <Card className="border-slate-200 shadow-none">
-        <CardContent className="py-12 text-center text-sm text-slate-500">
-          Loading health checks...
+      <Card className="border-slate-200 bg-white shadow-none">
+        <CardHeader className="space-y-2 border-b border-slate-100 px-5 py-4">
+          <Skeleton className="h-4 w-32" />
+          <Skeleton className="h-3 w-56 max-w-full" />
+        </CardHeader>
+        <CardContent className="space-y-px p-0">
+          <Skeleton className="h-10 w-full rounded-none" />
+          {Array.from({ length: 3 }).map((_, index) => (
+            <Skeleton key={index} className="h-14 w-full rounded-none" />
+          ))}
         </CardContent>
       </Card>
     );
@@ -82,7 +90,7 @@ export function AssetHealthOverview({ assetId }: AssetHealthOverviewProps) {
             </p>
           </div>
         ) : (
-          <Table>
+          <Table className="min-w-[720px]">
             <TableHeader>
               <TableRow className="bg-slate-50/70 hover:bg-slate-50/70">
                 <TableHead className="text-xs">URL</TableHead>
@@ -110,7 +118,10 @@ export function AssetHealthOverview({ assetId }: AssetHealthOverviewProps) {
                   : "DISABLED";
 
                 return (
-                  <TableRow key={target.healthCheckTargetId}>
+                  <TableRow
+                    key={target.healthCheckTargetId}
+                    className="transition-colors duration-150"
+                  >
                     <TableCell>
                       <p
                         title={target.url}
@@ -130,7 +141,7 @@ export function AssetHealthOverview({ assetId }: AssetHealthOverviewProps) {
                                 ? "size-2 rounded-full bg-rose-500"
                                 : status === "STALE"
                                   ? "size-2 rounded-full bg-amber-500"
-                                : "size-2 rounded-full bg-slate-300"
+                                  : "size-2 rounded-full bg-slate-300"
                           }
                         />
 
@@ -141,9 +152,9 @@ export function AssetHealthOverview({ assetId }: AssetHealthOverviewProps) {
                               ? "Unavailable"
                               : status === "STALE"
                                 ? "Stale"
-                              : status === "DISABLED"
-                                ? "Disabled"
-                                : "Unknown"}
+                                : status === "DISABLED"
+                                  ? "Disabled"
+                                  : "Unknown"}
                         </span>
                       </div>
                     </TableCell>

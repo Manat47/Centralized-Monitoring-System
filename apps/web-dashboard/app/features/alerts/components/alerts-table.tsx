@@ -10,7 +10,9 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { cn } from "@/lib/utils";
 
 import { useAcknowledgeAlert, useCloseAlert } from "../api/use-alert-actions";
 import { useAlerts } from "../api/use-alerts";
@@ -53,14 +55,14 @@ export function AlertsTable() {
   });
   const totalPages = Math.max(data?.totalPages ?? 1, 1);
 
-  if (isLoading) return <Message text="Loading alerts..." />;
+  if (isLoading) return <AlertsTableSkeleton />;
   if (isError) return <Message text={error instanceof Error ? error.message : "Failed to load alerts"} destructive />;
 
   return (
     <Card className="overflow-hidden border-slate-200 shadow-none">
       <CardContent className="p-0">
         <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 p-4">
-          <div className="relative min-w-64 flex-1 sm:max-w-72">
+          <div className="relative w-full min-w-0 flex-1 sm:min-w-64 sm:max-w-72">
             <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
             <Input value={search} onChange={(event) => { setSearch(event.target.value); setPage(1); }} placeholder="Search metric or message..." className="pl-9" />
           </div>
@@ -68,19 +70,19 @@ export function AlertsTable() {
           <Filter value={severity} onValueChange={(value) => { setSeverity(value as typeof severity); setPage(1); }} label="All severities" options={["WARNING", "CRITICAL"]} />
           <Filter value={sourceType} onValueChange={(value) => { setSourceType(value as typeof sourceType); setPage(1); }} label="All sources" options={["METRIC_RULE", "HEALTH_CHECK"]} />
           <Select value={assetId} onValueChange={(value) => { setAssetId(value ?? "ALL"); setPage(1); }}>
-            <SelectTrigger className="w-44 bg-white"><SelectValue>{assetId === "ALL" ? "All assets" : assetNames.get(assetId)}</SelectValue></SelectTrigger>
+            <SelectTrigger className="w-full bg-white sm:w-44"><SelectValue>{assetId === "ALL" ? "All assets" : assetNames.get(assetId)}</SelectValue></SelectTrigger>
             <SelectContent><SelectItem value="ALL">All assets</SelectItem>{(assetsQuery.data ?? []).map((asset) => <SelectItem key={asset.assetId} value={asset.assetId}>{asset.name}</SelectItem>)}</SelectContent>
           </Select>
-          <span className="ml-auto text-xs text-slate-500">{data?.total ?? 0} alerts{isFetching ? " · Updating" : ""}</span>
+          <span className={cn("ml-auto text-xs text-slate-500", isFetching && "animate-pulse")}>{data?.total ?? 0} alerts{isFetching ? " · Updating" : ""}</span>
         </div>
 
         {(acknowledgeMutation.isError || closeMutation.isError) && <p className="border-b border-rose-200 bg-rose-50 px-4 py-2 text-sm text-rose-700">{(acknowledgeMutation.error ?? closeMutation.error)?.message}</p>}
 
-        <Table>
+        <Table className="min-w-[980px]">
           <TableHeader><TableRow><TableHead>Severity</TableHead><TableHead>Asset</TableHead><TableHead>Signal</TableHead><TableHead>Actual</TableHead><TableHead>Threshold</TableHead><TableHead>Status</TableHead><TableHead>Triggered</TableHead><TableHead className="text-right">Action</TableHead></TableRow></TableHeader>
-          <TableBody>
+          <TableBody className={cn("transition-opacity duration-150", isFetching && "opacity-70")}>
             {data?.items.length === 0 ? <TableRow><TableCell colSpan={8} className="h-28 text-center text-slate-500">No alerts found.</TableCell></TableRow> : data?.items.map((alert) => (
-              <TableRow key={alert.alertId} className={alert.status === "TRIGGERED" ? "bg-rose-50/30" : undefined}>
+              <TableRow key={alert.alertId} className={cn("transition-colors duration-150", alert.status === "TRIGGERED" && "bg-rose-50/30")}>
                 <TableCell><Badge variant="outline" className={badgeClass(alert, "severity")}>{alert.severity}</Badge></TableCell>
                 <TableCell className="font-medium">{assetNames.get(alert.assetId) ?? alert.assetId}</TableCell>
                 <TableCell><div>{alert.metricType.replaceAll("_USAGE", "").replaceAll("_", " ")}</div><div className="text-xs text-slate-500">{alert.sourceType === "HEALTH_CHECK" ? "Health check" : "Metric rule"}</div></TableCell>
@@ -89,9 +91,9 @@ export function AlertsTable() {
                 <TableCell><Badge variant="outline" className={badgeClass(alert, "status")}>{alert.status}</Badge></TableCell>
                 <TableCell className="text-xs text-slate-600">{new Date(alert.triggeredAt).toLocaleString()}</TableCell>
                 <TableCell><div className="flex justify-end gap-1">
-                  {alert.status === "TRIGGERED" && <Button type="button" variant="outline" size="sm" disabled={acknowledgeMutation.isPending} onClick={() => acknowledgeMutation.mutate(alert.alertId)}><Check />Acknowledge</Button>}
-                  {alert.status === "RESOLVED" && <Button type="button" variant="outline" size="sm" disabled={closeMutation.isPending} onClick={() => closeMutation.mutate(alert.alertId)}><CircleX />Close</Button>}
-                  <Link href={`/alerts/${alert.alertId}`} aria-label="Open alert details" className="inline-flex size-7 items-center justify-center rounded-md text-slate-500 hover:bg-slate-100 hover:text-slate-900"><ChevronRight className="size-4" /></Link>
+                  {alert.status === "TRIGGERED" && <Button type="button" variant="outline" size="sm" className="min-w-[7.25rem]" disabled={acknowledgeMutation.isPending} aria-busy={acknowledgeMutation.isPending && acknowledgeMutation.variables === alert.alertId} onClick={() => acknowledgeMutation.mutate(alert.alertId)}><Check />{acknowledgeMutation.isPending && acknowledgeMutation.variables === alert.alertId ? "Saving..." : "Acknowledge"}</Button>}
+                  {alert.status === "RESOLVED" && <Button type="button" variant="outline" size="sm" className="min-w-[4.75rem]" disabled={closeMutation.isPending} aria-busy={closeMutation.isPending && closeMutation.variables === alert.alertId} onClick={() => closeMutation.mutate(alert.alertId)}><CircleX />{closeMutation.isPending && closeMutation.variables === alert.alertId ? "Closing..." : "Close"}</Button>}
+                  <Link href={`/alerts/${alert.alertId}`} aria-label="Open alert details" className="group inline-flex size-7 items-center justify-center rounded-md text-slate-500 transition-colors duration-150 hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/40"><ChevronRight className="size-4 transition-transform duration-150 group-hover:translate-x-0.5" /></Link>
                 </div></TableCell>
               </TableRow>
             ))}
@@ -108,7 +110,11 @@ export function AlertsTable() {
 }
 
 function Filter({ value, onValueChange, label, options }: { value: string; onValueChange: (value: string | null) => void; label: string; options: string[] }) {
-  return <Select value={value} onValueChange={onValueChange}><SelectTrigger className="w-40 bg-white"><SelectValue>{value === "ALL" ? label : value.replaceAll("_", " ")}</SelectValue></SelectTrigger><SelectContent><SelectItem value="ALL">{label}</SelectItem>{options.map((option) => <SelectItem key={option} value={option}>{option.replaceAll("_", " ")}</SelectItem>)}</SelectContent></Select>;
+  return <Select value={value} onValueChange={onValueChange}><SelectTrigger className="w-full bg-white sm:w-40"><SelectValue>{value === "ALL" ? label : value.replaceAll("_", " ")}</SelectValue></SelectTrigger><SelectContent><SelectItem value="ALL">{label}</SelectItem>{options.map((option) => <SelectItem key={option} value={option}>{option.replaceAll("_", " ")}</SelectItem>)}</SelectContent></Select>;
+}
+
+function AlertsTableSkeleton() {
+  return <Card className="overflow-hidden border-slate-200 shadow-none"><CardContent className="p-0"><div className="flex flex-col gap-2 border-b border-slate-200 p-4 sm:flex-row sm:flex-wrap">{Array.from({ length: 5 }).map((_, index) => <Skeleton key={index} className={index === 0 ? "h-8 w-full sm:w-72" : "h-8 w-full sm:w-40"} />)}</div><Skeleton className="h-10 w-full rounded-none" />{Array.from({ length: 6 }).map((_, index) => <div key={index} className="grid h-16 grid-cols-[0.7fr_1fr_1fr_0.7fr_0.7fr] items-center gap-5 border-t border-slate-100 px-4"><Skeleton className="h-5 w-16" /><Skeleton className="h-3 w-28" /><Skeleton className="h-3 w-24" /><Skeleton className="h-5 w-20" /><Skeleton className="h-3 w-24" /></div>)}</CardContent></Card>;
 }
 
 function Message({ text, destructive }: { text: string; destructive?: boolean }) {

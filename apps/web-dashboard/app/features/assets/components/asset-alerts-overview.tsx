@@ -11,6 +11,7 @@ import type {
 
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
   TableBody,
@@ -81,9 +82,7 @@ function formatStatus(status: AlertStatus): string {
   }
 }
 
-function formatResolutionReason(
-  reason: AlertResolutionReason | null,
-): string {
+function formatResolutionReason(reason: AlertResolutionReason | null): string {
   switch (reason) {
     case "METRIC_RECOVERED":
       return "Metric recovered";
@@ -129,9 +128,16 @@ export function AssetAlertsOverview({ assetId }: AssetAlertsOverviewProps) {
 
   if (alertsQuery.isLoading) {
     return (
-      <Card className="border-slate-200 shadow-none">
-        <CardContent className="py-12 text-center text-sm text-slate-500">
-          Loading alerts...
+      <Card className="border-slate-200 bg-white shadow-none">
+        <CardHeader className="space-y-2 border-b border-slate-100 px-5 py-4">
+          <Skeleton className="h-4 w-24" />
+          <Skeleton className="h-3 w-52 max-w-full" />
+        </CardHeader>
+        <CardContent className="space-y-px p-0">
+          <Skeleton className="h-10 w-full rounded-none" />
+          {Array.from({ length: 4 }).map((_, index) => (
+            <Skeleton key={index} className="h-14 w-full rounded-none" />
+          ))}
         </CardContent>
       </Card>
     );
@@ -174,7 +180,7 @@ export function AssetAlertsOverview({ assetId }: AssetAlertsOverviewProps) {
             </p>
           </div>
         ) : (
-          <Table>
+          <Table className="min-w-[820px]">
             <TableHeader>
               <TableRow className="bg-slate-50/70 hover:bg-slate-50/70">
                 <TableHead className="text-xs">Severity</TableHead>
@@ -195,7 +201,10 @@ export function AssetAlertsOverview({ assetId }: AssetAlertsOverviewProps) {
 
             <TableBody>
               {alerts.map((alert) => (
-                <TableRow key={alert.alertId}>
+                <TableRow
+                  key={alert.alertId}
+                  className="transition-colors duration-150"
+                >
                   <TableCell>
                     <Badge
                       variant="outline"
