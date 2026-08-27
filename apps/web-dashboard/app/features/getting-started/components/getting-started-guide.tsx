@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { gsap } from "gsap";
 import type { LucideIcon } from "lucide-react";
 import {
   ArrowRight,
@@ -21,6 +22,7 @@ import { cn } from "@/lib/utils";
 
 import styles from "./getting-started-guide.module.css";
 import FadeContent from "@/app/features/react-bits/fade-content";
+import AnimatedContent from "@/components/AnimatedContent";
 
 const aptInstallCommand = "sudo apt install prometheus-node-exporter -y";
 
@@ -151,7 +153,57 @@ function StepNumber({ children }: { children: string }) {
 export function GettingStartedGuide() {
   const [installMethod, setInstallMethod] = useState<InstallMethod>("apt");
   const [copiedId, setCopiedId] = useState<string | null>(null);
+
   const usesApt = installMethod === "apt";
+
+  const installPanelRef = useRef<HTMLDivElement>(null);
+  const startPanelRef = useRef<HTMLDivElement>(null);
+  const statusPanelRef = useRef<HTMLDivElement>(null);
+
+  function handleInstallMethodChange(nextMethod: InstallMethod) {
+    if (nextMethod === installMethod) {
+      return;
+    }
+
+    const panels = [
+      installPanelRef.current,
+      startPanelRef.current,
+      statusPanelRef.current,
+    ].filter((panel): panel is HTMLDivElement => panel !== null);
+
+    if (panels.length === 0) {
+      setInstallMethod(nextMethod);
+      return;
+    }
+
+    gsap.killTweensOf(panels);
+
+    gsap.to(panels, {
+      opacity: 0,
+      y: -4,
+      duration: 0.14,
+      ease: "power1.in",
+      onComplete: () => {
+        setInstallMethod(nextMethod);
+
+        requestAnimationFrame(() => {
+          gsap.fromTo(
+            panels,
+            {
+              opacity: 0,
+              y: 6,
+            },
+            {
+              opacity: 1,
+              y: 0,
+              duration: 0.24,
+              ease: "power2.out",
+            },
+          );
+        });
+      },
+    });
+  }
 
   async function handleCopy(id: string, code: string) {
     await navigator.clipboard.writeText(code);
@@ -185,12 +237,22 @@ export function GettingStartedGuide() {
       </header>
 
       <div className="mx-auto max-w-5xl space-y-6 px-6 py-6 lg:px-8 lg:py-8">
-        <FadeContent duration={650} initialOpacity={0} threshold={0.05}>
+        <FadeContent duration={500} initialOpacity={0} threshold={0.12}>
           <SignalFlow />
         </FadeContent>
 
         <div className="divide-y divide-slate-200">
-          <FadeContent duration={500} initialOpacity={0} threshold={0.12}>
+          <AnimatedContent
+            distance={18}
+            direction="vertical"
+            reverse={false}
+            duration={0.5}
+            ease="power2.out"
+            initialOpacity={0}
+            animateOpacity
+            scale={1}
+            threshold={0.12}
+          >
             <section className="pb-6">
               <div className="flex items-start gap-4">
                 <StepNumber>1</StepNumber>
@@ -214,7 +276,7 @@ export function GettingStartedGuide() {
                           ? "bg-white text-slate-950 shadow-sm"
                           : "text-slate-600 hover:text-slate-950",
                       )}
-                      onClick={() => setInstallMethod("apt")}
+                      onClick={() => handleInstallMethodChange("apt")}
                     >
                       <Terminal className="size-4" />
                       Ubuntu / Debian
@@ -229,14 +291,14 @@ export function GettingStartedGuide() {
                           ? "bg-white text-slate-950 shadow-sm"
                           : "text-slate-600 hover:text-slate-950",
                       )}
-                      onClick={() => setInstallMethod("docker")}
+                      onClick={() => handleInstallMethodChange("docker")}
                     >
                       <Container className="size-4" />
                       Docker
                     </button>
                   </div>
 
-                  <div className="mt-4" role="tabpanel">
+                  <div ref={installPanelRef} className="mt-4" role="tabpanel">
                     <CodeBlock
                       id={usesApt ? "apt-install" : "docker-install"}
                       label={usesApt ? "Install package" : "Create container"}
@@ -248,9 +310,19 @@ export function GettingStartedGuide() {
                 </div>
               </div>
             </section>
-          </FadeContent>
+          </AnimatedContent>
 
-          <FadeContent duration={500} initialOpacity={0} threshold={0.12}>
+          <AnimatedContent
+            distance={18}
+            direction="vertical"
+            reverse={false}
+            duration={0.5}
+            ease="power2.out"
+            initialOpacity={0}
+            animateOpacity
+            scale={1}
+            threshold={0.12}
+          >
             <section className="py-6">
               <div className="flex items-start gap-4">
                 <StepNumber>2</StepNumber>
@@ -258,7 +330,7 @@ export function GettingStartedGuide() {
                   <h2 className="text-lg font-semibold text-slate-950">
                     Enable and start
                   </h2>
-                  <div className="mt-4">
+                  <div ref={startPanelRef} className="mt-4">
                     <CodeBlock
                       id={usesApt ? "apt-start" : "docker-start"}
                       label={
@@ -274,9 +346,19 @@ export function GettingStartedGuide() {
                 </div>
               </div>
             </section>
-          </FadeContent>
+          </AnimatedContent>
 
-          <FadeContent duration={650} initialOpacity={0} threshold={0.05}>
+          <AnimatedContent
+            distance={18}
+            direction="vertical"
+            reverse={false}
+            duration={0.5}
+            ease="power2.out"
+            initialOpacity={0}
+            animateOpacity
+            scale={1}
+            threshold={0.12}
+          >
             <section className="py-6">
               <div className="flex items-start gap-4">
                 <StepNumber>3</StepNumber>
@@ -284,7 +366,7 @@ export function GettingStartedGuide() {
                   <h2 className="text-lg font-semibold text-slate-950">
                     Verify the service
                   </h2>
-                  <div className="mt-4">
+                  <div ref={statusPanelRef} className="mt-4">
                     <CodeBlock
                       id={usesApt ? "apt-status" : "docker-status"}
                       label={
@@ -298,9 +380,19 @@ export function GettingStartedGuide() {
                 </div>
               </div>
             </section>
-          </FadeContent>
+          </AnimatedContent>
 
-          <FadeContent duration={650} initialOpacity={0} threshold={0.05}>
+          <AnimatedContent
+            distance={18}
+            direction="vertical"
+            reverse={false}
+            duration={0.5}
+            ease="power2.out"
+            initialOpacity={0}
+            animateOpacity
+            scale={1}
+            threshold={0.12}
+          >
             <section className="py-6">
               <div className="flex items-start gap-4">
                 <StepNumber>4</StepNumber>
@@ -328,9 +420,19 @@ export function GettingStartedGuide() {
                 </div>
               </div>
             </section>
-          </FadeContent>
+          </AnimatedContent>
 
-          <FadeContent duration={650} initialOpacity={0} threshold={0.05}>
+          <AnimatedContent
+            distance={18}
+            direction="vertical"
+            reverse={false}
+            duration={0.5}
+            ease="power2.out"
+            initialOpacity={0}
+            animateOpacity
+            scale={1}
+            threshold={0.12}
+          >
             <section className="py-6">
               <div className="flex items-start gap-4">
                 <StepNumber>5</StepNumber>
@@ -363,9 +465,19 @@ export function GettingStartedGuide() {
                 </div>
               </div>
             </section>
-          </FadeContent>
+          </AnimatedContent>
 
-          <FadeContent duration={650} initialOpacity={0} threshold={0.05}>
+          <AnimatedContent
+            distance={18}
+            direction="vertical"
+            reverse={false}
+            duration={0.5}
+            ease="power2.out"
+            initialOpacity={0}
+            animateOpacity
+            scale={1}
+            threshold={0.12}
+          >
             <section className="py-6">
               <div className="flex items-start gap-4">
                 <StepNumber>6</StepNumber>
@@ -392,9 +504,19 @@ export function GettingStartedGuide() {
                 </div>
               </div>
             </section>
-          </FadeContent>
+          </AnimatedContent>
 
-          <FadeContent duration={650} initialOpacity={0} threshold={0.05}>
+          <AnimatedContent
+            distance={18}
+            direction="vertical"
+            reverse={false}
+            duration={0.5}
+            ease="power2.out"
+            initialOpacity={0}
+            animateOpacity
+            scale={1}
+            threshold={0.12}
+          >
             <section className="pt-6">
               <div className="flex items-start gap-4">
                 <StepNumber>7</StepNumber>
@@ -435,7 +557,7 @@ export function GettingStartedGuide() {
                 </div>
               </div>
             </section>
-          </FadeContent>
+          </AnimatedContent>
         </div>
 
         <div className="flex justify-center">
