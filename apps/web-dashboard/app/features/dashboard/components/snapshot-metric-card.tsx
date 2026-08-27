@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 
 interface SnapshotMetricCardProps {
   title: string;
-  value: string;
+  value: ReactNode;
   description?: string;
   footer?: ReactNode;
   children: ReactNode;
@@ -26,9 +26,9 @@ export function SnapshotMetricCard({
           )}
         </div>
 
-        <p className="text-xl font-semibold tracking-tight text-slate-900">
+        <div className="text-xl font-semibold tabular-nums tracking-tight text-slate-900">
           {value}
-        </p>
+        </div>
       </div>
 
       <div>{children}</div>

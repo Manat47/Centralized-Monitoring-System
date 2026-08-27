@@ -117,7 +117,14 @@ export function EditAssetDialog({ asset }: EditAssetDialogProps) {
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger
-        render={<Button type="button" variant="outline" size="xs" />}
+        render={
+          <Button
+            type="button"
+            variant="outline"
+            size="xs"
+            className="min-w-12"
+          />
+        }
       >
         Edit
       </DialogTrigger>
@@ -211,7 +218,9 @@ export function EditAssetDialog({ asset }: EditAssetDialogProps) {
               </div>
             ) : (
               <div className="grid gap-2">
-                <Label htmlFor={`endpoint-${asset.assetId}`}>Endpoint URL</Label>
+                <Label htmlFor={`endpoint-${asset.assetId}`}>
+                  Endpoint URL
+                </Label>
                 <Input
                   id={`endpoint-${asset.assetId}`}
                   value={form.endpoint ?? ""}
@@ -243,7 +252,12 @@ export function EditAssetDialog({ asset }: EditAssetDialogProps) {
               Cancel
             </Button>
 
-            <Button type="submit" disabled={updateMutation.isPending}>
+            <Button
+              type="submit"
+              disabled={updateMutation.isPending}
+              aria-busy={updateMutation.isPending}
+              className="min-w-[6.75rem]"
+            >
               {updateMutation.isPending ? "Saving..." : "Save changes"}
             </Button>
           </DialogFooter>

@@ -13,6 +13,7 @@ import { getDiskUsage } from "@/app/features/monitoring-targets/api/get-disk-usa
 import { getMemoryUsage } from "@/app/features/monitoring-targets/api/get-memory-usage";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 
 import { useAlertById } from "../api/use-alert-by-id";
 import { useAcknowledgeAlert, useCloseAlert } from "../api/use-alert-actions";
@@ -29,7 +30,7 @@ export function AlertDetailView() {
   const alert = alertQuery.data;
   const asset = (assetsQuery.data ?? []).find((item) => item.assetId === alert?.assetId);
 
-  if (alertQuery.isLoading || assetsQuery.isLoading) return <Message text="Loading alert..." />;
+  if (alertQuery.isLoading || assetsQuery.isLoading) return <AlertDetailSkeleton />;
   if (alertQuery.isError || !alert) return <Message text={alertQuery.error instanceof Error ? alertQuery.error.message : "Alert not found."} destructive />;
 
   return (
@@ -49,11 +50,11 @@ export function AlertDetailView() {
           <Card className="border-slate-200 shadow-none">
             <CardHeader className="border-b border-slate-200"><CardTitle className="text-sm">Actions</CardTitle></CardHeader>
             <CardContent className="space-y-3 p-4">
-              {alert.status === "TRIGGERED" && <Button type="button" className="w-full" disabled={acknowledgeMutation.isPending} onClick={() => acknowledgeMutation.mutate(alert.alertId)}><Check />Acknowledge alert</Button>}
-              {alert.status === "RESOLVED" && <Button type="button" className="w-full" disabled={closeMutation.isPending} onClick={() => closeMutation.mutate(alert.alertId)}><CircleX />Close alert</Button>}
+              {alert.status === "TRIGGERED" && <Button type="button" className="w-full" disabled={acknowledgeMutation.isPending} aria-busy={acknowledgeMutation.isPending} onClick={() => acknowledgeMutation.mutate(alert.alertId)}><Check />{acknowledgeMutation.isPending ? "Acknowledging..." : "Acknowledge alert"}</Button>}
+              {alert.status === "RESOLVED" && <Button type="button" className="w-full" disabled={closeMutation.isPending} aria-busy={closeMutation.isPending} onClick={() => closeMutation.mutate(alert.alertId)}><CircleX />{closeMutation.isPending ? "Closing..." : "Close alert"}</Button>}
               {alert.status === "ACKNOWLEDGED" && <p className="rounded-md bg-slate-100 p-3 text-xs text-slate-600">Acknowledged. The alert will resolve automatically when the signal recovers.</p>}
               {alert.status === "CLOSED" && <p className="rounded-md bg-slate-100 p-3 text-xs text-slate-600">This alert is closed.</p>}
-              <Link href={`/assets/${alert.assetId}`} className="flex items-center justify-center gap-1 text-sm text-blue-600 hover:underline">View asset <ExternalLink className="size-3" /></Link>
+              <Link href={`/assets/${alert.assetId}`} className="group flex items-center justify-center gap-1 rounded-sm text-sm text-blue-600 transition-colors duration-150 hover:text-blue-700 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/40">View asset <ExternalLink className="size-3 transition-transform duration-150 group-hover:-translate-y-0.5 group-hover:translate-x-0.5" /></Link>
             </CardContent>
           </Card>
         </div>
@@ -139,3 +140,7 @@ function eventDescription(event: AlertLifecycleEvent, alert: Alert, assetName?: 
 function contextValue(alert: Alert, key: string) { const value = alert.context?.[key]; return value == null ? "—" : String(value); }
 function Info({ label, value }: { label: string; value: string }) { return <div className="min-w-0"><p className="text-xs text-slate-500">{label}</p><p className="mt-2 break-words font-mono text-xs font-medium">{value}</p></div>; }
 function Message({ text, destructive }: { text: string; destructive?: boolean }) { return <div className={`py-12 text-center text-sm ${destructive ? "text-rose-600" : "text-slate-500"}`}><span className="inline-flex items-center gap-2">{destructive ? <AlertTriangle className="size-4" /> : <CircleCheck className="size-4" />}{text}</span></div>; }
+
+function AlertDetailSkeleton() {
+  return <section className="space-y-6" aria-label="Loading alert details"><div className="space-y-3"><Skeleton className="h-3 w-44" /><Skeleton className="h-7 w-80 max-w-full" /></div><div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_23rem]"><div className="space-y-6"><Card className="border-slate-200 shadow-none"><CardHeader className="space-y-2 border-b border-slate-200"><Skeleton className="h-4 w-24" /><Skeleton className="h-3 w-64 max-w-full" /></CardHeader><CardContent className="space-y-6 p-5">{Array.from({ length: 3 }).map((_, index) => <div key={index} className="flex gap-3"><Skeleton className="size-4 shrink-0 rounded-full" /><div className="w-full space-y-2"><Skeleton className="h-4 w-40" /><Skeleton className="h-3 w-3/4" /></div></div>)}</CardContent></Card><Skeleton className="h-80 w-full" /></div><div className="space-y-6"><Skeleton className="h-96 w-full" /><Skeleton className="h-36 w-full" /></div></div></section>;
+}

@@ -10,6 +10,7 @@ import type { Asset } from "../types/asset";
 
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 import { AssetMetricsSummary } from "@/app/features/monitoring-targets/components/asset-metrics-summary";
 import { useMonitoringTargets } from "@/app/features/monitoring-targets/api/use-monitoring-targets";
 import { useMetricsSummary } from "@/app/features/monitoring-targets/api/use-metrics-summary";
@@ -159,6 +160,43 @@ const tabs: {
   },
 ];
 
+function AssetDetailSkeleton() {
+  return (
+    <section className="space-y-6" aria-label="Loading asset details">
+      <div className="space-y-3">
+        <Skeleton className="h-3 w-20" />
+        <Skeleton className="h-7 w-52" />
+        <Skeleton className="h-4 w-32" />
+      </div>
+
+      <Card className="border-slate-200 bg-white shadow-none">
+        <CardContent className="grid gap-6 p-5 sm:grid-cols-2 xl:grid-cols-6">
+          {Array.from({ length: 6 }).map((_, index) => (
+            <div key={index} className="space-y-2">
+              <Skeleton className="h-3 w-16" />
+              <Skeleton className="h-5 w-24" />
+            </div>
+          ))}
+        </CardContent>
+      </Card>
+
+      <Skeleton className="h-10 w-80 max-w-full" />
+
+      <Card className="border-slate-200 bg-white shadow-none">
+        <div className="space-y-2 border-b border-slate-100 px-5 py-4">
+          <Skeleton className="h-4 w-36" />
+          <Skeleton className="h-3 w-56 max-w-full" />
+        </div>
+        <CardContent className="grid gap-4 p-5 md:grid-cols-2 xl:grid-cols-4">
+          {Array.from({ length: 4 }).map((_, index) => (
+            <Skeleton key={index} className="h-20 w-full" />
+          ))}
+        </CardContent>
+      </Card>
+    </section>
+  );
+}
+
 export function AssetDetail() {
   const params = useParams<{ assetId: string }>();
 
@@ -171,13 +209,7 @@ export function AssetDetail() {
   );
 
   if (assetsQuery.isLoading) {
-    return (
-      <Card className="border-slate-200 shadow-none">
-        <CardContent className="py-12 text-center text-sm text-slate-500">
-          Loading asset...
-        </CardContent>
-      </Card>
-    );
+    return <AssetDetailSkeleton />;
   }
 
   if (assetsQuery.isError) {
@@ -219,9 +251,9 @@ export function AssetDetail() {
       <div>
         <Link
           href="/assets"
-          className="mb-3 inline-flex items-center gap-1.5 text-xs text-slate-500 transition-colors hover:text-slate-900"
+          className="group mb-3 inline-flex items-center gap-1.5 rounded-sm text-xs text-slate-500 transition-colors duration-150 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/40"
         >
-          <ArrowLeft className="size-3.5" />
+          <ArrowLeft className="size-3.5 transition-transform duration-150 group-hover:-translate-x-0.5" />
           Assets
         </Link>
 
@@ -279,37 +311,42 @@ export function AssetDetail() {
       )}
 
       {/* Tabs */}
-      <div className="inline-flex rounded-lg bg-slate-100 p-1">
-        {availableTabs.map((tab) => (
-          <button
-            key={tab.value}
-            type="button"
-            onClick={() => setActiveTab(tab.value)}
-            className={
-              activeTab === tab.value
-                ? "rounded-md bg-white px-4 py-2 text-sm font-medium text-slate-950 shadow-sm"
-                : "rounded-md px-4 py-2 text-sm font-medium text-slate-500 transition-colors hover:text-slate-900"
-            }
-          >
-            {tab.label}
-          </button>
-        ))}
+      <div className="max-w-full overflow-x-auto">
+        <div className="inline-flex min-w-max rounded-lg bg-slate-100 p-1">
+          {availableTabs.map((tab) => (
+            <button
+              key={tab.value}
+              type="button"
+              onClick={() => setActiveTab(tab.value)}
+              aria-pressed={activeTab === tab.value}
+              className={
+                activeTab === tab.value
+                  ? "rounded-md bg-white px-4 py-2 text-sm font-medium text-slate-950 shadow-sm transition duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/40 active:scale-[0.98]"
+                  : "rounded-md px-4 py-2 text-sm font-medium text-slate-500 transition duration-150 hover:bg-white/50 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/40 active:scale-[0.98]"
+              }
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Tab content */}
-      {activeTab === "overview" && <AssetOverview asset={asset} />}
+      <div key={activeTab} className="animate-in fade-in duration-200">
+        {activeTab === "overview" && <AssetOverview asset={asset} />}
 
-      {activeTab === "metrics" && asset.targetType === "SERVER" && (
-        <AssetMetricsSummary />
-      )}
+        {activeTab === "metrics" && asset.targetType === "SERVER" && (
+          <AssetMetricsSummary />
+        )}
 
-      {activeTab === "health" && (
-        <AssetHealthOverview assetId={asset.assetId} />
-      )}
+        {activeTab === "health" && (
+          <AssetHealthOverview assetId={asset.assetId} />
+        )}
 
-      {activeTab === "alerts" && (
-        <AssetAlertsOverview assetId={asset.assetId} />
-      )}
+        {activeTab === "alerts" && (
+          <AssetAlertsOverview assetId={asset.assetId} />
+        )}
+      </div>
     </section>
   );
 }
@@ -457,8 +494,10 @@ function AssetOverview({ asset }: { asset: Asset }) {
         </div>
 
         {metricsQuery.isLoading ? (
-          <CardContent className="py-10 text-center">
-            <p className="text-sm text-slate-500">Loading recent metrics...</p>
+          <CardContent className="grid gap-4 p-5 sm:grid-cols-2 xl:grid-cols-4">
+            {Array.from({ length: 4 }).map((_, index) => (
+              <Skeleton key={index} className="h-20 w-full" />
+            ))}
           </CardContent>
         ) : !hasRecentMetrics ? (
           <CardContent className="py-10 text-center">

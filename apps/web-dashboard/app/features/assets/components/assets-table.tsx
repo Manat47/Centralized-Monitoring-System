@@ -1,7 +1,9 @@
 "use client";
 
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import {
   Table,
   TableBody,
@@ -10,15 +12,18 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { useMemo, useState } from "react";
-
-import { Input } from "@/components/ui/input";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
 } from "@/components/ui/select";
+import { cn } from "@/lib/utils";
+import { Search } from "lucide-react";
+import Link from "next/link";
+import { useMemo, useState } from "react";
+
 import type {
   Asset,
   AssetEnvironment,
@@ -27,10 +32,7 @@ import type {
 } from "../types/asset";
 
 import { useAssets } from "../api/use-assets";
-import { Button } from "@/components/ui/button";
 import { AssetActions } from "./asset-actions";
-import Link from "next/link";
-import { Search } from "lucide-react";
 
 type AssetStatusFilter = "CURRENT" | "ALL" | AssetStatus;
 
@@ -103,6 +105,45 @@ function getTypeClass(type: AssetTargetType): string {
   }
 }
 
+function AssetsTableSkeleton() {
+  return (
+    <Card className="border-slate-200 bg-white shadow-none">
+      <CardHeader className="border-b border-slate-100 px-5 py-4">
+        <Skeleton className="h-4 w-20" />
+        <Skeleton className="mt-1 h-3 w-32" />
+      </CardHeader>
+
+      <CardContent className="p-0">
+        <div className="flex flex-col gap-3 border-b border-slate-100 px-5 py-4 sm:flex-row sm:flex-wrap">
+          <Skeleton className="h-8 w-full sm:w-72" />
+          <Skeleton className="h-8 w-full sm:w-40" />
+          <Skeleton className="h-8 w-full sm:w-40" />
+          <Skeleton className="h-8 w-full sm:w-36" />
+        </div>
+
+        <div className="overflow-hidden">
+          <Skeleton className="h-10 w-full rounded-none" />
+          {Array.from({ length: 6 }).map((_, index) => (
+            <div
+              key={index}
+              className="grid h-16 grid-cols-[1.5fr_0.8fr_1fr_1.5fr_0.8fr] items-center gap-6 border-t border-slate-100 px-5"
+            >
+              <div className="space-y-2">
+                <Skeleton className="h-3 w-28" />
+                <Skeleton className="h-2.5 w-20" />
+              </div>
+              <Skeleton className="h-5 w-16" />
+              <Skeleton className="h-3 w-20" />
+              <Skeleton className="h-3 w-32" />
+              <Skeleton className="h-5 w-14" />
+            </div>
+          ))}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 export function AssetsTable() {
   const { data, isLoading, isError, error, isFetching } = useAssets();
   const [search, setSearch] = useState("");
@@ -146,13 +187,7 @@ export function AssetsTable() {
   }, [data, search, targetType, environment, status]);
 
   if (isLoading) {
-    return (
-      <Card>
-        <CardContent className="py-10 text-center text-sm text-muted-foreground">
-          Loading assets...
-        </CardContent>
-      </Card>
-    );
+    return <AssetsTableSkeleton />;
   }
 
   if (isError) {
@@ -172,7 +207,7 @@ export function AssetsTable() {
   return (
     <Card className="border-slate-200 bg-white shadow-none">
       <CardHeader className="border-b border-slate-100 px-5 py-4">
-        <div className="flex items-center justify-between gap-4">
+        <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
             <CardTitle className="text-sm font-semibold text-slate-900">
               Assets
@@ -184,14 +219,16 @@ export function AssetsTable() {
           </div>
 
           {isFetching && (
-            <span className="text-xs text-slate-400">Updating...</span>
+            <span className="animate-pulse text-xs text-slate-400">
+              Updating...
+            </span>
           )}
         </div>
       </CardHeader>
 
       <CardContent className="p-0">
         <div className="flex flex-wrap items-center gap-3 border-b border-slate-100 px-5 py-4">
-          <div className="relative min-w-64 flex-1 sm:max-w-sm">
+          <div className="relative w-full min-w-0 flex-1 sm:min-w-64 sm:max-w-sm">
             <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
 
             <Input
@@ -208,7 +245,7 @@ export function AssetsTable() {
               setTargetType(value as "ALL" | AssetTargetType)
             }
           >
-            <SelectTrigger className="w-40">
+            <SelectTrigger className="w-full sm:w-40">
               <span className="truncate">
                 {targetType === "ALL"
                   ? "All types"
@@ -229,7 +266,7 @@ export function AssetsTable() {
               setEnvironment(value as "ALL" | AssetEnvironment)
             }
           >
-            <SelectTrigger className="w-40">
+            <SelectTrigger className="w-full sm:w-40">
               <span className="truncate">
                 {environment === "ALL"
                   ? "All environments"
@@ -249,7 +286,7 @@ export function AssetsTable() {
             value={status}
             onValueChange={(value) => setStatus(value as "ALL" | AssetStatus)}
           >
-            <SelectTrigger className="w-36">
+            <SelectTrigger className="w-full sm:w-36">
               <span className="truncate">
                 {status === "CURRENT"
                   ? "Current"
@@ -289,7 +326,7 @@ export function AssetsTable() {
             Clear
           </Button>
         </div>
-        <Table>
+        <Table className="min-w-[920px]">
           <TableHeader>
             <TableRow className="bg-slate-50/70 hover:bg-slate-50/70">
               <TableHead className="pl-5 text-xs font-medium text-slate-500">
@@ -322,7 +359,12 @@ export function AssetsTable() {
             </TableRow>
           </TableHeader>
 
-          <TableBody>
+          <TableBody
+            className={cn(
+              "transition-opacity duration-150",
+              isFetching && "opacity-70",
+            )}
+          >
             {filteredAssets.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={7} className="h-32 text-center">
@@ -337,12 +379,15 @@ export function AssetsTable() {
               </TableRow>
             ) : (
               filteredAssets.map((asset) => (
-                <TableRow key={asset.assetId} className="hover:bg-slate-50/60">
+                <TableRow
+                  key={asset.assetId}
+                  className="transition-colors duration-150 hover:bg-slate-50/60"
+                >
                   <TableCell className="pl-5 py-4">
                     <div className="min-w-0">
                       <Link
                         href={`/assets/${asset.assetId}`}
-                        className="font-medium text-slate-900 hover:text-blue-600 hover:underline"
+                        className="rounded-sm font-medium text-slate-900 transition-colors duration-150 hover:text-blue-600 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/40 active:text-blue-700"
                       >
                         {asset.name}
                       </Link>

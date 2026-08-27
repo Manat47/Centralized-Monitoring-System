@@ -160,7 +160,7 @@ export function CreateUserDialog() {
               Cancel
             </Button>
 
-            <Button type="submit" disabled={createMutation.isPending}>
+            <Button type="submit" disabled={createMutation.isPending} aria-busy={createMutation.isPending} className="min-w-[8.5rem]">
               {createMutation.isPending ? "Sending..." : "Send invitation"}
             </Button>
           </DialogFooter>

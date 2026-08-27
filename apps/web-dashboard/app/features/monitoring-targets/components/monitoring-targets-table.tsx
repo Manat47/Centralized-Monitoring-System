@@ -4,6 +4,7 @@ import { Fragment, useMemo, useState } from "react";
 import { Menu as MenuPrimitive } from "@base-ui/react/menu";
 import {
   CircleAlert,
+  LoaderCircle,
   MoreVertical,
   Pause,
   Play,
@@ -25,6 +26,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
   TableBody,
@@ -33,6 +35,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { cn } from "@/lib/utils";
 
 import {
   useDisableMonitoringTarget,
@@ -217,13 +220,7 @@ export function MonitoringTargetsTable() {
     monitoringStatus !== "ALL";
 
   if (isLoading) {
-    return (
-      <Card className="border-slate-200 shadow-none">
-        <CardContent className="py-12 text-center text-sm text-slate-500">
-          Loading monitoring targets...
-        </CardContent>
-      </Card>
-    );
+    return <MonitoringTargetsSkeleton />;
   }
 
   if (targetsQuery.isError || assetsQuery.isError) {
@@ -262,7 +259,7 @@ export function MonitoringTargetsTable() {
               )
             }
           >
-            <SelectTrigger className="w-48 bg-white">
+            <SelectTrigger className="w-full bg-white sm:w-48">
               <SelectValue>
                 {verificationStatus === "ALL"
                   ? "All verifications"
@@ -285,7 +282,7 @@ export function MonitoringTargetsTable() {
               )
             }
           >
-            <SelectTrigger className="w-40 bg-white">
+            <SelectTrigger className="w-full bg-white sm:w-40">
               <SelectValue>
                 {monitoringStatus === "ALL"
                   ? "All states"
@@ -316,8 +313,9 @@ export function MonitoringTargetsTable() {
             Clear
           </Button>
 
-          <span className="ml-auto text-xs text-slate-500">
+          <span className={cn("ml-auto text-xs text-slate-500", (targetsQuery.isFetching || assetsQuery.isFetching) && "animate-pulse")}>
             {filteredTargets.length} of {targets.length} targets
+            {(targetsQuery.isFetching || assetsQuery.isFetching) && " · Updating"}
           </span>
         </div>
 
@@ -329,7 +327,7 @@ export function MonitoringTargetsTable() {
           </div>
         )}
 
-        <Table>
+        <Table className="min-w-[1120px]">
           <TableHeader>
             <TableRow>
               <TableHead className="pl-4">Asset</TableHead>
@@ -345,7 +343,7 @@ export function MonitoringTargetsTable() {
             </TableRow>
           </TableHeader>
 
-          <TableBody>
+          <TableBody className={cn("transition-opacity duration-150", (targetsQuery.isFetching || assetsQuery.isFetching) && "opacity-70")}>
             {targets.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={10} className="h-28 text-center text-slate-500">
@@ -381,7 +379,7 @@ export function MonitoringTargetsTable() {
 
                 return (
                   <Fragment key={target.targetId}>
-                    <TableRow className={target.lastError ? "border-b-0" : ""}>
+                    <TableRow className={cn("transition-colors duration-150", target.lastError && "border-b-0")}>
                       <TableCell className="pl-4">
                         <div>
                           <p className="font-medium text-slate-900">
@@ -435,7 +433,7 @@ export function MonitoringTargetsTable() {
                               disabled={isPending}
                               className="inline-flex size-7 items-center justify-center rounded-md text-slate-500 outline-none transition-colors hover:bg-slate-100 hover:text-slate-900 focus-visible:ring-2 focus-visible:ring-blue-500 disabled:pointer-events-none disabled:opacity-50"
                             >
-                              <MoreVertical className="size-4" />
+                              {isPending ? <LoaderCircle className="size-4 animate-spin" /> : <MoreVertical className="size-4" />}
                             </MenuPrimitive.Trigger>
                             <MenuPrimitive.Portal>
                               <MenuPrimitive.Positioner
@@ -520,6 +518,30 @@ export function MonitoringTargetsTable() {
             )}
           </TableBody>
         </Table>
+      </CardContent>
+    </Card>
+  );
+}
+
+function MonitoringTargetsSkeleton() {
+  return (
+    <Card className="overflow-hidden border-slate-200 shadow-none">
+      <CardContent className="p-0">
+        <div className="flex flex-col gap-3 border-b border-slate-200 p-4 sm:flex-row sm:flex-wrap">
+          <Skeleton className="h-8 w-full sm:w-64" />
+          <Skeleton className="h-8 w-full sm:w-48" />
+          <Skeleton className="h-8 w-full sm:w-40" />
+        </div>
+        <Skeleton className="h-10 w-full rounded-none" />
+        {Array.from({ length: 6 }).map((_, index) => (
+          <div key={index} className="grid h-16 grid-cols-[1.3fr_0.7fr_1fr_0.7fr_1fr] items-center gap-5 border-t border-slate-100 px-4">
+            <div className="space-y-2"><Skeleton className="h-3 w-28" /><Skeleton className="h-2.5 w-20" /></div>
+            <Skeleton className="h-3 w-14" />
+            <Skeleton className="h-3 w-24" />
+            <Skeleton className="h-5 w-16" />
+            <Skeleton className="h-5 w-24" />
+          </div>
+        ))}
       </CardContent>
     </Card>
   );

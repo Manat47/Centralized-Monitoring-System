@@ -1,10 +1,5 @@
 export type HealthCheckEvaluationStatus =
-  | 'UNKNOWN'
-  | 'HEALTHY'
-  | 'FAILING'
-  | 'ALERTED'
-  | 'RECOVERING'
-  | 'STALE';
+  'UNKNOWN' | 'HEALTHY' | 'FAILING' | 'ALERTED' | 'RECOVERING' | 'STALE';
 
 export interface HealthCheckAlertStateProps {
   healthCheckTargetId: string;
@@ -31,6 +26,9 @@ export interface RecordHealthCheckResultInput {
   error: string | null;
   occurredAt: Date;
 }
+
+const MINIMUM_STALE_AFTER_MS = 120_000;
+const STALE_INTERVAL_MULTIPLIER = 2;
 
 export class HealthCheckAlertState {
   private constructor(private readonly props: HealthCheckAlertStateProps) {}
@@ -109,10 +107,7 @@ export class HealthCheckAlertState {
       this.props.consecutiveFailures = 0;
       this.props.consecutiveSuccesses += 1;
 
-      if (
-        previousState === 'ALERTED' ||
-        previousState === 'RECOVERING'
-      ) {
+      if (previousState === 'ALERTED' || previousState === 'RECOVERING') {
         this.props.state =
           this.props.consecutiveSuccesses >= recoveryThreshold
             ? 'HEALTHY'
@@ -124,16 +119,22 @@ export class HealthCheckAlertState {
       this.props.consecutiveSuccesses = 0;
       this.props.consecutiveFailures += 1;
       this.props.state =
-        this.props.consecutiveFailures >= failureThreshold
+        previousState === 'ALERTED' || previousState === 'RECOVERING'
           ? 'ALERTED'
-          : 'FAILING';
+          : this.props.consecutiveFailures >= failureThreshold
+            ? 'ALERTED'
+            : 'FAILING';
     }
 
     return { previousState, available };
   }
 
   markStale(now: Date): boolean {
-    if (!this.props.enabled || this.props.archived || !this.props.lastResultAt) {
+    if (
+      !this.props.enabled ||
+      this.props.archived ||
+      !this.props.lastResultAt
+    ) {
       return false;
     }
 
@@ -142,8 +143,8 @@ export class HealthCheckAlertState {
     }
 
     const staleAfterMs = Math.max(
-      (this.props.checkIntervalSeconds * 2 + 5) * 1000,
-      30_000,
+      this.props.checkIntervalSeconds * STALE_INTERVAL_MULTIPLIER * 1000,
+      MINIMUM_STALE_AFTER_MS,
     );
 
     if (now.getTime() - this.props.lastResultAt.getTime() <= staleAfterMs) {

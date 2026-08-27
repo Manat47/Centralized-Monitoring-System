@@ -4,7 +4,7 @@ import { CreateAssetDialog } from "@/app/features/assets/components/create-asset
 export default function AssetsPage() {
   return (
     <section className="space-y-6">
-      <div className="flex items-start justify-between gap-4">
+      <div className="flex flex-col items-start justify-between gap-4 sm:flex-row">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight text-slate-950">
             Assets

@@ -37,6 +37,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
   TableBody,
@@ -45,6 +46,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { cn } from "@/lib/utils";
 
 import {
   useArchiveMetricRule,
@@ -150,13 +152,7 @@ export function MetricRulesTable() {
   const actionError =
     enableMutation.error ?? disableMutation.error ?? archiveMutation.error;
   if (rulesQuery.isLoading || assetsQuery.isLoading)
-    return (
-      <Card>
-        <CardContent className="py-12 text-center text-sm text-slate-500">
-          Loading metric rules...
-        </CardContent>
-      </Card>
-    );
+    return <MetricRulesSkeleton />;
   if (rulesQuery.isError || assetsQuery.isError)
     return (
       <Card>
@@ -183,7 +179,7 @@ export function MetricRulesTable() {
                 setMetric((value ?? "ALL") as typeof metric)
               }
             >
-              <SelectTrigger className="w-44 bg-white">
+              <SelectTrigger className="w-full bg-white sm:w-44">
                 <SelectValue>
                   {metric === "ALL" ? "All metrics" : metricLabels[metric]}
                 </SelectValue>
@@ -201,7 +197,7 @@ export function MetricRulesTable() {
                 setSeverity((value ?? "ALL") as typeof severity)
               }
             >
-              <SelectTrigger className="w-40 bg-white">
+              <SelectTrigger className="w-full bg-white sm:w-40">
                 <SelectValue>
                   {severity === "ALL"
                     ? "All severities"
@@ -220,7 +216,7 @@ export function MetricRulesTable() {
               value={evaluation}
               onValueChange={(value) => setEvaluation(value ?? "ALL")}
             >
-              <SelectTrigger className="w-40 bg-white">
+              <SelectTrigger className="w-full bg-white sm:w-40">
                 <SelectValue>
                   {evaluation === "ALL" ? "All evaluations" : evaluation}
                 </SelectValue>
@@ -241,7 +237,7 @@ export function MetricRulesTable() {
                 setRecordState((value ?? "CURRENT") as typeof recordState)
               }
             >
-              <SelectTrigger className="w-36 bg-white">
+              <SelectTrigger className="w-full bg-white sm:w-36">
                 <SelectValue>
                   {recordState === "CURRENT"
                     ? "Current rules"
@@ -278,8 +274,9 @@ export function MetricRulesTable() {
               <RotateCcw className="size-4" />
               Clear
             </Button>
-            <span className="ml-auto text-xs text-slate-500">
+            <span className={cn("ml-auto text-xs text-slate-500", (rulesQuery.isFetching || assetsQuery.isFetching) && "animate-pulse")}>
               {filteredRules.length} of {rules.length} rules
+              {(rulesQuery.isFetching || assetsQuery.isFetching) && " · Updating"}
             </span>
           </div>
           {actionError && (
@@ -289,7 +286,7 @@ export function MetricRulesTable() {
                 : "Failed to update metric rule"}
             </div>
           )}
-          <Table>
+          <Table className="min-w-[1040px]">
             <TableHeader>
               <TableRow>
                 <TableHead className="pl-4">Asset</TableHead>
@@ -303,7 +300,7 @@ export function MetricRulesTable() {
                 <TableHead className="pr-4 text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
-            <TableBody>
+            <TableBody className={cn("transition-opacity duration-150", (rulesQuery.isFetching || assetsQuery.isFetching) && "opacity-70")}>
               {filteredRules.length === 0 ? (
                 <TableRow>
                   <TableCell
@@ -322,7 +319,7 @@ export function MetricRulesTable() {
                     archiveMutation.variables;
                   const pending = pendingId === rule.ruleId;
                   return (
-                    <TableRow key={rule.ruleId}>
+                    <TableRow key={rule.ruleId} className="transition-colors duration-150">
                       <TableCell className="pl-4 font-medium text-slate-900">
                         {asset?.name ?? "Unknown asset"}
                       </TableCell>
@@ -459,6 +456,10 @@ export function MetricRulesTable() {
       />
     </>
   );
+}
+
+function MetricRulesSkeleton() {
+  return <Card className="overflow-hidden border-slate-200 shadow-none"><CardContent className="p-0"><div className="flex flex-col gap-3 border-b border-slate-200 p-4 sm:flex-row sm:flex-wrap"><Skeleton className="h-8 w-full sm:w-60" />{Array.from({ length: 4 }).map((_, index) => <Skeleton key={index} className="h-8 w-full sm:w-40" />)}</div><Skeleton className="h-10 w-full rounded-none" />{Array.from({ length: 6 }).map((_, index) => <div key={index} className="grid h-16 grid-cols-[1fr_1fr_1.4fr_0.8fr_0.8fr] items-center gap-5 border-t border-slate-100 px-4"><Skeleton className="h-3 w-28" /><Skeleton className="h-3 w-24" /><Skeleton className="h-3 w-36" /><Skeleton className="h-5 w-20" /><Skeleton className="h-5 w-20" /></div>)}</CardContent></Card>;
 }
 
 function MenuItem({
@@ -657,7 +658,7 @@ function EditMetricRuleDialog({
             <Button type="button" variant="outline" onClick={onClose}>
               Cancel
             </Button>
-            <Button type="submit" disabled={mutation.isPending}>
+            <Button type="submit" disabled={mutation.isPending} aria-busy={mutation.isPending} className="min-w-[7.5rem]">
               {mutation.isPending ? "Saving..." : "Save changes"}
             </Button>
           </DialogFooter>

@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { gsap } from "gsap";
 import type { LucideIcon } from "lucide-react";
 import {
   ArrowRight,
@@ -20,6 +21,8 @@ import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 import styles from "./getting-started-guide.module.css";
+import FadeContent from "@/app/features/react-bits/fade-content";
+import AnimatedContent from "@/components/AnimatedContent";
 
 const aptInstallCommand = "sudo apt install prometheus-node-exporter -y";
 
@@ -74,7 +77,11 @@ function CodeBlock({ code, copiedId, id, label, onCopy }: CodeBlockProps) {
           onClick={() => onCopy(id, code)}
           title={copied ? "Copied" : `Copy ${label}`}
         >
-          {copied ? <Check className="size-3.5" /> : <Clipboard className="size-3.5" />}
+          {copied ? (
+            <Check className="size-3.5" />
+          ) : (
+            <Clipboard className="size-3.5" />
+          )}
           <span className="sr-only">{copied ? "Copied" : `Copy ${label}`}</span>
         </button>
       </div>
@@ -111,9 +118,9 @@ function SignalFlow() {
   return (
     <div className={styles.signalStage}>
       <div className={styles.threadField} aria-hidden="true">
-        <span className={styles.threadOne} />
+        {/* <span className={styles.threadOne} />
         <span className={styles.threadTwo} />
-        <span className={styles.threadThree} />
+        <span className={styles.threadThree} /> */}
       </div>
 
       <div className={styles.signalFlow}>
@@ -125,7 +132,11 @@ function SignalFlow() {
         <div className={styles.connector} aria-hidden="true">
           <span className={styles.signalPulseDelayed} />
         </div>
-        <SignalNode icon={Network} label="Monitoring" detail="Verify and collect" />
+        <SignalNode
+          icon={Network}
+          label="Monitoring"
+          detail="Verify and collect"
+        />
       </div>
     </div>
   );
@@ -142,12 +153,65 @@ function StepNumber({ children }: { children: string }) {
 export function GettingStartedGuide() {
   const [installMethod, setInstallMethod] = useState<InstallMethod>("apt");
   const [copiedId, setCopiedId] = useState<string | null>(null);
+
   const usesApt = installMethod === "apt";
+
+  const installPanelRef = useRef<HTMLDivElement>(null);
+  const startPanelRef = useRef<HTMLDivElement>(null);
+  const statusPanelRef = useRef<HTMLDivElement>(null);
+
+  function handleInstallMethodChange(nextMethod: InstallMethod) {
+    if (nextMethod === installMethod) {
+      return;
+    }
+
+    const panels = [
+      installPanelRef.current,
+      startPanelRef.current,
+      statusPanelRef.current,
+    ].filter((panel): panel is HTMLDivElement => panel !== null);
+
+    if (panels.length === 0) {
+      setInstallMethod(nextMethod);
+      return;
+    }
+
+    gsap.killTweensOf(panels);
+
+    gsap.to(panels, {
+      opacity: 0,
+      y: -4,
+      duration: 0.14,
+      ease: "power1.in",
+      onComplete: () => {
+        setInstallMethod(nextMethod);
+
+        requestAnimationFrame(() => {
+          gsap.fromTo(
+            panels,
+            {
+              opacity: 0,
+              y: 6,
+            },
+            {
+              opacity: 1,
+              y: 0,
+              duration: 0.24,
+              ease: "power2.out",
+            },
+          );
+        });
+      },
+    });
+  }
 
   async function handleCopy(id: string, code: string) {
     await navigator.clipboard.writeText(code);
     setCopiedId(id);
-    window.setTimeout(() => setCopiedId((current) => (current === id ? null : current)), 1800);
+    window.setTimeout(
+      () => setCopiedId((current) => (current === id ? null : current)),
+      1800,
+    );
   }
 
   return (
@@ -172,193 +236,328 @@ export function GettingStartedGuide() {
         </div>
       </header>
 
-      <div className="mx-auto max-w-6xl space-y-8 px-8 py-8">
-        <SignalFlow />
+      <div className="mx-auto max-w-5xl space-y-6 px-6 py-6 lg:px-8 lg:py-8">
+        <FadeContent duration={500} initialOpacity={0} threshold={0.12}>
+          <SignalFlow />
+        </FadeContent>
 
-        <div className="mx-auto max-w-4xl divide-y divide-slate-200">
-          <section className="pb-8">
-            <div className="flex items-start gap-4">
-              <StepNumber>1</StepNumber>
-              <div className="min-w-0 flex-1">
-                <h2 className="text-lg font-semibold text-slate-950">Install Node Exporter</h2>
+        <div className="divide-y divide-slate-200">
+          <AnimatedContent
+            distance={18}
+            direction="vertical"
+            reverse={false}
+            duration={0.5}
+            ease="power2.out"
+            initialOpacity={0}
+            animateOpacity
+            scale={1}
+            threshold={0.12}
+          >
+            <section className="pb-6">
+              <div className="flex items-start gap-4">
+                <StepNumber>1</StepNumber>
+                <div className="min-w-0 flex-1">
+                  <h2 className="text-lg font-semibold text-slate-950">
+                    Install Node Exporter
+                  </h2>
 
-                <div className="mt-4 inline-flex rounded-lg border border-slate-200 bg-slate-100 p-1" role="tablist" aria-label="Installation method">
-                  <button
-                    type="button"
-                    role="tab"
-                    aria-selected={installMethod === "apt"}
-                    className={cn(
-                      "flex h-8 items-center gap-2 rounded-md px-3 text-sm font-medium transition-colors",
-                      installMethod === "apt"
-                        ? "bg-white text-slate-950 shadow-sm"
-                        : "text-slate-600 hover:text-slate-950",
-                    )}
-                    onClick={() => setInstallMethod("apt")}
+                  <div
+                    className="mt-4 inline-flex rounded-lg border border-slate-200 bg-slate-100 p-1"
+                    role="tablist"
+                    aria-label="Installation method"
                   >
-                    <Terminal className="size-4" />
-                    Ubuntu / Debian
-                  </button>
-                  <button
-                    type="button"
-                    role="tab"
-                    aria-selected={installMethod === "docker"}
-                    className={cn(
-                      "flex h-8 items-center gap-2 rounded-md px-3 text-sm font-medium transition-colors",
-                      installMethod === "docker"
-                        ? "bg-white text-slate-950 shadow-sm"
-                        : "text-slate-600 hover:text-slate-950",
-                    )}
-                    onClick={() => setInstallMethod("docker")}
-                  >
-                    <Container className="size-4" />
-                    Docker
-                  </button>
-                </div>
+                    <button
+                      type="button"
+                      role="tab"
+                      aria-selected={installMethod === "apt"}
+                      className={cn(
+                        "flex h-8 items-center gap-2 rounded-md px-3 text-sm font-medium transition-colors",
+                        installMethod === "apt"
+                          ? "bg-white text-slate-950 shadow-sm"
+                          : "text-slate-600 hover:text-slate-950",
+                      )}
+                      onClick={() => handleInstallMethodChange("apt")}
+                    >
+                      <Terminal className="size-4" />
+                      Ubuntu / Debian
+                    </button>
+                    <button
+                      type="button"
+                      role="tab"
+                      aria-selected={installMethod === "docker"}
+                      className={cn(
+                        "flex h-8 items-center gap-2 rounded-md px-3 text-sm font-medium transition-colors",
+                        installMethod === "docker"
+                          ? "bg-white text-slate-950 shadow-sm"
+                          : "text-slate-600 hover:text-slate-950",
+                      )}
+                      onClick={() => handleInstallMethodChange("docker")}
+                    >
+                      <Container className="size-4" />
+                      Docker
+                    </button>
+                  </div>
 
-                <div className="mt-4" role="tabpanel">
-                  <CodeBlock
-                    id={usesApt ? "apt-install" : "docker-install"}
-                    label={usesApt ? "Install package" : "Create container"}
-                    code={usesApt ? aptInstallCommand : dockerCommand}
-                    copiedId={copiedId}
-                    onCopy={handleCopy}
-                  />
+                  <div ref={installPanelRef} className="mt-4" role="tabpanel">
+                    <CodeBlock
+                      id={usesApt ? "apt-install" : "docker-install"}
+                      label={usesApt ? "Install package" : "Create container"}
+                      code={usesApt ? aptInstallCommand : dockerCommand}
+                      copiedId={copiedId}
+                      onCopy={handleCopy}
+                    />
+                  </div>
                 </div>
               </div>
-            </div>
-          </section>
+            </section>
+          </AnimatedContent>
 
-          <section className="py-8">
-            <div className="flex items-start gap-4">
-              <StepNumber>2</StepNumber>
-              <div className="min-w-0 flex-1">
-                <h2 className="text-lg font-semibold text-slate-950">Enable and start</h2>
-                <div className="mt-4">
-                  <CodeBlock
-                    id={usesApt ? "apt-start" : "docker-start"}
-                    label={usesApt ? "Enable and restart service" : "Apply restart policy and restart"}
-                    code={usesApt ? aptStartCommand : dockerStartCommand}
-                    copiedId={copiedId}
-                    onCopy={handleCopy}
-                  />
+          <AnimatedContent
+            distance={18}
+            direction="vertical"
+            reverse={false}
+            duration={0.5}
+            ease="power2.out"
+            initialOpacity={0}
+            animateOpacity
+            scale={1}
+            threshold={0.12}
+          >
+            <section className="py-6">
+              <div className="flex items-start gap-4">
+                <StepNumber>2</StepNumber>
+                <div className="min-w-0 flex-1">
+                  <h2 className="text-lg font-semibold text-slate-950">
+                    Enable and start
+                  </h2>
+                  <div ref={startPanelRef} className="mt-4">
+                    <CodeBlock
+                      id={usesApt ? "apt-start" : "docker-start"}
+                      label={
+                        usesApt
+                          ? "Enable and restart service"
+                          : "Apply restart policy and restart"
+                      }
+                      code={usesApt ? aptStartCommand : dockerStartCommand}
+                      copiedId={copiedId}
+                      onCopy={handleCopy}
+                    />
+                  </div>
                 </div>
               </div>
-            </div>
-          </section>
+            </section>
+          </AnimatedContent>
 
-          <section className="py-8">
-            <div className="flex items-start gap-4">
-              <StepNumber>3</StepNumber>
-              <div className="min-w-0 flex-1">
-                <h2 className="text-lg font-semibold text-slate-950">Verify the service</h2>
-                <div className="mt-4">
-                  <CodeBlock
-                    id={usesApt ? "apt-status" : "docker-status"}
-                    label={usesApt ? "Check systemd service" : "Check container"}
-                    code={usesApt ? aptStatusCommand : dockerStatusCommand}
-                    copiedId={copiedId}
-                    onCopy={handleCopy}
-                  />
+          <AnimatedContent
+            distance={18}
+            direction="vertical"
+            reverse={false}
+            duration={0.5}
+            ease="power2.out"
+            initialOpacity={0}
+            animateOpacity
+            scale={1}
+            threshold={0.12}
+          >
+            <section className="py-6">
+              <div className="flex items-start gap-4">
+                <StepNumber>3</StepNumber>
+                <div className="min-w-0 flex-1">
+                  <h2 className="text-lg font-semibold text-slate-950">
+                    Verify the service
+                  </h2>
+                  <div ref={statusPanelRef} className="mt-4">
+                    <CodeBlock
+                      id={usesApt ? "apt-status" : "docker-status"}
+                      label={
+                        usesApt ? "Check systemd service" : "Check container"
+                      }
+                      code={usesApt ? aptStatusCommand : dockerStatusCommand}
+                      copiedId={copiedId}
+                      onCopy={handleCopy}
+                    />
+                  </div>
                 </div>
               </div>
-            </div>
-          </section>
+            </section>
+          </AnimatedContent>
 
-          <section className="py-8">
-            <div className="flex items-start gap-4">
-              <StepNumber>4</StepNumber>
-              <div className="min-w-0 flex-1">
-                <h2 className="text-lg font-semibold text-slate-950">Verify locally</h2>
-                <p className="mt-1 text-sm leading-6 text-slate-600">
-                  A successful response contains Prometheus metrics beginning with <span className="font-mono text-xs text-slate-800">node_</span>.
-                </p>
-                <div className="mt-4">
-                  <CodeBlock
-                    id="verify-local"
-                    label="Run on the monitored server"
-                    code={verifyLocalCommand}
-                    copiedId={copiedId}
-                    onCopy={handleCopy}
-                  />
+          <AnimatedContent
+            distance={18}
+            direction="vertical"
+            reverse={false}
+            duration={0.5}
+            ease="power2.out"
+            initialOpacity={0}
+            animateOpacity
+            scale={1}
+            threshold={0.12}
+          >
+            <section className="py-6">
+              <div className="flex items-start gap-4">
+                <StepNumber>4</StepNumber>
+                <div className="min-w-0 flex-1">
+                  <h2 className="text-lg font-semibold text-slate-950">
+                    Verify locally
+                  </h2>
+                  <p className="mt-1 text-sm leading-6 text-slate-600">
+                    A successful response contains Prometheus metrics beginning
+                    with{" "}
+                    <span className="font-mono text-xs text-slate-800">
+                      node_
+                    </span>
+                    .
+                  </p>
+                  <div className="mt-4">
+                    <CodeBlock
+                      id="verify-local"
+                      label="Run on the monitored server"
+                      code={verifyLocalCommand}
+                      copiedId={copiedId}
+                      onCopy={handleCopy}
+                    />
+                  </div>
                 </div>
               </div>
-            </div>
-          </section>
+            </section>
+          </AnimatedContent>
 
-          <section className="py-8">
-            <div className="flex items-start gap-4">
-              <StepNumber>5</StepNumber>
-              <div className="min-w-0 flex-1">
-                <h2 className="text-lg font-semibold text-slate-950">Allow the monitoring network</h2>
-                <p className="mt-1 text-sm leading-6 text-slate-600">
-                  Replace <span className="font-mono text-xs text-slate-800">MONITORING_SERVER_IP</span> before running this UFW example. For cloud VMs, apply the same source-IP rule in the security group or network firewall.
-                </p>
-                <div className="mt-4">
-                  <CodeBlock
-                    id="allow-network"
-                    label="Allow TCP 9100 from monitoring only"
-                    code={allowNetworkCommand}
-                    copiedId={copiedId}
-                    onCopy={handleCopy}
-                  />
-                </div>
-                <div className="mt-3 flex items-start gap-2 text-xs leading-5 text-amber-800">
-                  <ShieldCheck className="mt-0.5 size-3.5 shrink-0" />
-                  Do not expose port 9100 to the public internet.
+          <AnimatedContent
+            distance={18}
+            direction="vertical"
+            reverse={false}
+            duration={0.5}
+            ease="power2.out"
+            initialOpacity={0}
+            animateOpacity
+            scale={1}
+            threshold={0.12}
+          >
+            <section className="py-6">
+              <div className="flex items-start gap-4">
+                <StepNumber>5</StepNumber>
+                <div className="min-w-0 flex-1">
+                  <h2 className="text-lg font-semibold text-slate-950">
+                    Allow the monitoring network
+                  </h2>
+                  <p className="mt-1 text-sm leading-6 text-slate-600">
+                    Replace{" "}
+                    <span className="font-mono text-xs text-slate-800">
+                      MONITORING_SERVER_IP
+                    </span>{" "}
+                    before running this UFW example. For cloud VMs, apply the
+                    same source-IP rule in the security group or network
+                    firewall.
+                  </p>
+                  <div className="mt-4">
+                    <CodeBlock
+                      id="allow-network"
+                      label="Allow TCP 9100 from monitoring only"
+                      code={allowNetworkCommand}
+                      copiedId={copiedId}
+                      onCopy={handleCopy}
+                    />
+                  </div>
+                  <div className="mt-3 flex items-start gap-2 text-xs leading-5 text-amber-800">
+                    <ShieldCheck className="mt-0.5 size-3.5 shrink-0" />
+                    Do not expose port 9100 to the public internet.
+                  </div>
                 </div>
               </div>
-            </div>
-          </section>
+            </section>
+          </AnimatedContent>
 
-          <section className="py-8">
-            <div className="flex items-start gap-4">
-              <StepNumber>6</StepNumber>
-              <div className="min-w-0 flex-1">
-                <h2 className="text-lg font-semibold text-slate-950">Verify remotely</h2>
-                <p className="mt-1 text-sm leading-6 text-slate-600">
-                  Run this from the Monitoring Server and replace <span className="font-mono text-xs text-slate-800">SERVER_IP</span> with the monitored server address.
-                </p>
-                <div className="mt-4">
-                  <CodeBlock
-                    id="verify-remote"
-                    label="Run from the Monitoring Server"
-                    code={verifyRemoteCommand}
-                    copiedId={copiedId}
-                    onCopy={handleCopy}
-                  />
+          <AnimatedContent
+            distance={18}
+            direction="vertical"
+            reverse={false}
+            duration={0.5}
+            ease="power2.out"
+            initialOpacity={0}
+            animateOpacity
+            scale={1}
+            threshold={0.12}
+          >
+            <section className="py-6">
+              <div className="flex items-start gap-4">
+                <StepNumber>6</StepNumber>
+                <div className="min-w-0 flex-1">
+                  <h2 className="text-lg font-semibold text-slate-950">
+                    Verify remotely
+                  </h2>
+                  <p className="mt-1 text-sm leading-6 text-slate-600">
+                    Run this from the Monitoring Server and replace{" "}
+                    <span className="font-mono text-xs text-slate-800">
+                      SERVER_IP
+                    </span>{" "}
+                    with the monitored server address.
+                  </p>
+                  <div className="mt-4">
+                    <CodeBlock
+                      id="verify-remote"
+                      label="Run from the Monitoring Server"
+                      code={verifyRemoteCommand}
+                      copiedId={copiedId}
+                      onCopy={handleCopy}
+                    />
+                  </div>
                 </div>
               </div>
-            </div>
-          </section>
+            </section>
+          </AnimatedContent>
 
-          <section className="pt-8">
-            <div className="flex items-start gap-4">
-              <StepNumber>7</StepNumber>
-              <div className="min-w-0 flex-1">
-                <h2 className="text-lg font-semibold text-slate-950">Connect it to monitoring</h2>
-                <p className="mt-1 text-sm leading-6 text-slate-600">
-                  Register an active Server asset, then create and verify its monitoring target using <span className="font-mono text-xs text-slate-800">HTTP :9100/metrics</span>.
-                </p>
-                <div className="mt-5 flex flex-wrap items-center gap-3">
-                  <Link
-                    href="/assets"
-                    className={buttonVariants({ variant: "outline", className: "h-9 px-4" })}
-                  >
-                    Register Server
-                    <ArrowRight data-icon="inline-end" />
-                  </Link>
-                  <Link
-                    href="/monitoring-targets"
-                    className={buttonVariants({ className: "h-9 px-4" })}
-                  >
-                    Create Target
-                    <ArrowRight data-icon="inline-end" />
-                  </Link>
-                  <span className="text-xs text-slate-500">Admin access required</span>
+          <AnimatedContent
+            distance={18}
+            direction="vertical"
+            reverse={false}
+            duration={0.5}
+            ease="power2.out"
+            initialOpacity={0}
+            animateOpacity
+            scale={1}
+            threshold={0.12}
+          >
+            <section className="pt-6">
+              <div className="flex items-start gap-4">
+                <StepNumber>7</StepNumber>
+                <div className="min-w-0 flex-1">
+                  <h2 className="text-lg font-semibold text-slate-950">
+                    Connect it to monitoring
+                  </h2>
+                  <p className="mt-1 text-sm leading-6 text-slate-600">
+                    Register an active Server asset, then create and verify its
+                    monitoring target using{" "}
+                    <span className="font-mono text-xs text-slate-800">
+                      HTTP :9100/metrics
+                    </span>
+                    .
+                  </p>
+                  <div className="mt-5 flex flex-wrap items-center gap-3">
+                    <Link
+                      href="/assets"
+                      className={buttonVariants({
+                        variant: "outline",
+                        className: "h-9 px-4",
+                      })}
+                    >
+                      Register Server
+                      <ArrowRight data-icon="inline-end" />
+                    </Link>
+                    <Link
+                      href="/monitoring-targets"
+                      className={buttonVariants({ className: "h-9 px-4" })}
+                    >
+                      Create Target
+                      <ArrowRight data-icon="inline-end" />
+                    </Link>
+                    <span className="text-xs text-slate-500">
+                      Admin access required
+                    </span>
+                  </div>
                 </div>
               </div>
-            </div>
-          </section>
+            </section>
+          </AnimatedContent>
         </div>
 
         <div className="flex justify-center">

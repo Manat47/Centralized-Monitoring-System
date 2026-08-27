@@ -42,6 +42,46 @@ function formatTriggeredAt(value: string): string {
   return `${diffDays}d ago`;
 }
 
+function NeedsAttentionSkeleton() {
+  return (
+    <Card className="border-slate-200 bg-white shadow-none">
+      <CardHeader className="flex flex-row items-center justify-between border-b border-slate-100 px-5 py-4">
+        <div className="space-y-2">
+          <div className="h-4 w-32 animate-pulse rounded bg-slate-100" />
+          <div className="h-3 w-64 animate-pulse rounded bg-slate-100" />
+        </div>
+
+        <div className="h-8 w-20 animate-pulse rounded-md bg-slate-100" />
+      </CardHeader>
+
+      <CardContent className="p-0">
+        <div className="border-b border-slate-100 bg-slate-50/70 px-5 py-3">
+          <div className="h-3 w-full animate-pulse rounded bg-slate-100" />
+        </div>
+
+        <div className="divide-y divide-slate-100">
+          {Array.from({ length: 4 }).map((_, index) => (
+            <div
+              key={index}
+              className="grid grid-cols-[7rem_1fr_7rem_1.5fr_7rem] items-center gap-4 px-5 py-4"
+            >
+              <div className="h-5 w-16 animate-pulse rounded bg-slate-100" />
+
+              <div className="h-3 w-28 animate-pulse rounded bg-slate-100" />
+
+              <div className="h-3 w-16 animate-pulse rounded bg-slate-100" />
+
+              <div className="h-3 w-full animate-pulse rounded bg-slate-100" />
+
+              <div className="ml-auto h-3 w-14 animate-pulse rounded bg-slate-100" />
+            </div>
+          ))}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 export function NeedsAttention() {
   const {
     data: alertsData,
@@ -61,13 +101,7 @@ export function NeedsAttention() {
   );
 
   if (isLoading) {
-    return (
-      <Card className="border-slate-200 shadow-none">
-        <CardContent className="flex min-h-28 items-center justify-center py-5 text-center text-sm text-slate-500">
-          Loading alerts...
-        </CardContent>
-      </Card>
-    );
+    return <NeedsAttentionSkeleton />;
   }
 
   if (isError) {
@@ -109,11 +143,11 @@ export function NeedsAttention() {
               variant: "ghost",
               size: "sm",
             }),
-            "gap-1 text-xs",
+            "group gap-1 text-xs",
           )}
         >
           View all
-          <ArrowRight className="size-3.5" />
+          <ArrowRight className="size-3.5 transition-transform duration-150 group-hover:translate-x-0.75" />
         </Link>
       </CardHeader>
 
@@ -152,7 +186,14 @@ export function NeedsAttention() {
 
             <TableBody>
               {alerts.map((alert) => (
-                <TableRow key={alert.alertId}>
+                <TableRow
+                  key={alert.alertId}
+                  className="
+      group
+      transition-colors duration-150 ease-out
+      hover:bg-slate-50/80
+    "
+                >
                   <TableCell>
                     <Badge
                       variant={
@@ -167,12 +208,8 @@ export function NeedsAttention() {
 
                   <TableCell>
                     <div>
-                      <p className="text-sm font-medium text-slate-900">
+                      <p className="text-sm font-medium text-slate-900 transition-colors duration-150 group-hover:text-slate-950">
                         {assetNames.get(alert.assetId) ?? "Unknown asset"}
-                      </p>
-
-                      <p className="max-w-48 truncate text-[11px] text-slate-400">
-                        {alert.assetId}
                       </p>
                     </div>
                   </TableCell>

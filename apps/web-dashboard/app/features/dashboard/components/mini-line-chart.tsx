@@ -58,7 +58,12 @@ export function MiniLineChart({
   };
 
   const option: EChartsOption = {
-    animation: false,
+    animation: true,
+    animationDuration: 450,
+    animationEasing: "cubicOut",
+
+    animationDurationUpdate: 300,
+    animationEasingUpdate: "cubicOut",
 
     tooltip: {
       trigger: "axis",
@@ -167,7 +172,6 @@ export function MiniLineChart({
   return (
     <ReactECharts
       option={option}
-      notMerge
       lazyUpdate
       style={{
         width: "100%",

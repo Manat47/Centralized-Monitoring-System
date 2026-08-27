@@ -15,6 +15,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
   TableBody,
@@ -23,6 +24,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { cn } from "@/lib/utils";
 
 import { useDownloadReport, useReports } from "../api/use-reports";
 import type { ReportListItem, ReportStatus, ReportType } from "../types/report";
@@ -104,13 +106,7 @@ export function ReportsTable() {
   }
 
   if (reportsQuery.isLoading) {
-    return (
-      <Card>
-        <CardContent className="py-12 text-center text-sm text-muted-foreground">
-          Loading reports...
-        </CardContent>
-      </Card>
-    );
+    return <ReportsSkeleton />;
   }
 
   if (reportsQuery.isError) {
@@ -140,7 +136,7 @@ export function ReportsTable() {
                 setPage(1);
               }}
             >
-              <SelectTrigger className="w-44">
+              <SelectTrigger className="w-full sm:w-44">
                 <SelectValue>
                   {reportType === "ALL"
                     ? "All report types"
@@ -162,7 +158,7 @@ export function ReportsTable() {
                 setPage(1);
               }}
             >
-              <SelectTrigger className="w-40">
+              <SelectTrigger className="w-full sm:w-40">
                 <SelectValue>
                   {status === "ALL"
                     ? "All statuses"
@@ -183,7 +179,7 @@ export function ReportsTable() {
                 setPage(1);
               }}
             >
-              <SelectTrigger className="w-52">
+              <SelectTrigger className="w-full sm:w-52">
                 <SelectValue>
                   {assetId === "ALL"
                     ? "All scopes"
@@ -199,7 +195,7 @@ export function ReportsTable() {
                 ))}
               </SelectContent>
             </Select>
-            <span className="ml-auto text-sm text-muted-foreground">
+            <span className={cn("ml-auto text-sm text-muted-foreground", reportsQuery.isFetching && "animate-pulse")}>
               {reportsQuery.isFetching
                 ? "Updating..."
                 : `${reportsQuery.data?.total ?? 0} reports`}
@@ -224,7 +220,7 @@ export function ReportsTable() {
           )}
 
           <div className="overflow-x-auto">
-            <Table>
+            <Table className="min-w-[940px]">
               <TableHeader>
                 <TableRow>
                   <TableHead>Report</TableHead>
@@ -236,7 +232,7 @@ export function ReportsTable() {
                   <TableHead className="w-24 text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
-              <TableBody>
+              <TableBody className={cn("transition-opacity duration-150", reportsQuery.isFetching && "opacity-70")}>
                 {reportsQuery.data?.items.length === 0 ? (
                   <TableRow>
                     <TableCell
@@ -248,7 +244,7 @@ export function ReportsTable() {
                   </TableRow>
                 ) : (
                   reportsQuery.data?.items.map((report) => (
-                    <TableRow key={report.reportId}>
+                    <TableRow key={report.reportId} className="transition-colors duration-150">
                       <TableCell>
                         <p className="font-medium">
                           {report.reportType === "MONTHLY"
@@ -380,4 +376,8 @@ export function ReportsTable() {
       />
     </>
   );
+}
+
+function ReportsSkeleton() {
+  return <Card className="overflow-hidden gap-0 py-0"><CardContent className="p-0"><div className="flex flex-col gap-2 border-b p-4 sm:flex-row sm:flex-wrap"><Skeleton className="h-8 w-full sm:w-44" /><Skeleton className="h-8 w-full sm:w-40" /><Skeleton className="h-8 w-full sm:w-52" /><Skeleton className="ml-auto h-8 w-full sm:w-36" /></div><Skeleton className="h-10 w-full rounded-none" />{Array.from({ length: 6 }).map((_, index) => <div key={index} className="grid h-16 grid-cols-[1.2fr_1fr_1.2fr_1fr_0.8fr] items-center gap-5 border-t border-slate-100 px-4"><div className="space-y-2"><Skeleton className="h-3 w-28" /><Skeleton className="h-2.5 w-16" /></div><Skeleton className="h-3 w-28" /><Skeleton className="h-3 w-36" /><Skeleton className="h-3 w-28" /><Skeleton className="h-5 w-20" /></div>)}</CardContent></Card>;
 }

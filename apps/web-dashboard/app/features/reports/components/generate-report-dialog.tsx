@@ -185,6 +185,8 @@ export function GenerateReportDialog({
             type="button"
             onClick={submit}
             disabled={generateMutation.isPending}
+            aria-busy={generateMutation.isPending}
+            className="min-w-[9.5rem]"
           >
             {generateMutation.isPending ? (
               <LoaderCircle className="size-4 animate-spin" />

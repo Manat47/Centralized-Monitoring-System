@@ -67,7 +67,9 @@ export function AssetActions({ asset }: AssetActionsProps) {
                 size="xs"
                 variant="outline"
                 disabled={isPending}
+                aria-busy={statusMutation.isPending}
                 onClick={() => void changeStatus("ACTIVATE")}
+                className="min-w-[4.75rem]"
               >
                 {statusMutation.isPending &&
                 statusMutation.variables?.assetId === asset.assetId
@@ -82,7 +84,9 @@ export function AssetActions({ asset }: AssetActionsProps) {
                 size="xs"
                 variant="outline"
                 disabled={isPending}
+                aria-busy={statusMutation.isPending}
                 onClick={() => void changeStatus("INACTIVATE")}
+                className="min-w-[4.75rem]"
               >
                 {statusMutation.isPending &&
                 statusMutation.variables?.assetId === asset.assetId
@@ -96,7 +100,9 @@ export function AssetActions({ asset }: AssetActionsProps) {
               size="xs"
               variant="destructive"
               disabled={isPending}
+              aria-busy={deactivateMutation.isPending}
               onClick={() => void handleDeactivate()}
+              className="min-w-[5.75rem]"
             >
               {deactivateMutation.isPending &&
               deactivateMutation.variables === asset.assetId

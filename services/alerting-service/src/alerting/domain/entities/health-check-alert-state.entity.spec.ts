@@ -64,6 +64,33 @@ describe('HealthCheckAlertState', () => {
     expect(state.toObject().state).toBe('HEALTHY');
   });
 
+  it('keeps the existing alert active when recovery is interrupted', () => {
+    const state = createState();
+    const record = (statusCode: number, occurredAt: string) =>
+      state.recordResult(
+        {
+          statusCode,
+          responseTimeMs: 80,
+          error: null,
+          occurredAt: new Date(occurredAt),
+        },
+        2,
+        2,
+      );
+
+    record(500, '2026-08-24T10:00:00Z');
+    record(500, '2026-08-24T10:00:15Z');
+    record(200, '2026-08-24T10:00:30Z');
+    expect(state.toObject().state).toBe('RECOVERING');
+
+    record(500, '2026-08-24T10:00:45Z');
+    expect(state.toObject()).toMatchObject({
+      state: 'ALERTED',
+      consecutiveFailures: 1,
+      consecutiveSuccesses: 0,
+    });
+  });
+
   it('treats only successful HTTP responses as available', () => {
     const state = createState();
 
@@ -94,9 +121,31 @@ describe('HealthCheckAlertState', () => {
       2,
     );
 
-    expect(state.markStale(new Date('2026-08-24T10:00:34Z'))).toBe(false);
-    expect(state.markStale(new Date('2026-08-24T10:00:36Z'))).toBe(true);
+    expect(state.markStale(new Date('2026-08-24T10:01:59Z'))).toBe(false);
+    expect(state.markStale(new Date('2026-08-24T10:02:01Z'))).toBe(true);
     expect(state.toObject().state).toBe('STALE');
+  });
+
+  it('scales the stale grace period for slower check intervals', () => {
+    const state = HealthCheckAlertState.create({
+      healthCheckTargetId: 'target-2',
+      assetId: 'asset-1',
+      url: 'https://example.com/ready',
+      checkIntervalSeconds: 90,
+    });
+    state.recordResult(
+      {
+        statusCode: 200,
+        responseTimeMs: 50,
+        error: null,
+        occurredAt: new Date('2026-08-24T10:00:00Z'),
+      },
+      2,
+      2,
+    );
+
+    expect(state.markStale(new Date('2026-08-24T10:03:00Z'))).toBe(false);
+    expect(state.markStale(new Date('2026-08-24T10:03:01Z'))).toBe(true);
   });
 
   it('does not mark paused or archived targets stale', () => {

@@ -286,6 +286,8 @@ export function CreateMetricRuleDialog() {
                   !form.assetId ||
                   availableAssets.length === 0
                 }
+                aria-busy={createMutation.isPending}
+                className="min-w-[7rem]"
               >
                 {createMutation.isPending ? "Creating..." : "Create rule"}
               </Button>

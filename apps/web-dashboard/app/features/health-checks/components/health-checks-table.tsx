@@ -37,6 +37,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
   TableBody,
@@ -45,6 +46,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { cn } from "@/lib/utils";
 
 import {
   useArchiveHealthCheckTarget,
@@ -128,7 +130,7 @@ export function HealthChecksTable() {
     pauseMutation.error ?? resumeMutation.error ?? archiveMutation.error ?? checkNowMutation.error;
 
   if (targetsQuery.isLoading || assetsQuery.isLoading) {
-    return <Card><CardContent className="py-12 text-center text-sm text-slate-500">Loading health checks...</CardContent></Card>;
+    return <HealthChecksSkeleton />;
   }
 
   if (targetsQuery.isError || assetsQuery.isError) {
@@ -142,7 +144,7 @@ export function HealthChecksTable() {
           <div className="flex flex-wrap items-center gap-3 border-b border-slate-200 p-4">
             <Input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search application or URL" className="w-full sm:w-64" />
             <Select value={resultFilter} onValueChange={(value) => setResultFilter((value ?? "ALL") as typeof resultFilter)}>
-              <SelectTrigger className="w-44 bg-white"><SelectValue>{resultFilter === "ALL" ? "All statuses" : resultLabels[resultFilter]}</SelectValue></SelectTrigger>
+              <SelectTrigger className="w-full bg-white sm:w-44"><SelectValue>{resultFilter === "ALL" ? "All statuses" : resultLabels[resultFilter]}</SelectValue></SelectTrigger>
               <SelectContent>
                 <SelectItem value="ALL">All statuses</SelectItem>
                 <SelectItem value="AVAILABLE">Available</SelectItem>
@@ -152,7 +154,7 @@ export function HealthChecksTable() {
               </SelectContent>
             </Select>
             <Select value={archiveFilter} onValueChange={(value) => setArchiveFilter((value ?? "CURRENT") as typeof archiveFilter)}>
-              <SelectTrigger className="w-40 bg-white"><SelectValue>{archiveFilter === "CURRENT" ? "Current" : archiveFilter === "ARCHIVED" ? "Archived" : "All records"}</SelectValue></SelectTrigger>
+              <SelectTrigger className="w-full bg-white sm:w-40"><SelectValue>{archiveFilter === "CURRENT" ? "Current" : archiveFilter === "ARCHIVED" ? "Archived" : "All records"}</SelectValue></SelectTrigger>
               <SelectContent>
                 <SelectItem value="CURRENT">Current</SelectItem>
                 <SelectItem value="ARCHIVED">Archived</SelectItem>
@@ -162,16 +164,16 @@ export function HealthChecksTable() {
             <Button type="button" size="sm" variant="ghost" disabled={!search && resultFilter === "ALL" && archiveFilter === "CURRENT"} onClick={() => { setSearch(""); setResultFilter("ALL"); setArchiveFilter("CURRENT"); }}>
               <RotateCcw className="size-4" /> Clear
             </Button>
-            <span className="ml-auto text-xs text-slate-500">{filteredTargets.length} of {targets.length} checks</span>
+            <span className={cn("ml-auto text-xs text-slate-500", (targetsQuery.isFetching || assetsQuery.isFetching) && "animate-pulse")}>{filteredTargets.length} of {targets.length} checks{(targetsQuery.isFetching || assetsQuery.isFetching) && " · Updating"}</span>
           </div>
 
           {actionError && <div className="border-b border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{actionError instanceof Error ? actionError.message : "Failed to update health check"}</div>}
 
-          <Table>
+          <Table className="min-w-[980px]">
             <TableHeader><TableRow>
               <TableHead className="pl-4">Application</TableHead><TableHead>URL</TableHead><TableHead>State</TableHead><TableHead>Latest status</TableHead><TableHead>HTTP</TableHead><TableHead>Response</TableHead><TableHead>Last checked</TableHead><TableHead className="pr-4 text-right">Actions</TableHead>
             </TableRow></TableHeader>
-            <TableBody>
+            <TableBody className={cn("transition-opacity duration-150", (targetsQuery.isFetching || assetsQuery.isFetching) && "opacity-70")}>
               {filteredTargets.length === 0 ? (
                 <TableRow><TableCell colSpan={8} className="h-28 text-center text-slate-500">No health checks match the current view.</TableCell></TableRow>
               ) : filteredTargets.map((target) => {
@@ -185,11 +187,11 @@ export function HealthChecksTable() {
 
                 return (
                   <Fragment key={target.healthCheckTargetId}>
-                    <TableRow className={target.latest?.error ? "border-b-0" : ""}>
+                    <TableRow className={cn("transition-colors duration-150", target.latest?.error && "border-b-0")}>
                       <TableCell className="pl-4 font-medium text-slate-900">{asset?.name ?? "Unknown application"}</TableCell>
                       <TableCell>
                         <div className="flex max-w-md items-center gap-2">
-                          <Link href={`/health-checks/${target.healthCheckTargetId}`} className="truncate font-mono text-xs text-blue-700 hover:underline">{target.url}</Link>
+                          <Link href={`/health-checks/${target.healthCheckTargetId}`} className="truncate rounded-sm font-mono text-xs text-blue-700 transition-colors duration-150 hover:text-blue-800 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/40">{target.url}</Link>
                           {mismatch && <AlertTriangle className="size-4 shrink-0 text-amber-600" aria-label="Origin differs from application endpoint" />}
                         </div>
                       </TableCell>
@@ -233,6 +235,10 @@ export function HealthChecksTable() {
 
 function MenuItem({ icon: Icon, label, disabled, destructive, onClick }: { icon: typeof Play; label: string; disabled?: boolean; destructive?: boolean; onClick: () => void }) {
   return <MenuPrimitive.Item disabled={disabled} onClick={onClick} className={`flex cursor-default items-center gap-2 rounded px-2 py-2 outline-none data-highlighted:bg-slate-100 data-disabled:opacity-40 ${destructive ? "text-rose-600" : ""}`}><Icon className="size-4" />{label}</MenuPrimitive.Item>;
+}
+
+function HealthChecksSkeleton() {
+  return <Card className="overflow-hidden border-slate-200 shadow-none"><CardContent className="p-0"><div className="flex flex-col gap-3 border-b border-slate-200 p-4 sm:flex-row sm:flex-wrap"><Skeleton className="h-8 w-full sm:w-64" /><Skeleton className="h-8 w-full sm:w-44" /><Skeleton className="h-8 w-full sm:w-40" /></div><Skeleton className="h-10 w-full rounded-none" />{Array.from({ length: 6 }).map((_, index) => <div key={index} className="grid h-16 grid-cols-[1fr_1.5fr_0.8fr_0.8fr_0.7fr] items-center gap-5 border-t border-slate-100 px-4"><Skeleton className="h-3 w-28" /><Skeleton className="h-3 w-44" /><Skeleton className="h-5 w-20" /><Skeleton className="h-5 w-20" /><Skeleton className="h-3 w-16" /></div>)}</CardContent></Card>;
 }
 
 function EditIntervalDialog({ target, onClose }: { target: HealthCheckTarget | null; onClose: () => void }) {

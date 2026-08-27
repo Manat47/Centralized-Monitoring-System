@@ -7,6 +7,8 @@ import { Button } from "@/components/ui/button";
 
 import { useDashboardSummary } from "../api/use-dashboard-summary";
 
+import DecryptedText from "@/components/DecryptedText";
+
 function formatUpdatedAt(timestamp: number): string {
   if (!timestamp) {
     return "-";
@@ -37,7 +39,16 @@ export function DashboardHeader() {
     <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
       <div>
         <h1 className="text-xl font-semibold tracking-tight text-slate-950">
-          Dashboard
+          <DecryptedText
+            text="Dashboard"
+            animateOn="view"
+            sequential
+            revealDirection="start"
+            speed={35}
+            maxIterations={8}
+            characters="ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+            encryptedClassName="text-slate-400"
+          />
         </h1>
 
         <p className="mt-1 text-sm text-slate-500">
