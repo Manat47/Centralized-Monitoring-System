@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Activity } from "lucide-react";
+import { Activity, ChevronDown } from "lucide-react";
 
 import { useAssets } from "@/app/features/assets/api/use-assets";
 import { useCpuUsage } from "@/app/features/monitoring-targets/api/use-cpu-usage";
@@ -133,22 +133,61 @@ function formatBytesPerSecond(value: number | null | undefined): string {
   return `${value.toFixed(0)} B/s`;
 }
 
-function calculateStats(values: number[]) {
-  const validValues = values.filter(Number.isFinite);
+function MonitoringSnapshotSkeleton() {
+  return (
+    <Card className="border-slate-200 bg-white shadow-none">
+      <CardHeader className="flex flex-row items-start justify-between border-b border-slate-100 px-5 py-4">
+        <div className="space-y-2">
+          <div className="h-4 w-36 animate-pulse rounded bg-slate-100" />
+          <div className="h-3 w-56 animate-pulse rounded bg-slate-100" />
+        </div>
 
-  if (validValues.length === 0) {
-    return {
-      average: null,
-      peak: null,
-    };
-  }
+        <div className="h-8 w-40 animate-pulse rounded-md bg-slate-100" />
+      </CardHeader>
 
-  const total = validValues.reduce((sum, value) => sum + value, 0);
+      <CardContent className="space-y-5 p-5">
+        <div className="space-y-2 border-b border-slate-100 pb-3">
+          <div className="h-4 w-28 animate-pulse rounded bg-slate-100" />
+          <div className="h-3 w-36 animate-pulse rounded bg-slate-100" />
+        </div>
 
-  return {
-    average: total / validValues.length,
-    peak: Math.max(...validValues),
-  };
+        <div className="grid gap-4 lg:grid-cols-2">
+          {Array.from({ length: 2 }).map((_, index) => (
+            <div key={index} className="rounded-lg border border-slate-200 p-4">
+              <div className="flex items-center justify-between">
+                <div className="h-3 w-20 animate-pulse rounded bg-slate-100" />
+                <div className="h-5 w-12 animate-pulse rounded bg-slate-100" />
+              </div>
+
+              <div className="mt-4 h-28 animate-pulse rounded-md bg-slate-50" />
+            </div>
+          ))}
+        </div>
+
+        <div className="border-t border-slate-100 pt-4">
+          <div className="h-3 w-20 animate-pulse rounded bg-slate-100" />
+
+          <div className="mt-4 space-y-4">
+            {Array.from({ length: 2 }).map((_, index) => (
+              <div key={index}>
+                <div className="mb-2 flex justify-between">
+                  <div className="h-3 w-32 animate-pulse rounded bg-slate-100" />
+                  <div className="h-3 w-10 animate-pulse rounded bg-slate-100" />
+                </div>
+
+                <div className="h-1.5 animate-pulse rounded-full bg-slate-100" />
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="border-t border-slate-100 pt-4">
+          <div className="h-3 w-32 animate-pulse rounded bg-slate-100" />
+          <div className="mt-4 h-32 animate-pulse rounded-md bg-slate-50" />
+        </div>
+      </CardContent>
+    </Card>
+  );
 }
 
 export function MonitoringSnapshot() {
@@ -209,8 +248,6 @@ export function MonitoringSnapshot() {
 
   const networkData = aggregateNetworkByTimestamp(networkQuery.data ?? []);
 
-  const primaryDisk = summary?.disks?.[0];
-
   const latestNetwork =
     (summary?.networks?.length ?? 0) > 0
       ? (summary?.networks ?? []).reduce(
@@ -226,13 +263,7 @@ export function MonitoringSnapshot() {
       : null;
 
   if (assetsQuery.isLoading || targetsQuery.isLoading) {
-    return (
-      <Card className="border-slate-200 shadow-none">
-        <CardContent className="py-10 text-center text-sm text-slate-500">
-          Loading monitoring snapshot...
-        </CardContent>
-      </Card>
-    );
+    return <MonitoringSnapshotSkeleton />;
   }
 
   return (
@@ -250,17 +281,41 @@ export function MonitoringSnapshot() {
         </div>
 
         {monitoredAssets.length > 0 && (
-          <select
-            value={effectiveSelectedAssetId}
-            onChange={(event) => setSelectedAssetId(event.target.value)}
-            className="h-8 max-w-52 rounded-md border border-slate-200 bg-white px-2 text-xs text-slate-700 outline-none focus:border-blue-400"
-          >
-            {monitoredAssets.map((asset) => (
-              <option key={asset.assetId} value={asset.assetId}>
-                {asset.name}
-              </option>
-            ))}
-          </select>
+          <div className="relative">
+            <select
+              value={effectiveSelectedAssetId}
+              onChange={(event) => setSelectedAssetId(event.target.value)}
+              className="
+        peer h-8 min-w-40 max-w-56
+        cursor-pointer appearance-none
+        rounded-md border border-slate-200
+        bg-white py-1 pl-3 pr-8
+        text-xs font-medium text-slate-700
+        outline-none
+        transition-[border-color,background-color,box-shadow] duration-150
+        hover:border-slate-300 hover:bg-slate-50
+        focus:border-blue-400 focus:ring-2 focus:ring-blue-100
+      "
+            >
+              {monitoredAssets.map((asset) => (
+                <option key={asset.assetId} value={asset.assetId}>
+                  {asset.name}
+                </option>
+              ))}
+            </select>
+
+            <ChevronDown
+              aria-hidden="true"
+              className="
+        pointer-events-none
+        absolute right-2.5 top-1/2
+        size-3.5 -translate-y-1/2
+        text-slate-400
+        transition-colors duration-150
+        peer-focus:text-blue-500
+      "
+            />
+          </div>
         )}
       </CardHeader>
 
@@ -276,7 +331,10 @@ export function MonitoringSnapshot() {
             </p>
           </div>
         ) : (
-          <div className="space-y-5">
+          <div
+            key={effectiveSelectedAssetId}
+            className="space-y-5 animate-in fade-in-0 slide-in-from-bottom-1 duration-200 ease-out"
+          >
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div>
                 <p className="text-sm font-medium text-slate-900">
@@ -399,7 +457,7 @@ export function MonitoringSnapshot() {
 
                           <div className="h-1.5 overflow-hidden rounded-full bg-slate-100">
                             <div
-                              className="h-full rounded-full bg-blue-500"
+                              className="h-full rounded-full bg-blue-500 transition-[width] duration-500 ease-out"
                               style={{
                                 width: `${Math.min(Math.max(usage, 0), 100)}%`,
                               }}
