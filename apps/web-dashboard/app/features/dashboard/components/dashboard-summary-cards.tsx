@@ -4,6 +4,8 @@ import { Bell, CircleAlert, Crosshair, HeartPulse, Server } from "lucide-react";
 
 import { Card, CardContent } from "@/components/ui/card";
 
+import CountUp from "@/components/CountUp";
+
 import { useDashboardSummary } from "../api/use-dashboard-summary";
 
 function SummaryCardSkeleton() {
@@ -58,6 +60,7 @@ export function DashboardSummaryCards() {
     {
       title: "Active Assets",
       value: data.assets.active,
+      suffix: "",
       description: `${data.assets.active} / ${data.assets.total} active`,
       icon: Server,
       iconClassName: "bg-blue-50 text-blue-700",
@@ -66,6 +69,7 @@ export function DashboardSummaryCards() {
     {
       title: "Monitored Targets",
       value: data.monitoringTargets.enabled,
+      suffix: "",
       description: `${data.monitoringTargets.enabled} / ${data.monitoringTargets.total} enabled`,
       icon: Crosshair,
       iconClassName: "bg-sky-50 text-sky-700",
@@ -74,6 +78,7 @@ export function DashboardSummaryCards() {
     {
       title: "Active Alerts",
       value: data.alerts.active,
+      suffix: "",
       description:
         data.alerts.active === 0 ? "No active incidents" : "Requires attention",
       icon: Bell,
@@ -87,6 +92,7 @@ export function DashboardSummaryCards() {
     {
       title: "Critical Alerts",
       value: data.alerts.critical,
+      suffix: "",
       description:
         data.alerts.critical === 0
           ? "No critical incidents"
@@ -101,7 +107,8 @@ export function DashboardSummaryCards() {
     },
     {
       title: "Endpoint Health",
-      value: endpointHealthPercent !== null ? `${endpointHealthPercent}%` : "—",
+      value: endpointHealthPercent,
+      suffix: "%",
       description:
         data.healthChecks.checked > 0
           ? `${data.healthChecks.available} / ${data.healthChecks.checked} available`
@@ -121,7 +128,7 @@ export function DashboardSummaryCards() {
 
   return (
     <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
-      {cards.map((card) => {
+      {cards.map((card, index) => {
         const Icon = card.icon;
 
         return (
@@ -143,9 +150,23 @@ export function DashboardSummaryCards() {
               </div>
 
               <p
-                className={`mt-3 text-2xl font-semibold tracking-tight ${card.valueClassName}`}
+                className={`mt-3 text-2xl font-semibold tabular-nums tracking-tight ${card.valueClassName}`}
               >
-                {card.value}
+                {card.value === null ? (
+                  "—"
+                ) : (
+                  <>
+                    <CountUp
+                      from={0}
+                      to={card.value}
+                      separator=","
+                      direction="up"
+                      duration={0.65}
+                      delay={index * 0.05}
+                    />
+                    {card.suffix}
+                  </>
+                )}
               </p>
 
               <p className="mt-1 text-xs text-slate-500">{card.description}</p>
