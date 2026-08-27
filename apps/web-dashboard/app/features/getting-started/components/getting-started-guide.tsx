@@ -74,7 +74,11 @@ function CodeBlock({ code, copiedId, id, label, onCopy }: CodeBlockProps) {
           onClick={() => onCopy(id, code)}
           title={copied ? "Copied" : `Copy ${label}`}
         >
-          {copied ? <Check className="size-3.5" /> : <Clipboard className="size-3.5" />}
+          {copied ? (
+            <Check className="size-3.5" />
+          ) : (
+            <Clipboard className="size-3.5" />
+          )}
           <span className="sr-only">{copied ? "Copied" : `Copy ${label}`}</span>
         </button>
       </div>
@@ -111,9 +115,9 @@ function SignalFlow() {
   return (
     <div className={styles.signalStage}>
       <div className={styles.threadField} aria-hidden="true">
-        <span className={styles.threadOne} />
+        {/* <span className={styles.threadOne} />
         <span className={styles.threadTwo} />
-        <span className={styles.threadThree} />
+        <span className={styles.threadThree} /> */}
       </div>
 
       <div className={styles.signalFlow}>
@@ -125,7 +129,11 @@ function SignalFlow() {
         <div className={styles.connector} aria-hidden="true">
           <span className={styles.signalPulseDelayed} />
         </div>
-        <SignalNode icon={Network} label="Monitoring" detail="Verify and collect" />
+        <SignalNode
+          icon={Network}
+          label="Monitoring"
+          detail="Verify and collect"
+        />
       </div>
     </div>
   );
@@ -147,7 +155,10 @@ export function GettingStartedGuide() {
   async function handleCopy(id: string, code: string) {
     await navigator.clipboard.writeText(code);
     setCopiedId(id);
-    window.setTimeout(() => setCopiedId((current) => (current === id ? null : current)), 1800);
+    window.setTimeout(
+      () => setCopiedId((current) => (current === id ? null : current)),
+      1800,
+    );
   }
 
   return (
@@ -172,17 +183,23 @@ export function GettingStartedGuide() {
         </div>
       </header>
 
-      <div className="mx-auto max-w-6xl space-y-8 px-8 py-8">
+      <div className="mx-auto max-w-5xl space-y-6 px-6 py-6 lg:px-8 lg:py-8">
         <SignalFlow />
 
-        <div className="mx-auto max-w-4xl divide-y divide-slate-200">
-          <section className="pb-8">
+        <div className="divide-y divide-slate-200">
+          <section className="pb-6">
             <div className="flex items-start gap-4">
               <StepNumber>1</StepNumber>
               <div className="min-w-0 flex-1">
-                <h2 className="text-lg font-semibold text-slate-950">Install Node Exporter</h2>
+                <h2 className="text-lg font-semibold text-slate-950">
+                  Install Node Exporter
+                </h2>
 
-                <div className="mt-4 inline-flex rounded-lg border border-slate-200 bg-slate-100 p-1" role="tablist" aria-label="Installation method">
+                <div
+                  className="mt-4 inline-flex rounded-lg border border-slate-200 bg-slate-100 p-1"
+                  role="tablist"
+                  aria-label="Installation method"
+                >
                   <button
                     type="button"
                     role="tab"
@@ -228,15 +245,21 @@ export function GettingStartedGuide() {
             </div>
           </section>
 
-          <section className="py-8">
+          <section className="py-6">
             <div className="flex items-start gap-4">
               <StepNumber>2</StepNumber>
               <div className="min-w-0 flex-1">
-                <h2 className="text-lg font-semibold text-slate-950">Enable and start</h2>
+                <h2 className="text-lg font-semibold text-slate-950">
+                  Enable and start
+                </h2>
                 <div className="mt-4">
                   <CodeBlock
                     id={usesApt ? "apt-start" : "docker-start"}
-                    label={usesApt ? "Enable and restart service" : "Apply restart policy and restart"}
+                    label={
+                      usesApt
+                        ? "Enable and restart service"
+                        : "Apply restart policy and restart"
+                    }
                     code={usesApt ? aptStartCommand : dockerStartCommand}
                     copiedId={copiedId}
                     onCopy={handleCopy}
@@ -246,15 +269,19 @@ export function GettingStartedGuide() {
             </div>
           </section>
 
-          <section className="py-8">
+          <section className="py-6">
             <div className="flex items-start gap-4">
               <StepNumber>3</StepNumber>
               <div className="min-w-0 flex-1">
-                <h2 className="text-lg font-semibold text-slate-950">Verify the service</h2>
+                <h2 className="text-lg font-semibold text-slate-950">
+                  Verify the service
+                </h2>
                 <div className="mt-4">
                   <CodeBlock
                     id={usesApt ? "apt-status" : "docker-status"}
-                    label={usesApt ? "Check systemd service" : "Check container"}
+                    label={
+                      usesApt ? "Check systemd service" : "Check container"
+                    }
                     code={usesApt ? aptStatusCommand : dockerStatusCommand}
                     copiedId={copiedId}
                     onCopy={handleCopy}
@@ -264,13 +291,20 @@ export function GettingStartedGuide() {
             </div>
           </section>
 
-          <section className="py-8">
+          <section className="py-6">
             <div className="flex items-start gap-4">
               <StepNumber>4</StepNumber>
               <div className="min-w-0 flex-1">
-                <h2 className="text-lg font-semibold text-slate-950">Verify locally</h2>
+                <h2 className="text-lg font-semibold text-slate-950">
+                  Verify locally
+                </h2>
                 <p className="mt-1 text-sm leading-6 text-slate-600">
-                  A successful response contains Prometheus metrics beginning with <span className="font-mono text-xs text-slate-800">node_</span>.
+                  A successful response contains Prometheus metrics beginning
+                  with{" "}
+                  <span className="font-mono text-xs text-slate-800">
+                    node_
+                  </span>
+                  .
                 </p>
                 <div className="mt-4">
                   <CodeBlock
@@ -285,13 +319,20 @@ export function GettingStartedGuide() {
             </div>
           </section>
 
-          <section className="py-8">
+          <section className="py-6">
             <div className="flex items-start gap-4">
               <StepNumber>5</StepNumber>
               <div className="min-w-0 flex-1">
-                <h2 className="text-lg font-semibold text-slate-950">Allow the monitoring network</h2>
+                <h2 className="text-lg font-semibold text-slate-950">
+                  Allow the monitoring network
+                </h2>
                 <p className="mt-1 text-sm leading-6 text-slate-600">
-                  Replace <span className="font-mono text-xs text-slate-800">MONITORING_SERVER_IP</span> before running this UFW example. For cloud VMs, apply the same source-IP rule in the security group or network firewall.
+                  Replace{" "}
+                  <span className="font-mono text-xs text-slate-800">
+                    MONITORING_SERVER_IP
+                  </span>{" "}
+                  before running this UFW example. For cloud VMs, apply the same
+                  source-IP rule in the security group or network firewall.
                 </p>
                 <div className="mt-4">
                   <CodeBlock
@@ -310,13 +351,19 @@ export function GettingStartedGuide() {
             </div>
           </section>
 
-          <section className="py-8">
+          <section className="py-6">
             <div className="flex items-start gap-4">
               <StepNumber>6</StepNumber>
               <div className="min-w-0 flex-1">
-                <h2 className="text-lg font-semibold text-slate-950">Verify remotely</h2>
+                <h2 className="text-lg font-semibold text-slate-950">
+                  Verify remotely
+                </h2>
                 <p className="mt-1 text-sm leading-6 text-slate-600">
-                  Run this from the Monitoring Server and replace <span className="font-mono text-xs text-slate-800">SERVER_IP</span> with the monitored server address.
+                  Run this from the Monitoring Server and replace{" "}
+                  <span className="font-mono text-xs text-slate-800">
+                    SERVER_IP
+                  </span>{" "}
+                  with the monitored server address.
                 </p>
                 <div className="mt-4">
                   <CodeBlock
@@ -331,18 +378,28 @@ export function GettingStartedGuide() {
             </div>
           </section>
 
-          <section className="pt-8">
+          <section className="pt-6">
             <div className="flex items-start gap-4">
               <StepNumber>7</StepNumber>
               <div className="min-w-0 flex-1">
-                <h2 className="text-lg font-semibold text-slate-950">Connect it to monitoring</h2>
+                <h2 className="text-lg font-semibold text-slate-950">
+                  Connect it to monitoring
+                </h2>
                 <p className="mt-1 text-sm leading-6 text-slate-600">
-                  Register an active Server asset, then create and verify its monitoring target using <span className="font-mono text-xs text-slate-800">HTTP :9100/metrics</span>.
+                  Register an active Server asset, then create and verify its
+                  monitoring target using{" "}
+                  <span className="font-mono text-xs text-slate-800">
+                    HTTP :9100/metrics
+                  </span>
+                  .
                 </p>
                 <div className="mt-5 flex flex-wrap items-center gap-3">
                   <Link
                     href="/assets"
-                    className={buttonVariants({ variant: "outline", className: "h-9 px-4" })}
+                    className={buttonVariants({
+                      variant: "outline",
+                      className: "h-9 px-4",
+                    })}
                   >
                     Register Server
                     <ArrowRight data-icon="inline-end" />
@@ -354,7 +411,9 @@ export function GettingStartedGuide() {
                     Create Target
                     <ArrowRight data-icon="inline-end" />
                   </Link>
-                  <span className="text-xs text-slate-500">Admin access required</span>
+                  <span className="text-xs text-slate-500">
+                    Admin access required
+                  </span>
                 </div>
               </div>
             </div>
