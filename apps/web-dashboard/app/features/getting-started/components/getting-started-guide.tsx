@@ -20,6 +20,7 @@ import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 import styles from "./getting-started-guide.module.css";
+import FadeContent from "@/app/features/react-bits/fade-content";
 
 const aptInstallCommand = "sudo apt install prometheus-node-exporter -y";
 
@@ -184,240 +185,257 @@ export function GettingStartedGuide() {
       </header>
 
       <div className="mx-auto max-w-5xl space-y-6 px-6 py-6 lg:px-8 lg:py-8">
-        <SignalFlow />
+        <FadeContent duration={650} initialOpacity={0} threshold={0.05}>
+          <SignalFlow />
+        </FadeContent>
 
         <div className="divide-y divide-slate-200">
-          <section className="pb-6">
-            <div className="flex items-start gap-4">
-              <StepNumber>1</StepNumber>
-              <div className="min-w-0 flex-1">
-                <h2 className="text-lg font-semibold text-slate-950">
-                  Install Node Exporter
-                </h2>
+          <FadeContent duration={500} initialOpacity={0} threshold={0.12}>
+            <section className="pb-6">
+              <div className="flex items-start gap-4">
+                <StepNumber>1</StepNumber>
+                <div className="min-w-0 flex-1">
+                  <h2 className="text-lg font-semibold text-slate-950">
+                    Install Node Exporter
+                  </h2>
 
-                <div
-                  className="mt-4 inline-flex rounded-lg border border-slate-200 bg-slate-100 p-1"
-                  role="tablist"
-                  aria-label="Installation method"
-                >
-                  <button
-                    type="button"
-                    role="tab"
-                    aria-selected={installMethod === "apt"}
-                    className={cn(
-                      "flex h-8 items-center gap-2 rounded-md px-3 text-sm font-medium transition-colors",
-                      installMethod === "apt"
-                        ? "bg-white text-slate-950 shadow-sm"
-                        : "text-slate-600 hover:text-slate-950",
-                    )}
-                    onClick={() => setInstallMethod("apt")}
+                  <div
+                    className="mt-4 inline-flex rounded-lg border border-slate-200 bg-slate-100 p-1"
+                    role="tablist"
+                    aria-label="Installation method"
                   >
-                    <Terminal className="size-4" />
-                    Ubuntu / Debian
-                  </button>
-                  <button
-                    type="button"
-                    role="tab"
-                    aria-selected={installMethod === "docker"}
-                    className={cn(
-                      "flex h-8 items-center gap-2 rounded-md px-3 text-sm font-medium transition-colors",
-                      installMethod === "docker"
-                        ? "bg-white text-slate-950 shadow-sm"
-                        : "text-slate-600 hover:text-slate-950",
-                    )}
-                    onClick={() => setInstallMethod("docker")}
-                  >
-                    <Container className="size-4" />
-                    Docker
-                  </button>
-                </div>
+                    <button
+                      type="button"
+                      role="tab"
+                      aria-selected={installMethod === "apt"}
+                      className={cn(
+                        "flex h-8 items-center gap-2 rounded-md px-3 text-sm font-medium transition-colors",
+                        installMethod === "apt"
+                          ? "bg-white text-slate-950 shadow-sm"
+                          : "text-slate-600 hover:text-slate-950",
+                      )}
+                      onClick={() => setInstallMethod("apt")}
+                    >
+                      <Terminal className="size-4" />
+                      Ubuntu / Debian
+                    </button>
+                    <button
+                      type="button"
+                      role="tab"
+                      aria-selected={installMethod === "docker"}
+                      className={cn(
+                        "flex h-8 items-center gap-2 rounded-md px-3 text-sm font-medium transition-colors",
+                        installMethod === "docker"
+                          ? "bg-white text-slate-950 shadow-sm"
+                          : "text-slate-600 hover:text-slate-950",
+                      )}
+                      onClick={() => setInstallMethod("docker")}
+                    >
+                      <Container className="size-4" />
+                      Docker
+                    </button>
+                  </div>
 
-                <div className="mt-4" role="tabpanel">
-                  <CodeBlock
-                    id={usesApt ? "apt-install" : "docker-install"}
-                    label={usesApt ? "Install package" : "Create container"}
-                    code={usesApt ? aptInstallCommand : dockerCommand}
-                    copiedId={copiedId}
-                    onCopy={handleCopy}
-                  />
+                  <div className="mt-4" role="tabpanel">
+                    <CodeBlock
+                      id={usesApt ? "apt-install" : "docker-install"}
+                      label={usesApt ? "Install package" : "Create container"}
+                      code={usesApt ? aptInstallCommand : dockerCommand}
+                      copiedId={copiedId}
+                      onCopy={handleCopy}
+                    />
+                  </div>
                 </div>
               </div>
-            </div>
-          </section>
+            </section>
+          </FadeContent>
 
-          <section className="py-6">
-            <div className="flex items-start gap-4">
-              <StepNumber>2</StepNumber>
-              <div className="min-w-0 flex-1">
-                <h2 className="text-lg font-semibold text-slate-950">
-                  Enable and start
-                </h2>
-                <div className="mt-4">
-                  <CodeBlock
-                    id={usesApt ? "apt-start" : "docker-start"}
-                    label={
-                      usesApt
-                        ? "Enable and restart service"
-                        : "Apply restart policy and restart"
-                    }
-                    code={usesApt ? aptStartCommand : dockerStartCommand}
-                    copiedId={copiedId}
-                    onCopy={handleCopy}
-                  />
+          <FadeContent duration={500} initialOpacity={0} threshold={0.12}>
+            <section className="py-6">
+              <div className="flex items-start gap-4">
+                <StepNumber>2</StepNumber>
+                <div className="min-w-0 flex-1">
+                  <h2 className="text-lg font-semibold text-slate-950">
+                    Enable and start
+                  </h2>
+                  <div className="mt-4">
+                    <CodeBlock
+                      id={usesApt ? "apt-start" : "docker-start"}
+                      label={
+                        usesApt
+                          ? "Enable and restart service"
+                          : "Apply restart policy and restart"
+                      }
+                      code={usesApt ? aptStartCommand : dockerStartCommand}
+                      copiedId={copiedId}
+                      onCopy={handleCopy}
+                    />
+                  </div>
                 </div>
               </div>
-            </div>
-          </section>
+            </section>
+          </FadeContent>
 
-          <section className="py-6">
-            <div className="flex items-start gap-4">
-              <StepNumber>3</StepNumber>
-              <div className="min-w-0 flex-1">
-                <h2 className="text-lg font-semibold text-slate-950">
-                  Verify the service
-                </h2>
-                <div className="mt-4">
-                  <CodeBlock
-                    id={usesApt ? "apt-status" : "docker-status"}
-                    label={
-                      usesApt ? "Check systemd service" : "Check container"
-                    }
-                    code={usesApt ? aptStatusCommand : dockerStatusCommand}
-                    copiedId={copiedId}
-                    onCopy={handleCopy}
-                  />
+          <FadeContent duration={650} initialOpacity={0} threshold={0.05}>
+            <section className="py-6">
+              <div className="flex items-start gap-4">
+                <StepNumber>3</StepNumber>
+                <div className="min-w-0 flex-1">
+                  <h2 className="text-lg font-semibold text-slate-950">
+                    Verify the service
+                  </h2>
+                  <div className="mt-4">
+                    <CodeBlock
+                      id={usesApt ? "apt-status" : "docker-status"}
+                      label={
+                        usesApt ? "Check systemd service" : "Check container"
+                      }
+                      code={usesApt ? aptStatusCommand : dockerStatusCommand}
+                      copiedId={copiedId}
+                      onCopy={handleCopy}
+                    />
+                  </div>
                 </div>
               </div>
-            </div>
-          </section>
+            </section>
+          </FadeContent>
 
-          <section className="py-6">
-            <div className="flex items-start gap-4">
-              <StepNumber>4</StepNumber>
-              <div className="min-w-0 flex-1">
-                <h2 className="text-lg font-semibold text-slate-950">
-                  Verify locally
-                </h2>
-                <p className="mt-1 text-sm leading-6 text-slate-600">
-                  A successful response contains Prometheus metrics beginning
-                  with{" "}
-                  <span className="font-mono text-xs text-slate-800">
-                    node_
-                  </span>
-                  .
-                </p>
-                <div className="mt-4">
-                  <CodeBlock
-                    id="verify-local"
-                    label="Run on the monitored server"
-                    code={verifyLocalCommand}
-                    copiedId={copiedId}
-                    onCopy={handleCopy}
-                  />
+          <FadeContent duration={650} initialOpacity={0} threshold={0.05}>
+            <section className="py-6">
+              <div className="flex items-start gap-4">
+                <StepNumber>4</StepNumber>
+                <div className="min-w-0 flex-1">
+                  <h2 className="text-lg font-semibold text-slate-950">
+                    Verify locally
+                  </h2>
+                  <p className="mt-1 text-sm leading-6 text-slate-600">
+                    A successful response contains Prometheus metrics beginning
+                    with{" "}
+                    <span className="font-mono text-xs text-slate-800">
+                      node_
+                    </span>
+                    .
+                  </p>
+                  <div className="mt-4">
+                    <CodeBlock
+                      id="verify-local"
+                      label="Run on the monitored server"
+                      code={verifyLocalCommand}
+                      copiedId={copiedId}
+                      onCopy={handleCopy}
+                    />
+                  </div>
                 </div>
               </div>
-            </div>
-          </section>
+            </section>
+          </FadeContent>
 
-          <section className="py-6">
-            <div className="flex items-start gap-4">
-              <StepNumber>5</StepNumber>
-              <div className="min-w-0 flex-1">
-                <h2 className="text-lg font-semibold text-slate-950">
-                  Allow the monitoring network
-                </h2>
-                <p className="mt-1 text-sm leading-6 text-slate-600">
-                  Replace{" "}
-                  <span className="font-mono text-xs text-slate-800">
-                    MONITORING_SERVER_IP
-                  </span>{" "}
-                  before running this UFW example. For cloud VMs, apply the same
-                  source-IP rule in the security group or network firewall.
-                </p>
-                <div className="mt-4">
-                  <CodeBlock
-                    id="allow-network"
-                    label="Allow TCP 9100 from monitoring only"
-                    code={allowNetworkCommand}
-                    copiedId={copiedId}
-                    onCopy={handleCopy}
-                  />
-                </div>
-                <div className="mt-3 flex items-start gap-2 text-xs leading-5 text-amber-800">
-                  <ShieldCheck className="mt-0.5 size-3.5 shrink-0" />
-                  Do not expose port 9100 to the public internet.
+          <FadeContent duration={650} initialOpacity={0} threshold={0.05}>
+            <section className="py-6">
+              <div className="flex items-start gap-4">
+                <StepNumber>5</StepNumber>
+                <div className="min-w-0 flex-1">
+                  <h2 className="text-lg font-semibold text-slate-950">
+                    Allow the monitoring network
+                  </h2>
+                  <p className="mt-1 text-sm leading-6 text-slate-600">
+                    Replace{" "}
+                    <span className="font-mono text-xs text-slate-800">
+                      MONITORING_SERVER_IP
+                    </span>{" "}
+                    before running this UFW example. For cloud VMs, apply the
+                    same source-IP rule in the security group or network
+                    firewall.
+                  </p>
+                  <div className="mt-4">
+                    <CodeBlock
+                      id="allow-network"
+                      label="Allow TCP 9100 from monitoring only"
+                      code={allowNetworkCommand}
+                      copiedId={copiedId}
+                      onCopy={handleCopy}
+                    />
+                  </div>
+                  <div className="mt-3 flex items-start gap-2 text-xs leading-5 text-amber-800">
+                    <ShieldCheck className="mt-0.5 size-3.5 shrink-0" />
+                    Do not expose port 9100 to the public internet.
+                  </div>
                 </div>
               </div>
-            </div>
-          </section>
+            </section>
+          </FadeContent>
 
-          <section className="py-6">
-            <div className="flex items-start gap-4">
-              <StepNumber>6</StepNumber>
-              <div className="min-w-0 flex-1">
-                <h2 className="text-lg font-semibold text-slate-950">
-                  Verify remotely
-                </h2>
-                <p className="mt-1 text-sm leading-6 text-slate-600">
-                  Run this from the Monitoring Server and replace{" "}
-                  <span className="font-mono text-xs text-slate-800">
-                    SERVER_IP
-                  </span>{" "}
-                  with the monitored server address.
-                </p>
-                <div className="mt-4">
-                  <CodeBlock
-                    id="verify-remote"
-                    label="Run from the Monitoring Server"
-                    code={verifyRemoteCommand}
-                    copiedId={copiedId}
-                    onCopy={handleCopy}
-                  />
+          <FadeContent duration={650} initialOpacity={0} threshold={0.05}>
+            <section className="py-6">
+              <div className="flex items-start gap-4">
+                <StepNumber>6</StepNumber>
+                <div className="min-w-0 flex-1">
+                  <h2 className="text-lg font-semibold text-slate-950">
+                    Verify remotely
+                  </h2>
+                  <p className="mt-1 text-sm leading-6 text-slate-600">
+                    Run this from the Monitoring Server and replace{" "}
+                    <span className="font-mono text-xs text-slate-800">
+                      SERVER_IP
+                    </span>{" "}
+                    with the monitored server address.
+                  </p>
+                  <div className="mt-4">
+                    <CodeBlock
+                      id="verify-remote"
+                      label="Run from the Monitoring Server"
+                      code={verifyRemoteCommand}
+                      copiedId={copiedId}
+                      onCopy={handleCopy}
+                    />
+                  </div>
                 </div>
               </div>
-            </div>
-          </section>
+            </section>
+          </FadeContent>
 
-          <section className="pt-6">
-            <div className="flex items-start gap-4">
-              <StepNumber>7</StepNumber>
-              <div className="min-w-0 flex-1">
-                <h2 className="text-lg font-semibold text-slate-950">
-                  Connect it to monitoring
-                </h2>
-                <p className="mt-1 text-sm leading-6 text-slate-600">
-                  Register an active Server asset, then create and verify its
-                  monitoring target using{" "}
-                  <span className="font-mono text-xs text-slate-800">
-                    HTTP :9100/metrics
-                  </span>
-                  .
-                </p>
-                <div className="mt-5 flex flex-wrap items-center gap-3">
-                  <Link
-                    href="/assets"
-                    className={buttonVariants({
-                      variant: "outline",
-                      className: "h-9 px-4",
-                    })}
-                  >
-                    Register Server
-                    <ArrowRight data-icon="inline-end" />
-                  </Link>
-                  <Link
-                    href="/monitoring-targets"
-                    className={buttonVariants({ className: "h-9 px-4" })}
-                  >
-                    Create Target
-                    <ArrowRight data-icon="inline-end" />
-                  </Link>
-                  <span className="text-xs text-slate-500">
-                    Admin access required
-                  </span>
+          <FadeContent duration={650} initialOpacity={0} threshold={0.05}>
+            <section className="pt-6">
+              <div className="flex items-start gap-4">
+                <StepNumber>7</StepNumber>
+                <div className="min-w-0 flex-1">
+                  <h2 className="text-lg font-semibold text-slate-950">
+                    Connect it to monitoring
+                  </h2>
+                  <p className="mt-1 text-sm leading-6 text-slate-600">
+                    Register an active Server asset, then create and verify its
+                    monitoring target using{" "}
+                    <span className="font-mono text-xs text-slate-800">
+                      HTTP :9100/metrics
+                    </span>
+                    .
+                  </p>
+                  <div className="mt-5 flex flex-wrap items-center gap-3">
+                    <Link
+                      href="/assets"
+                      className={buttonVariants({
+                        variant: "outline",
+                        className: "h-9 px-4",
+                      })}
+                    >
+                      Register Server
+                      <ArrowRight data-icon="inline-end" />
+                    </Link>
+                    <Link
+                      href="/monitoring-targets"
+                      className={buttonVariants({ className: "h-9 px-4" })}
+                    >
+                      Create Target
+                      <ArrowRight data-icon="inline-end" />
+                    </Link>
+                    <span className="text-xs text-slate-500">
+                      Admin access required
+                    </span>
+                  </div>
                 </div>
               </div>
-            </div>
-          </section>
+            </section>
+          </FadeContent>
         </div>
 
         <div className="flex justify-center">
