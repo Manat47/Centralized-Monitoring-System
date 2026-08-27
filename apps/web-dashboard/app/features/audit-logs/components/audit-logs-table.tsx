@@ -22,6 +22,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
   TableBody,
@@ -30,6 +31,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { cn } from "@/lib/utils";
 
 import { useAuditLogs } from "../api/use-audit-logs";
 import type {
@@ -313,7 +315,7 @@ export function AuditLogsTable() {
   }
 
   if (isLoading) {
-    return <Card><CardContent className="py-10 text-center text-sm text-muted-foreground">Loading audit logs...</CardContent></Card>;
+    return <AuditLogsSkeleton />;
   }
 
   if (isError) {
@@ -330,7 +332,7 @@ export function AuditLogsTable() {
       <Card>
         <CardContent className="p-0">
           <div className="flex flex-wrap items-center gap-2 border-b p-4">
-            <div className="relative min-w-64 flex-1">
+            <div className="relative w-full min-w-0 flex-1 sm:min-w-64">
               <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
               <Input
                 value={search}
@@ -340,7 +342,7 @@ export function AuditLogsTable() {
               />
             </div>
             <Select value={resourceType} onValueChange={(value) => { setResourceType(value as typeof resourceType); setPage(1); }}>
-              <SelectTrigger className="w-48">
+              <SelectTrigger className="w-full sm:w-48">
                 <SelectValue>
                   {resourceType === "ALL"
                     ? "All resources"
@@ -350,7 +352,7 @@ export function AuditLogsTable() {
               <SelectContent><SelectItem value="ALL">All resources</SelectItem>{resourceTypes.map((item) => <SelectItem key={item} value={item}>{formatLabel(item)}</SelectItem>)}</SelectContent>
             </Select>
             <Select value={action} onValueChange={(value) => { setAction(value as typeof action); setPage(1); }}>
-              <SelectTrigger className="w-52">
+              <SelectTrigger className="w-full sm:w-52">
                 <SelectValue>
                   {action === "ALL" ? "All actions" : formatLabel(action)}
                 </SelectValue>
@@ -358,7 +360,7 @@ export function AuditLogsTable() {
               <SelectContent><SelectItem value="ALL">All actions</SelectItem>{auditActions.map((item) => <SelectItem key={item} value={item}>{formatLabel(item)}</SelectItem>)}</SelectContent>
             </Select>
             <Select value={result} onValueChange={(value) => { setResult(value as typeof result); setPage(1); }}>
-              <SelectTrigger className="w-36">
+              <SelectTrigger className="w-full sm:w-36">
                 <SelectValue>
                   {result === "ALL" ? "All results" : formatLabel(result)}
                 </SelectValue>
@@ -369,7 +371,7 @@ export function AuditLogsTable() {
 
           <div className="flex flex-wrap items-center gap-2 border-b px-4 py-3">
             <Select value={actorRole} onValueChange={(value) => { setActorRole(value as typeof actorRole); setPage(1); }}>
-              <SelectTrigger className="w-40">
+              <SelectTrigger className="w-full sm:w-40">
                 <SelectValue>
                   {actorRole === "ALL"
                     ? "All roles"
@@ -378,10 +380,10 @@ export function AuditLogsTable() {
               </SelectTrigger>
               <SelectContent><SelectItem value="ALL">All roles</SelectItem><SelectItem value="ADMIN">Admin</SelectItem><SelectItem value="OPERATOR">Operator</SelectItem></SelectContent>
             </Select>
-            <Input type="datetime-local" value={from} onChange={(event) => { setFrom(event.target.value); setPage(1); }} className="w-auto" aria-label="From time" />
-            <Input type="datetime-local" value={to} onChange={(event) => { setTo(event.target.value); setPage(1); }} className="w-auto" aria-label="To time" />
+            <Input type="datetime-local" value={from} onChange={(event) => { setFrom(event.target.value); setPage(1); }} className="w-full sm:w-auto" aria-label="From time" />
+            <Input type="datetime-local" value={to} onChange={(event) => { setTo(event.target.value); setPage(1); }} className="w-full sm:w-auto" aria-label="To time" />
             <Button type="button" variant="outline" size="sm" disabled={!hasFilters} onClick={resetFilters}>Clear</Button>
-            <span className="ml-auto text-sm text-muted-foreground">
+            <span className={cn("ml-auto text-sm text-muted-foreground", isFetching && "animate-pulse")}>
               {isFetching
                 ? "Updating..."
                 : `${data?.total ?? 0} ${(data?.total ?? 0) === 1 ? "event" : "events"}`}
@@ -389,15 +391,15 @@ export function AuditLogsTable() {
           </div>
 
           <div className="overflow-x-auto">
-            <Table>
+            <Table className="min-w-[920px]">
               <TableHeader><TableRow>
                 <TableHead>Time</TableHead><TableHead>Actor</TableHead><TableHead>Action</TableHead><TableHead>Resource</TableHead><TableHead>Result</TableHead><TableHead>Source</TableHead><TableHead className="w-12"><span className="sr-only">Details</span></TableHead>
               </TableRow></TableHeader>
-              <TableBody>
+              <TableBody className={cn("transition-opacity duration-150", isFetching && "opacity-70")}>
                 {data?.items.length === 0 ? (
                   <TableRow><TableCell colSpan={7} className="h-24 text-center text-muted-foreground">No audit events found.</TableCell></TableRow>
                 ) : data?.items.map((log) => (
-                  <TableRow key={log.auditLogId}>
+                  <TableRow key={log.auditLogId} className="transition-colors duration-150">
                     <TableCell className="whitespace-nowrap text-sm">{formatDate(log.occurredAt)}</TableCell>
                     <TableCell><p className="max-w-56 truncate text-sm font-medium">{log.actorEmail ?? shortId(log.actorUserId)}</p><p className="text-xs text-muted-foreground">{formatLabel(log.actorRole)}</p></TableCell>
                     <TableCell className="whitespace-nowrap text-sm">{formatLabel(log.action)}</TableCell>
@@ -424,4 +426,8 @@ export function AuditLogsTable() {
       <AuditDetailDialog log={selectedLog} onOpenChange={(open) => { if (!open) setSelectedLog(null); }} />
     </>
   );
+}
+
+function AuditLogsSkeleton() {
+  return <Card className="overflow-hidden border-slate-200 shadow-none"><CardContent className="p-0"><div className="flex flex-col gap-2 border-b p-4 sm:flex-row sm:flex-wrap"><Skeleton className="h-8 w-full sm:w-72" /><Skeleton className="h-8 w-full sm:w-48" /><Skeleton className="h-8 w-full sm:w-52" /><Skeleton className="h-8 w-full sm:w-36" /></div><div className="flex flex-col gap-2 border-b px-4 py-3 sm:flex-row sm:flex-wrap"><Skeleton className="h-8 w-full sm:w-40" /><Skeleton className="h-8 w-full sm:w-52" /><Skeleton className="h-8 w-full sm:w-52" /></div><Skeleton className="h-10 w-full rounded-none" />{Array.from({ length: 6 }).map((_, index) => <div key={index} className="grid h-16 grid-cols-[1fr_1.2fr_1fr_1.2fr_0.8fr] items-center gap-5 border-t border-slate-100 px-4"><Skeleton className="h-3 w-28" /><div className="space-y-2"><Skeleton className="h-3 w-32" /><Skeleton className="h-2.5 w-16" /></div><Skeleton className="h-3 w-28" /><Skeleton className="h-3 w-32" /><Skeleton className="h-5 w-16" /></div>)}</CardContent></Card>;
 }
