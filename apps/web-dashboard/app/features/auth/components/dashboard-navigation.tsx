@@ -199,15 +199,46 @@ export function DashboardNavigation({
                       aria-label={collapsed ? item.label : undefined}
                       onClick={onNavigate}
                       className={cn(
-                        "flex h-9 items-center rounded-md text-sm font-medium transition-colors",
-                        collapsed ? "justify-center px-0" : "gap-3 px-2.5",
+                        "group relative flex h-9 items-center overflow-hidden rounded-md text-sm font-medium",
+                        "transition-[padding,gap,background-color,color,transform,box-shadow] duration-250 ease-out",
+                        "active:scale-[0.980]",
+                        collapsed ? "gap-0 px-4" : "gap-3 px-2.5",
                         isActive
-                          ? "bg-slate-800 text-white"
-                          : "text-slate-300 hover:bg-slate-800/70 hover:text-white",
+                          ? "bg-slate-800 text-white shadow-[inset_0_0_0_1px_rgba(148,163,184,0.08)]"
+                          : "text-slate-300 hover:bg-slate-800/60 hover:text-white active:bg-slate-800",
                       )}
                     >
-                      <Icon className="size-4 shrink-0" />
-                      {!collapsed && <span>{item.label}</span>}
+                      {isActive && (
+                        <span
+                          aria-hidden="true"
+                          className={cn(
+                            "absolute left-0 rounded-r-full bg-blue-500",
+                            collapsed ? "h-6 w-0.75" : "h-6 w-0.75",
+                          )}
+                        />
+                      )}
+
+                      <Icon
+                        className={cn(
+                          "size-4 shrink-0 transition-colors duration-150",
+                          isActive
+                            ? "text-blue-400"
+                            : "text-slate-400 group-hover:text-slate-200",
+                        )}
+                      />
+
+                      <span
+                        aria-hidden={collapsed}
+                        className={cn(
+                          "overflow-hidden whitespace-nowrap",
+                          "transition-[max-width,opacity,transform] duration-200 ease-out",
+                          collapsed
+                            ? "max-w-0 -translate-x-1 opacity-0"
+                            : "max-w- translate-x-0 opacity-100",
+                        )}
+                      >
+                        {item.label}
+                      </span>
                     </Link>
                   );
 
