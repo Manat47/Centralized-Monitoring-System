@@ -14,6 +14,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   useNotificationRecipients,
   useSendTestNotification,
@@ -97,10 +98,10 @@ export function NotificationSettingsForm() {
 
   if (recipientsQuery.isLoading) {
     return (
-      <Card>
-        <CardContent className="py-12 text-center text-sm text-muted-foreground">
-          Loading notification settings...
-        </CardContent>
+      <Card className="gap-0 py-0">
+        <CardHeader className="space-y-2 border-b py-4"><Skeleton className="h-5 w-40" /><Skeleton className="h-3 w-80 max-w-full" /></CardHeader>
+        <CardContent className="space-y-4 py-5"><div className="flex flex-wrap gap-2"><Skeleton className="h-14 w-64 max-w-full" /><Skeleton className="h-14 w-64 max-w-full" /></div><Skeleton className="h-10 w-full" /></CardContent>
+        <CardFooter className="flex justify-between"><Skeleton className="h-4 w-36" /><Skeleton className="h-9 w-72 max-w-full" /></CardFooter>
       </Card>
     );
   }
@@ -175,7 +176,7 @@ export function NotificationSettingsForm() {
                       <button
                         type="button"
                         onClick={() => removeEmail(email)}
-                        className="shrink-0 text-muted-foreground hover:text-foreground"
+                        className="shrink-0 rounded-sm text-muted-foreground transition-colors duration-150 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                         aria-label={`Remove ${email}`}
                         title={`Remove ${email}`}
                       >
@@ -236,6 +237,8 @@ export function NotificationSettingsForm() {
                 testMutation.isPending ||
                 updateMutation.isPending
               }
+              aria-busy={testMutation.isPending}
+              className="min-w-[8.75rem]"
             >
               {testMutation.isPending ? (
                 <LoaderCircle className="size-4 animate-spin" />
@@ -249,6 +252,7 @@ export function NotificationSettingsForm() {
               variant="outline"
               onClick={discardChanges}
               disabled={!hasChanges || updateMutation.isPending}
+              className="min-w-[5rem]"
             >
               Discard
             </Button>
@@ -256,6 +260,8 @@ export function NotificationSettingsForm() {
               type="button"
               onClick={saveChanges}
               disabled={!hasChanges || updateMutation.isPending}
+              aria-busy={updateMutation.isPending}
+              className="min-w-[8rem]"
             >
               {updateMutation.isPending && (
                 <LoaderCircle className="size-4 animate-spin" />

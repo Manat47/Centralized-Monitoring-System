@@ -15,6 +15,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
   TableBody,
@@ -117,7 +118,7 @@ export function UsersTable() {
     <Card className="gap-0 py-0">
       <CardContent className="p-0">
         <div className="flex flex-wrap items-end gap-3 border-b p-4">
-          <div className="min-w-64 flex-1 space-y-1.5">
+          <div className="w-full min-w-0 flex-1 space-y-1.5 sm:min-w-64">
             <label
               htmlFor="user-search"
               className="text-xs font-medium text-muted-foreground"
@@ -150,7 +151,7 @@ export function UsersTable() {
                 setPage(1);
               }}
             >
-              <SelectTrigger className="h-9 w-40">
+              <SelectTrigger className="h-9 w-full sm:w-40">
                 <SelectValue>
                   {role === "ALL" ? "All roles" : formatRole(role)}
                 </SelectValue>
@@ -174,7 +175,7 @@ export function UsersTable() {
                 setPage(1);
               }}
             >
-              <SelectTrigger className="h-9 w-40">
+              <SelectTrigger className="h-9 w-full sm:w-40">
                 <SelectValue>
                   {status === "ALL" ? "All statuses" : formatStatus(status)}
                 </SelectValue>
@@ -207,7 +208,7 @@ export function UsersTable() {
         </div>
 
         <div className="overflow-x-auto">
-          <Table>
+          <Table className="min-w-[980px]">
             <TableHeader>
               <TableRow>
                 <TableHead>Name</TableHead>
@@ -224,14 +225,17 @@ export function UsersTable() {
               className={usersQuery.isFetching ? "opacity-60" : undefined}
             >
               {usersQuery.isLoading ? (
-                <TableRow>
-                  <TableCell
-                    colSpan={7}
-                    className="h-32 text-center text-sm text-muted-foreground"
-                  >
-                    Loading users...
-                  </TableCell>
-                </TableRow>
+                Array.from({ length: 6 }).map((_, index) => (
+                  <TableRow key={index}>
+                    <TableCell><Skeleton className="h-4 w-28" /></TableCell>
+                    <TableCell><Skeleton className="h-3 w-40" /></TableCell>
+                    <TableCell><Skeleton className="h-5 w-20" /></TableCell>
+                    <TableCell><Skeleton className="h-5 w-24" /></TableCell>
+                    <TableCell><Skeleton className="h-3 w-28" /></TableCell>
+                    <TableCell><Skeleton className="h-3 w-28" /></TableCell>
+                    <TableCell><Skeleton className="ml-auto h-8 w-32" /></TableCell>
+                  </TableRow>
+                ))
               ) : users.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={7} className="h-32 text-center">
@@ -257,7 +261,7 @@ export function UsersTable() {
                   const isCurrentUser = currentUser?.userId === user.userId;
 
                   return (
-                    <TableRow key={user.userId}>
+                    <TableRow key={user.userId} className="transition-colors duration-150">
                       <TableCell>
                         <div className="flex items-center gap-2">
                           <span className="font-medium">
