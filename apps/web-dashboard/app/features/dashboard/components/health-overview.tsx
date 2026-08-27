@@ -1,12 +1,10 @@
 "use client";
 
 import { Activity } from "lucide-react";
-
+import { cn } from "@/lib/utils";
 import { useAssets } from "@/app/features/assets/api/use-assets";
 import { useHealthCheckTargets } from "@/app/features/health-checks/api/use-health-check-targets";
-import type {
-  HealthCheckTarget,
-} from "@/app/features/health-checks/types/health-check";
+import type { HealthCheckTarget } from "@/app/features/health-checks/types/health-check";
 import { getHealthResultStatus } from "@/app/features/health-checks/components/health-check-status";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -28,6 +26,37 @@ function formatCheckedAt(value: string | null): string {
     minute: "2-digit",
     second: "2-digit",
   }).format(new Date(value));
+}
+
+function HealthOverviewSkeleton() {
+  return (
+    <Card className="border-slate-200 bg-white shadow-none">
+      <CardHeader className="border-b border-slate-100 px-5 py-4">
+        <div className="h-4 w-32 animate-pulse rounded bg-slate-100" />
+        <div className="mt-2 h-3 w-52 animate-pulse rounded bg-slate-100" />
+      </CardHeader>
+
+      <CardContent className="p-0">
+        <div className="border-b border-slate-100 bg-slate-50/70 px-5 py-3">
+          <div className="h-3 w-full animate-pulse rounded bg-slate-100" />
+        </div>
+
+        <div className="divide-y divide-slate-100">
+          {Array.from({ length: 4 }).map((_, index) => (
+            <div
+              key={index}
+              className="grid grid-cols-[1fr_1.5fr_0.8fr_0.5fr] items-center gap-4 px-5 py-4"
+            >
+              <div className="h-3 w-24 animate-pulse rounded bg-slate-100" />
+              <div className="h-3 w-36 animate-pulse rounded bg-slate-100" />
+              <div className="h-3 w-20 animate-pulse rounded bg-slate-100" />
+              <div className="h-3 w-10 animate-pulse rounded bg-slate-100" />
+            </div>
+          ))}
+        </div>
+      </CardContent>
+    </Card>
+  );
 }
 
 export function HealthOverview() {
@@ -60,13 +89,7 @@ export function HealthOverview() {
   });
 
   if (targetsLoading) {
-    return (
-      <Card className="border-slate-200 shadow-none">
-        <CardContent className="py-10 text-center text-sm text-slate-500">
-          Loading health checks...
-        </CardContent>
-      </Card>
-    );
+    return <HealthOverviewSkeleton />;
   }
 
   if (targetsError) {
@@ -127,9 +150,12 @@ export function HealthOverview() {
 
             <TableBody>
               {rows.map(({ target, latest, status, assetName }) => (
-                <TableRow key={target.healthCheckTargetId}>
+                <TableRow
+                  key={target.healthCheckTargetId}
+                  className="group transition-colors duration-150 ease-out hover:bg-slate-50/80"
+                >
                   <TableCell>
-                    <p className="text-sm font-medium text-slate-900">
+                    <p className="text-sm font-medium text-slate-900 transition-colors duration-150 group-hover:text-slate-950">
                       {assetName}
                     </p>
                   </TableCell>
@@ -137,7 +163,7 @@ export function HealthOverview() {
                   <TableCell>
                     <p
                       title={target.url}
-                      className="max-w-80 truncate text-xs text-slate-600"
+                      className="max-w-80 truncate text-xs text-slate-600 transition-colors duration-150 group-hover:text-slate-800"
                     >
                       {target.url}
                     </p>
@@ -146,38 +172,42 @@ export function HealthOverview() {
                   <TableCell>
                     <div className="flex items-center gap-2">
                       <span
-                        className={
+                        className={cn(
+                          "flex size-5 items-center justify-center rounded-full",
                           status === "AVAILABLE"
-                            ? "size-2 rounded-full bg-emerald-500"
+                            ? "bg-emerald-50"
                             : status === "UNAVAILABLE"
-                              ? "size-2 rounded-full bg-rose-500"
+                              ? "bg-rose-50"
                               : status === "STALE"
-                                ? "size-2 rounded-full bg-amber-500"
-                              : "size-2 rounded-full bg-slate-300"
-                        }
-                      />
-
-                      <span className="text-xs font-medium text-slate-700">
-                        {status === "AVAILABLE"
-                          ? "Available"
-                          : status === "UNAVAILABLE"
-                            ? "Unavailable"
-                            : status === "STALE"
-                              ? "Stale"
-                            : "Unknown"}
+                                ? "bg-amber-50"
+                                : "bg-slate-100",
+                        )}
+                      >
+                        <span
+                          className={cn(
+                            "size-2 rounded-full",
+                            status === "AVAILABLE"
+                              ? "bg-emerald-500"
+                              : status === "UNAVAILABLE"
+                                ? "bg-rose-500"
+                                : status === "STALE"
+                                  ? "bg-amber-500"
+                                  : "bg-slate-400",
+                          )}
+                        />
                       </span>
                     </div>
                   </TableCell>
 
-                  <TableCell className="text-xs text-slate-600">
+                  <TableCell className="text-xs tabular-nums text-slate-600">
                     {latest?.statusCode ?? "—"}
                   </TableCell>
 
-                  <TableCell className="text-right text-xs text-slate-600">
+                  <TableCell className="text-right text-xs tabular-nums text-slate-600">
                     {latest ? `${latest.responseTimeMs} ms` : "—"}
                   </TableCell>
 
-                  <TableCell className="text-right text-xs text-slate-500">
+                  <TableCell className="text-right text-xs tabular-nums text-slate-500">
                     {formatCheckedAt(latest?.timestamp ?? target.lastCheckedAt)}
                   </TableCell>
                 </TableRow>
