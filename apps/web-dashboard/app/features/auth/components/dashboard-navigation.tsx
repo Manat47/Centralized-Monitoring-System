@@ -17,6 +17,11 @@ import {
 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 import { useAuth } from "./auth-provider";
 
@@ -35,6 +40,11 @@ interface NavigationItem {
 interface NavigationGroup {
   label: string;
   items: NavigationItem[];
+}
+
+interface DashboardNavigationProps {
+  collapsed?: boolean;
+  onNavigate?: () => void;
 }
 
 const navigationGroups: NavigationGroup[] = [
@@ -120,14 +130,20 @@ const navigationGroups: NavigationGroup[] = [
   },
 ];
 
-export function DashboardNavigation() {
+export function DashboardNavigation({
+  collapsed = false,
+  onNavigate,
+}: DashboardNavigationProps) {
   const pathname = usePathname();
   const { user } = useAuth();
 
   return (
-    <nav className="flex-1 overflow-y-auto px-3 py-5">
-      <div className="space-y-6">
-        {navigationGroups.map((group) => {
+    <nav
+      aria-label="Primary navigation"
+      className={cn("flex-1 overflow-y-auto py-5", collapsed ? "px-2" : "px-3")}
+    >
+      <div className={cn(collapsed ? "space-y-4" : "space-y-6")}>
+        {navigationGroups.map((group, groupIndex) => {
           const visibleItems = group.items.filter((item) => {
             if (!item.roles) {
               return true;
@@ -141,10 +157,17 @@ export function DashboardNavigation() {
           }
 
           return (
-            <div key={group.label}>
-              <p className="mb-2 px-2 text-[10px] font-semibold tracking-[0.14em] text-slate-500">
-                {group.label}
-              </p>
+            <div
+              key={group.label}
+              className={cn(
+                collapsed && groupIndex > 0 && "border-t border-slate-800 pt-4",
+              )}
+            >
+              {!collapsed && (
+                <p className="mb-2 px-2 text-[10px] font-semibold tracking-[0.14em] text-slate-500">
+                  {group.label}
+                </p>
+              )}
 
               <div className="space-y-1">
                 {visibleItems.map((item) => {
@@ -158,28 +181,45 @@ export function DashboardNavigation() {
                     return (
                       <div
                         key={item.href}
-                        className="flex h-9 cursor-not-allowed items-center gap-3 rounded-md px-2.5 text-sm text-slate-500"
+                        className={cn(
+                          "flex h-9 cursor-not-allowed items-center rounded-md text-sm text-slate-500",
+                          collapsed ? "justify-center px-0" : "gap-3 px-2.5",
+                        )}
                       >
                         <Icon className="size-4 shrink-0" />
-                        <span>{item.label}</span>
+                        {!collapsed && <span>{item.label}</span>}
                       </div>
                     );
                   }
 
-                  return (
+                  const navigationLink = (
                     <Link
                       key={item.href}
                       href={item.href}
+                      aria-label={collapsed ? item.label : undefined}
+                      onClick={onNavigate}
                       className={cn(
-                        "flex h-9 items-center gap-3 rounded-md px-2.5 text-sm font-medium transition-colors",
+                        "flex h-9 items-center rounded-md text-sm font-medium transition-colors",
+                        collapsed ? "justify-center px-0" : "gap-3 px-2.5",
                         isActive
                           ? "bg-slate-800 text-white"
                           : "text-slate-300 hover:bg-slate-800/70 hover:text-white",
                       )}
                     >
                       <Icon className="size-4 shrink-0" />
-                      <span>{item.label}</span>
+                      {!collapsed && <span>{item.label}</span>}
                     </Link>
+                  );
+
+                  if (!collapsed) {
+                    return navigationLink;
+                  }
+
+                  return (
+                    <Tooltip key={item.href}>
+                      <TooltipTrigger render={navigationLink} />
+                      <TooltipContent>{item.label}</TooltipContent>
+                    </Tooltip>
                   );
                 })}
               </div>
