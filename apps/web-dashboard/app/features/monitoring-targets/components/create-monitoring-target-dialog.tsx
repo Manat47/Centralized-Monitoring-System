@@ -1,12 +1,7 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
-import {
-  CheckCircle2,
-  CircleX,
-  LoaderCircle,
-  Plus,
-} from "lucide-react";
+import { CheckCircle2, CircleX, LoaderCircle, Plus } from "lucide-react";
 
 import { AdminOnly } from "@/app/features/auth/components/admin-only";
 import { useAssets } from "@/app/features/assets/api/use-assets";
@@ -70,8 +65,9 @@ export function CreateMonitoringTargetDialog() {
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState<WizardStep>(1);
   const [form, setForm] = useState<CreateMonitoringTargetInput>(initialForm);
-  const [createdTarget, setCreatedTarget] =
-    useState<MonitoringTarget | null>(null);
+  const [createdTarget, setCreatedTarget] = useState<MonitoringTarget | null>(
+    null,
+  );
   const [verificationRequestError, setVerificationRequestError] = useState<
     string | null
   >(null);
@@ -181,7 +177,20 @@ export function CreateMonitoringTargetDialog() {
   return (
     <AdminOnly>
       <Dialog open={open} onOpenChange={handleOpenChange}>
-        <DialogTrigger render={<Button type="button" />}>
+        <DialogTrigger
+          render={
+            <Button
+              type="button"
+              className="
+        gap-2 bg-blue-600 text-white
+        shadow-sm shadow-blue-950/5
+        transition-[background-color,box-shadow,transform] duration-150
+        hover:bg-blue-700 hover:shadow
+        active:scale-[0.99] active:bg-blue-800
+      "
+            />
+          }
+        >
           <Plus className="size-4" />
           Create Target
         </DialogTrigger>
@@ -232,10 +241,10 @@ export function CreateMonitoringTargetDialog() {
                 ) : availableAssets.length === 0 &&
                   !assetsQuery.isLoading &&
                   !targetsQuery.isLoading ? (
-                    <p className="text-xs text-slate-500">
-                      No active server assets without a monitoring target.
-                    </p>
-                  ) : null}
+                  <p className="text-xs text-slate-500">
+                    No active server assets without a monitoring target.
+                  </p>
+                ) : null}
               </div>
 
               <DialogFooter>
@@ -362,7 +371,9 @@ export function CreateMonitoringTargetDialog() {
                   Back
                 </Button>
                 <Button type="submit" disabled={isVerifying}>
-                  {isVerifying && <LoaderCircle className="size-4 animate-spin" />}
+                  {isVerifying && (
+                    <LoaderCircle className="size-4 animate-spin" />
+                  )}
                   {isVerifying ? "Verifying..." : "Verify connection"}
                 </Button>
               </DialogFooter>
@@ -379,7 +390,8 @@ export function CreateMonitoringTargetDialog() {
                       Verification successful
                     </p>
                     <p className="mt-1 text-xs">
-                      Node Exporter is reachable at {form.protocol?.toLowerCase()}
+                      Node Exporter is reachable at{" "}
+                      {form.protocol?.toLowerCase()}
                       ://{getServerAddress(selectedAsset)}:{form.port}
                       {form.path}.
                     </p>
@@ -410,7 +422,9 @@ export function CreateMonitoringTargetDialog() {
                 <Button
                   type="button"
                   variant="outline"
-                  disabled={verifyMutation.isPending || enableMutation.isPending}
+                  disabled={
+                    verifyMutation.isPending || enableMutation.isPending
+                  }
                   onClick={() => handleOpenChange(false)}
                 >
                   Close
@@ -438,7 +452,9 @@ export function CreateMonitoringTargetDialog() {
                     {verifyMutation.isPending && (
                       <LoaderCircle className="size-4 animate-spin" />
                     )}
-                    {verifyMutation.isPending ? "Verifying..." : "Retry verification"}
+                    {verifyMutation.isPending
+                      ? "Verifying..."
+                      : "Retry verification"}
                   </Button>
                 )}
               </DialogFooter>
@@ -457,7 +473,10 @@ function WizardProgress({ currentStep }: { currentStep: WizardStep }) {
         const active = item.value <= currentStep;
 
         return (
-          <div key={item.value} className="flex min-w-0 flex-1 items-center gap-2">
+          <div
+            key={item.value}
+            className="flex min-w-0 flex-1 items-center gap-2"
+          >
             <span
               className={
                 active
