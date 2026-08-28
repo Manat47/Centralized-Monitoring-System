@@ -4,6 +4,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 import { createMonitoringTarget } from "./create-monitoring-target";
 import {
+  archiveMonitoringTarget,
   collectMonitoringTarget,
   disableMonitoringTarget,
   enableMonitoringTarget,
@@ -62,6 +63,23 @@ export function useDisableMonitoringTarget() {
       await queryClient.invalidateQueries({
         queryKey: ["monitoring-targets"],
       });
+    },
+  });
+}
+
+export function useArchiveMonitoringTarget() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: archiveMonitoringTarget,
+
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["monitoring-targets"] }),
+        queryClient.invalidateQueries({ queryKey: ["metric-rules"] }),
+        queryClient.invalidateQueries({ queryKey: ["alerts"] }),
+        queryClient.invalidateQueries({ queryKey: ["dashboard"] }),
+      ]);
     },
   });
 }

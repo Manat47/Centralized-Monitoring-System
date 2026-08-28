@@ -171,6 +171,56 @@ describe('ProcessAlertEventUseCase', () => {
     });
   });
 
+  it('resolves only metric alerts when a monitoring target is archived', async () => {
+    const assetId = randomUUID();
+    const metricAlert = Alert.create(randomUUID(), {
+      ruleId: randomUUID(),
+      assetId,
+      metricType: 'CPU_USAGE',
+      severity: 'WARNING',
+      thresholdValue: 80,
+      actualValue: 90,
+      message: 'CPU usage exceeded threshold',
+      triggeredAt: new Date('2026-08-28T10:00:00.000Z'),
+    });
+    const healthAlert = Alert.create(randomUUID(), {
+      sourceType: 'HEALTH_CHECK',
+      sourceId: randomUUID(),
+      alertType: 'ENDPOINT_UNAVAILABLE',
+      assetId,
+      metricType: 'HTTP',
+      severity: 'CRITICAL',
+      actualText: 'No response',
+      message: 'Endpoint unavailable',
+      triggeredAt: new Date('2026-08-28T10:00:00.000Z'),
+    });
+    alertRepository.findActiveByAssetId.mockResolvedValue([
+      metricAlert,
+      healthAlert,
+    ]);
+    alertRepository.update.mockImplementation((alert) =>
+      Promise.resolve(alert),
+    );
+
+    const result = await useCase.execute({
+      eventId: randomUUID(),
+      eventType: 'MONITORING_TARGET_STATE_CHANGED',
+      monitoringTargetId: randomUUID(),
+      assetId,
+      monitoringType: 'NODE_EXPORTER',
+      state: 'ARCHIVED',
+      occurredAt: '2026-08-28T10:05:00.000Z',
+    });
+
+    expect(result).toBeNull();
+    expect(metricAlert.toObject()).toMatchObject({
+      status: 'RESOLVED',
+      resolutionReason: 'MONITORING_TARGET_ARCHIVED',
+    });
+    expect(healthAlert.toObject().status).toBe('TRIGGERED');
+    expect(alertRepository.update).toHaveBeenCalledTimes(1);
+  });
+
   it('ignores a duplicate event id', async () => {
     alertRepository.claimEvent.mockResolvedValue(false);
 

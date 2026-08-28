@@ -1,4 +1,9 @@
-import { Inject, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Inject,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 
 import { MonitoringTarget } from '../../domain/entities/monitoring-target.entity';
 import {
@@ -54,6 +59,12 @@ export class VerifyMonitoringTargetUseCase {
     if (!target) {
       throw new NotFoundException(
         `Monitoring target with ID ${targetId} not found`,
+      );
+    }
+
+    if (target.toObject().archivedAt) {
+      throw new BadRequestException(
+        'Archived monitoring target cannot be verified',
       );
     }
 

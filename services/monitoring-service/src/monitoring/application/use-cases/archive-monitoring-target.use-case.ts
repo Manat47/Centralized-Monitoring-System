@@ -5,45 +5,43 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 
-import { MonitoringTarget } from '../../domain/entities/monitoring-target.entity';
-import {
-  MONITORING_TARGET_REPOSITORY,
-  type MonitoringTargetRepository,
-} from '../../domain/repositories/monitoring-target.repository';
+import type { MonitoringTarget } from '../../domain/entities/monitoring-target.entity';
 import {
   AUDIT_EVENT_PUBLISHER,
   type AuditEventPublisher,
+  type UserRole,
 } from '../../domain/ports/audit-event-publisher.port';
 import {
   ASSET_READER,
   type AssetReader,
 } from '../../domain/ports/asset-reader.port';
+import {
+  MONITORING_TARGET_REPOSITORY,
+  type MonitoringTargetRepository,
+} from '../../domain/repositories/monitoring-target.repository';
 import { MonitoringTargetMetricLifecycleService } from '../services/monitoring-target-metric-lifecycle.service';
 
-export interface DisableMonitoringInput {
+export interface ArchiveMonitoringTargetInput {
   actorUserId: string;
-  actorRole: 'ADMIN' | 'OPERATOR';
+  actorRole: UserRole;
   actorEmail?: string | null;
 }
 
 @Injectable()
-export class DisableMonitoringUseCase {
+export class ArchiveMonitoringTargetUseCase {
   constructor(
     @Inject(MONITORING_TARGET_REPOSITORY)
     private readonly monitoringTargetRepository: MonitoringTargetRepository,
-
     @Inject(AUDIT_EVENT_PUBLISHER)
     private readonly auditEventPublisher: AuditEventPublisher,
-
     @Inject(ASSET_READER)
     private readonly assetReader: AssetReader,
-
     private readonly metricLifecycle: MonitoringTargetMetricLifecycleService,
   ) {}
 
   async execute(
     targetId: string,
-    input: DisableMonitoringInput,
+    input: ArchiveMonitoringTargetInput,
   ): Promise<MonitoringTarget> {
     const target = await this.monitoringTargetRepository.findById(targetId);
 
@@ -53,19 +51,21 @@ export class DisableMonitoringUseCase {
       );
     }
 
-    if (target.toObject().archivedAt) {
+    try {
+      target.archive();
+    } catch (error) {
       throw new BadRequestException(
-        'Archived monitoring target cannot be disabled',
+        error instanceof Error
+          ? error.message
+          : 'Monitoring target cannot be archived',
       );
     }
 
-    target.disableMonitoring();
-
-    const updatedTarget = await this.monitoringTargetRepository.update(target);
-    const data = updatedTarget.toObject();
+    const archivedTarget = await this.monitoringTargetRepository.update(target);
+    const data = archivedTarget.toObject();
     const affectedRuleCount = await this.metricLifecycle.transition(
-      updatedTarget,
-      'PAUSED',
+      archivedTarget,
+      'ARCHIVED',
     );
     const asset = await this.assetReader.findById(data.assetId);
 
@@ -73,23 +73,19 @@ export class DisableMonitoringUseCase {
       actorUserId: input.actorUserId,
       actorRole: input.actorRole,
       actorEmail: input.actorEmail,
-
-      action: 'MONITORING_TARGET_DISABLED',
-
+      action: 'MONITORING_TARGET_ARCHIVED',
       resourceType: 'MONITORING_TARGET',
       resourceId: targetId,
       resourceName: asset ? `${asset.name} monitoring target` : null,
-
       result: 'SUCCESS',
       metadata: {
         assetId: data.assetId,
-        monitoringEnabled: false,
+        monitoringType: data.monitoringType,
         affectedEnabledMetricRules: affectedRuleCount,
       },
-
-      occurredAt: new Date(),
+      occurredAt: data.updatedAt,
     });
 
-    return updatedTarget;
+    return archivedTarget;
   }
 }

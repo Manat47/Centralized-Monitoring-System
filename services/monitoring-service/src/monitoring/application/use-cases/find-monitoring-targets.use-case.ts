@@ -13,7 +13,7 @@ export class FindMonitoringTargetsUseCase {
     private readonly monitoringTargetRepository: MonitoringTargetRepository,
   ) {}
 
-  async execute(): Promise<MonitoringTarget[]> {
-    return this.monitoringTargetRepository.findAll();
+  async execute(includeArchived = false): Promise<MonitoringTarget[]> {
+    return this.monitoringTargetRepository.findAll(includeArchived);
   }
 }

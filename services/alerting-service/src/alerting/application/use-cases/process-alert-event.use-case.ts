@@ -25,6 +25,7 @@ import type {
   MetricThresholdExceededEvent,
   MetricThresholdRecoveredEvent,
   MetricRuleStateChangedEvent,
+  MonitoringTargetStateChangedEvent,
 } from '../contracts/alert-event';
 
 const HEALTH_FAILURE_THRESHOLD = 2;
@@ -59,6 +60,11 @@ export class ProcessAlertEventUseCase {
 
       if (event.eventType === 'METRIC_RULE_STATE_CHANGED') {
         return await this.processMetricRuleStateChanged(event);
+      }
+
+      if (event.eventType === 'MONITORING_TARGET_STATE_CHANGED') {
+        await this.processMonitoringTargetStateChanged(event);
+        return null;
       }
 
       if (event.eventType === 'HEALTH_CHECK_TARGET_STATE_CHANGED') {
@@ -194,6 +200,40 @@ export class ProcessAlertEventUseCase {
       reason,
       message,
     );
+  }
+
+  private async processMonitoringTargetStateChanged(
+    event: MonitoringTargetStateChangedEvent,
+  ): Promise<void> {
+    if (event.state === 'RUNNING' || event.monitoringType !== 'NODE_EXPORTER') {
+      return;
+    }
+
+    const reason: AlertResolutionReason =
+      event.state === 'ARCHIVED'
+        ? 'MONITORING_TARGET_ARCHIVED'
+        : 'MONITORING_TARGET_PAUSED';
+    const message =
+      event.state === 'ARCHIVED'
+        ? 'Metric alert resolved because its monitoring target was archived'
+        : 'Metric alert resolved because its monitoring target was paused';
+    const activeAlerts = await this.alertRepository.findActiveByAssetId(
+      event.assetId,
+    );
+
+    for (const alert of activeAlerts) {
+      if (alert.toObject().sourceType !== 'METRIC_RULE') {
+        continue;
+      }
+
+      await this.resolveAlert(
+        alert,
+        null,
+        new Date(event.occurredAt),
+        reason,
+        message,
+      );
+    }
   }
 
   private async processHealthResult(

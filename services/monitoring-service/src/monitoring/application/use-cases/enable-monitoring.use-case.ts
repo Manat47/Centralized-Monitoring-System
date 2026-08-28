@@ -21,6 +21,7 @@ import {
 import { MonitoringEndpointResolver } from '../services/monitoring-endpoint-resolver.service';
 import { MonitoringConfigFingerprintService } from '../services/monitoring-config-fingerprint.service';
 import { MonitoringVerificationRequiredException } from '../errors/monitoring-verification-required.exception';
+import { MonitoringTargetMetricLifecycleService } from '../services/monitoring-target-metric-lifecycle.service';
 
 export interface EnableMonitoringInput {
   actorUserId: string;
@@ -43,6 +44,8 @@ export class EnableMonitoringUseCase {
     private readonly monitoringEndpointResolver: MonitoringEndpointResolver,
 
     private readonly monitoringConfigFingerprintService: MonitoringConfigFingerprintService,
+
+    private readonly metricLifecycle: MonitoringTargetMetricLifecycleService,
   ) {}
 
   async execute(
@@ -58,6 +61,12 @@ export class EnableMonitoringUseCase {
     }
 
     const targetData = target.toObject();
+
+    if (targetData.archivedAt) {
+      throw new BadRequestException(
+        'Archived monitoring target cannot be enabled',
+      );
+    }
 
     const asset = await this.assetReader.findById(targetData.assetId);
 
@@ -105,6 +114,11 @@ export class EnableMonitoringUseCase {
 
     const updatedTarget = await this.monitoringTargetRepository.update(target);
 
+    const affectedRuleCount = await this.metricLifecycle.transition(
+      updatedTarget,
+      'RUNNING',
+    );
+
     await this.auditEventPublisher.publish({
       actorUserId: input.actorUserId,
       actorRole: input.actorRole,
@@ -120,6 +134,7 @@ export class EnableMonitoringUseCase {
       metadata: {
         assetId: targetData.assetId,
         monitoringEnabled: true,
+        affectedEnabledMetricRules: affectedRuleCount,
       },
 
       occurredAt: new Date(),

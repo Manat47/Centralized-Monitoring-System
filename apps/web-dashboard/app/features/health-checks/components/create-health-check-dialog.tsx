@@ -36,10 +36,14 @@ export function CreateHealthCheckDialog() {
   const assetsQuery = useAssets();
   const createMutation = useCreateHealthCheckTarget();
   const applications = (assetsQuery.data ?? []).filter(
-    (asset) => asset.targetType === "APPLICATION" && asset.status !== "DEACTIVATE",
+    (asset) =>
+      asset.targetType === "APPLICATION" && asset.status !== "DEACTIVATE",
   );
   const selectedAsset = applications.find((asset) => asset.assetId === assetId);
-  const originMismatch = hasOriginMismatch(selectedAsset?.endpoint ?? null, url);
+  const originMismatch = hasOriginMismatch(
+    selectedAsset?.endpoint ?? null,
+    url,
+  );
 
   function reset() {
     setAssetId("");
@@ -71,7 +75,20 @@ export function CreateHealthCheckDialog() {
   return (
     <AdminOnly>
       <Dialog open={open} onOpenChange={handleOpenChange}>
-        <DialogTrigger render={<Button type="button" />}>
+        <DialogTrigger
+          render={
+            <Button
+              type="button"
+              className="
+        gap-2 bg-blue-600 text-white
+        shadow-sm shadow-blue-950/5
+        transition-[background-color,box-shadow,transform] duration-150
+        hover:bg-blue-700 hover:shadow
+        active:scale-[0.99] active:bg-blue-800
+      "
+            />
+          }
+        >
           <Plus className="size-4" />
           Create Health Check
         </DialogTrigger>
@@ -90,7 +107,9 @@ export function CreateHealthCheckDialog() {
                 value={assetId}
                 onValueChange={(value) => {
                   const nextId = value ?? "";
-                  const asset = applications.find((item) => item.assetId === nextId);
+                  const asset = applications.find(
+                    (item) => item.assetId === nextId,
+                  );
                   setAssetId(nextId);
                   setUrl(asset?.endpoint ?? "");
                 }}
@@ -100,7 +119,11 @@ export function CreateHealthCheckDialog() {
                     {selectedAsset?.name}
                   </SelectValue>
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent
+                  alignItemWithTrigger={false}
+                  sideOffset={6}
+                  className="duration-150"
+                >
                   {applications.map((asset) => (
                     <SelectItem key={asset.assetId} value={asset.assetId}>
                       {asset.name}
@@ -123,7 +146,8 @@ export function CreateHealthCheckDialog() {
               {originMismatch && (
                 <p className="flex items-start gap-1.5 text-xs text-amber-700">
                   <AlertTriangle className="mt-0.5 size-3.5 shrink-0" />
-                  This URL uses a different origin from the application endpoint.
+                  This URL uses a different origin from the application
+                  endpoint.
                 </p>
               )}
             </div>
@@ -149,11 +173,27 @@ export function CreateHealthCheckDialog() {
             )}
 
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => handleOpenChange(false)}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => handleOpenChange(false)}
+              >
                 Cancel
               </Button>
-              <Button type="submit" disabled={!assetId || createMutation.isPending}>
-                {createMutation.isPending && <LoaderCircle className="size-4 animate-spin" />}
+              <Button
+                type="submit"
+                disabled={!assetId || createMutation.isPending}
+                className="
+    bg-blue-600 text-white
+    shadow-sm shadow-blue-950/5
+    transition-[background-color,box-shadow,transform] duration-150
+    hover:bg-blue-700 hover:shadow
+    active:scale-[0.99] active:bg-blue-800
+  "
+              >
+                {createMutation.isPending && (
+                  <LoaderCircle className="size-4 animate-spin" />
+                )}
                 {createMutation.isPending ? "Creating..." : "Create check"}
               </Button>
             </DialogFooter>

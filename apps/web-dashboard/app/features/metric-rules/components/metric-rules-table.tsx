@@ -62,6 +62,17 @@ import type {
   MetricRuleType,
   UpdateMetricRuleInput,
 } from "../types/metric-rule";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogMedia,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 const metricLabels: Record<MetricRuleType, string> = {
   CPU_USAGE: "CPU Usage",
@@ -117,6 +128,7 @@ export function MetricRulesTable() {
   >("CURRENT");
   const [evaluation, setEvaluation] = useState("ALL");
   const [editingRule, setEditingRule] = useState<MetricRule | null>(null);
+  const [archiveTarget, setArchiveTarget] = useState<MetricRule | null>(null);
   const rulesQuery = useMetricRules(true);
   const assetsQuery = useAssets();
   const enableMutation = useEnableMetricRule();
@@ -184,7 +196,11 @@ export function MetricRulesTable() {
                   {metric === "ALL" ? "All metrics" : metricLabels[metric]}
                 </SelectValue>
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent
+                alignItemWithTrigger={false}
+                sideOffset={6}
+                className="duration-150"
+              >
                 <SelectItem value="ALL">All metrics</SelectItem>
                 <SelectItem value="CPU_USAGE">CPU Usage</SelectItem>
                 <SelectItem value="MEMORY_USAGE">Memory Usage</SelectItem>
@@ -206,7 +222,11 @@ export function MetricRulesTable() {
                       : "Critical"}
                 </SelectValue>
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent
+                alignItemWithTrigger={false}
+                sideOffset={6}
+                className="duration-150"
+              >
                 <SelectItem value="ALL">All severities</SelectItem>
                 <SelectItem value="WARNING">Warning</SelectItem>
                 <SelectItem value="CRITICAL">Critical</SelectItem>
@@ -221,7 +241,11 @@ export function MetricRulesTable() {
                   {evaluation === "ALL" ? "All evaluations" : evaluation}
                 </SelectValue>
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent
+                alignItemWithTrigger={false}
+                sideOffset={6}
+                className="duration-150"
+              >
                 <SelectItem value="ALL">All evaluations</SelectItem>
                 <SelectItem value="Normal">Normal</SelectItem>
                 <SelectItem value="Pending">Pending</SelectItem>
@@ -246,7 +270,11 @@ export function MetricRulesTable() {
                       : "All records"}
                 </SelectValue>
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent
+                alignItemWithTrigger={false}
+                sideOffset={6}
+                className="duration-150"
+              >
                 <SelectItem value="CURRENT">Current rules</SelectItem>
                 <SelectItem value="ARCHIVED">Archived rules</SelectItem>
                 <SelectItem value="ALL">All records</SelectItem>
@@ -274,9 +302,16 @@ export function MetricRulesTable() {
               <RotateCcw className="size-4" />
               Clear
             </Button>
-            <span className={cn("ml-auto text-xs text-slate-500", (rulesQuery.isFetching || assetsQuery.isFetching) && "animate-pulse")}>
+            <span
+              className={cn(
+                "ml-auto text-xs text-slate-500",
+                (rulesQuery.isFetching || assetsQuery.isFetching) &&
+                  "animate-pulse",
+              )}
+            >
               {filteredRules.length} of {rules.length} rules
-              {(rulesQuery.isFetching || assetsQuery.isFetching) && " · Updating"}
+              {(rulesQuery.isFetching || assetsQuery.isFetching) &&
+                " · Updating"}
             </span>
           </div>
           {actionError && (
@@ -295,12 +330,18 @@ export function MetricRulesTable() {
                 <TableHead>Severity</TableHead>
                 <TableHead>Rule status</TableHead>
                 <TableHead>Evaluation</TableHead>
-                <TableHead>Latest</TableHead>
-                <TableHead>Evaluated</TableHead>
+                <TableHead>Latest value</TableHead>
+                <TableHead>Last evaluated</TableHead>
                 <TableHead className="pr-4 text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
-            <TableBody className={cn("transition-opacity duration-150", (rulesQuery.isFetching || assetsQuery.isFetching) && "opacity-70")}>
+            <TableBody
+              className={cn(
+                "transition-opacity duration-150",
+                (rulesQuery.isFetching || assetsQuery.isFetching) &&
+                  "opacity-70",
+              )}
+            >
               {filteredRules.length === 0 ? (
                 <TableRow>
                   <TableCell
@@ -319,7 +360,10 @@ export function MetricRulesTable() {
                     archiveMutation.variables;
                   const pending = pendingId === rule.ruleId;
                   return (
-                    <TableRow key={rule.ruleId} className="transition-colors duration-150">
+                    <TableRow
+                      key={rule.ruleId}
+                      className="transition-colors duration-150 hover:bg-slate-50/70"
+                    >
                       <TableCell className="pl-4 font-medium text-slate-900">
                         {asset?.name ?? "Unknown asset"}
                       </TableCell>
@@ -344,7 +388,16 @@ export function MetricRulesTable() {
                         </Badge>
                       </TableCell>
                       <TableCell>
-                        <Badge variant="outline">
+                        <Badge
+                          variant="outline"
+                          className={
+                            rule.archivedAt
+                              ? "border-slate-200 bg-slate-100 text-slate-600"
+                              : rule.enabled
+                                ? "border-blue-200 bg-blue-50 text-blue-700"
+                                : "border-slate-200 bg-white text-slate-500"
+                          }
+                        >
                           {rule.archivedAt
                             ? "Archived"
                             : rule.enabled
@@ -426,14 +479,7 @@ export function MetricRulesTable() {
                                     icon={Archive}
                                     label="Archive"
                                     destructive
-                                    onClick={() => {
-                                      if (
-                                        window.confirm(
-                                          "Archive this metric rule? Existing alert and audit history will remain available.",
-                                        )
-                                      )
-                                        archiveMutation.mutate(rule.ruleId);
-                                    }}
+                                    onClick={() => setArchiveTarget(rule)}
                                   />
                                 </MenuPrimitive.Popup>
                               </MenuPrimitive.Positioner>
@@ -449,6 +495,55 @@ export function MetricRulesTable() {
           </Table>
         </CardContent>
       </Card>
+
+      <AlertDialog
+        open={Boolean(archiveTarget)}
+        onOpenChange={(open) => {
+          if (!open && !archiveMutation.isPending) {
+            setArchiveTarget(null);
+          }
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogMedia className="bg-rose-50 text-rose-600">
+              <Archive />
+            </AlertDialogMedia>
+
+            <AlertDialogTitle>Archive metric rule?</AlertDialogTitle>
+
+            <AlertDialogDescription>
+              This metric rule will stop being used for evaluation. Existing
+              alert and audit history will remain available.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={archiveMutation.isPending}>
+              Cancel
+            </AlertDialogCancel>
+
+            <AlertDialogAction
+              variant="destructive"
+              disabled={!archiveTarget || archiveMutation.isPending}
+              onClick={() => {
+                if (!archiveTarget) return;
+
+                archiveMutation.mutate(archiveTarget.ruleId, {
+                  onSuccess: () => setArchiveTarget(null),
+                });
+              }}
+              className="min-w-[7.5rem]"
+            >
+              {archiveMutation.isPending && (
+                <LoaderCircle className="size-4 animate-spin" />
+              )}
+              {archiveMutation.isPending ? "Archiving..." : "Archive"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       <EditMetricRuleDialog
         key={editingRule?.ruleId ?? "closed"}
         rule={editingRule}
@@ -459,7 +554,31 @@ export function MetricRulesTable() {
 }
 
 function MetricRulesSkeleton() {
-  return <Card className="overflow-hidden border-slate-200 shadow-none"><CardContent className="p-0"><div className="flex flex-col gap-3 border-b border-slate-200 p-4 sm:flex-row sm:flex-wrap"><Skeleton className="h-8 w-full sm:w-60" />{Array.from({ length: 4 }).map((_, index) => <Skeleton key={index} className="h-8 w-full sm:w-40" />)}</div><Skeleton className="h-10 w-full rounded-none" />{Array.from({ length: 6 }).map((_, index) => <div key={index} className="grid h-16 grid-cols-[1fr_1fr_1.4fr_0.8fr_0.8fr] items-center gap-5 border-t border-slate-100 px-4"><Skeleton className="h-3 w-28" /><Skeleton className="h-3 w-24" /><Skeleton className="h-3 w-36" /><Skeleton className="h-5 w-20" /><Skeleton className="h-5 w-20" /></div>)}</CardContent></Card>;
+  return (
+    <Card className="overflow-hidden border-slate-200 shadow-none">
+      <CardContent className="p-0">
+        <div className="flex flex-col gap-3 border-b border-slate-200 p-4 sm:flex-row sm:flex-wrap">
+          <Skeleton className="h-8 w-full sm:w-60" />
+          {Array.from({ length: 4 }).map((_, index) => (
+            <Skeleton key={index} className="h-8 w-full sm:w-40" />
+          ))}
+        </div>
+        <Skeleton className="h-10 w-full rounded-none" />
+        {Array.from({ length: 6 }).map((_, index) => (
+          <div
+            key={index}
+            className="grid h-16 grid-cols-[1fr_1fr_1.4fr_0.8fr_0.8fr] items-center gap-5 border-t border-slate-100 px-4"
+          >
+            <Skeleton className="h-3 w-28" />
+            <Skeleton className="h-3 w-24" />
+            <Skeleton className="h-3 w-36" />
+            <Skeleton className="h-5 w-20" />
+            <Skeleton className="h-5 w-20" />
+          </div>
+        ))}
+      </CardContent>
+    </Card>
+  );
 }
 
 function MenuItem({
@@ -504,6 +623,14 @@ function MenuLink({
   );
 }
 
+type EditMetricRuleForm = Omit<
+  UpdateMetricRuleInput,
+  "thresholdValue" | "durationSeconds"
+> & {
+  thresholdValue: string;
+  durationSeconds: string;
+};
+
 function EditMetricRuleDialog({
   rule,
   onClose,
@@ -511,11 +638,11 @@ function EditMetricRuleDialog({
   rule: MetricRule | null;
   onClose: () => void;
 }) {
-  const [form, setForm] = useState<UpdateMetricRuleInput>(() => ({
+  const [form, setForm] = useState<EditMetricRuleForm>(() => ({
     metricType: rule?.metricType ?? "CPU_USAGE",
     operator: rule?.operator ?? "GREATER_THAN_OR_EQUAL",
-    thresholdValue: rule?.thresholdValue ?? 80,
-    durationSeconds: rule?.durationSeconds ?? 300,
+    thresholdValue: String(rule?.thresholdValue ?? 80),
+    durationSeconds: String(rule?.durationSeconds ?? 300),
     severity: rule?.severity ?? "WARNING",
   }));
   const mutation = useUpdateMetricRule();
@@ -523,7 +650,14 @@ function EditMetricRuleDialog({
     event.preventDefault();
     if (!rule) return;
     try {
-      await mutation.mutateAsync({ ruleId: rule.ruleId, input: form });
+      await mutation.mutateAsync({
+        ruleId: rule.ruleId,
+        input: {
+          ...form,
+          thresholdValue: Number(form.thresholdValue),
+          durationSeconds: Number(form.durationSeconds),
+        },
+      });
       onClose();
     } catch {}
   }
@@ -558,10 +692,20 @@ function EditMetricRuleDialog({
                   }))
                 }
               >
-                <SelectTrigger>
-                  <SelectValue />
+                <SelectTrigger className="h-10 w-full">
+                  <SelectValue>
+                    {form.metricType === "CPU_USAGE"
+                      ? "CPU Usage"
+                      : form.metricType === "MEMORY_USAGE"
+                        ? "Memory Usage"
+                        : "Disk Usage"}
+                  </SelectValue>
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent
+                  alignItemWithTrigger={false}
+                  sideOffset={6}
+                  className="duration-150"
+                >
                   <SelectItem value="CPU_USAGE">CPU Usage</SelectItem>
                   <SelectItem value="MEMORY_USAGE">Memory Usage</SelectItem>
                   <SelectItem value="DISK_USAGE">Disk Usage</SelectItem>
@@ -580,10 +724,18 @@ function EditMetricRuleDialog({
                   }))
                 }
               >
-                <SelectTrigger>
-                  <SelectValue />
+                <SelectTrigger className="h-10 w-full">
+                  <SelectValue>
+                    {form.operator === "GREATER_THAN"
+                      ? "Greater than (>)"
+                      : "Greater than or equal (>=)"}
+                  </SelectValue>
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent
+                  alignItemWithTrigger={false}
+                  sideOffset={6}
+                  className="duration-150"
+                >
                   <SelectItem value="GREATER_THAN">
                     Greater than (&gt;)
                   </SelectItem>
@@ -601,10 +753,16 @@ function EditMetricRuleDialog({
                 min={0}
                 max={100}
                 value={form.thresholdValue}
+                className="
+  h-8
+  focus-visible:border-blue-500
+  focus-visible:ring-2
+  focus-visible:ring-blue-500/20
+"
                 onChange={(event) =>
                   setForm((current) => ({
                     ...current,
-                    thresholdValue: Number(event.target.value),
+                    thresholdValue: event.target.value,
                   }))
                 }
               />
@@ -618,10 +776,16 @@ function EditMetricRuleDialog({
                 type="number"
                 min={0}
                 value={form.durationSeconds}
+                className="
+  h-8
+  focus-visible:border-blue-500
+  focus-visible:ring-2
+  focus-visible:ring-blue-500/20
+"
                 onChange={(event) =>
                   setForm((current) => ({
                     ...current,
-                    durationSeconds: Number(event.target.value),
+                    durationSeconds: event.target.value,
                   }))
                 }
               />
@@ -629,7 +793,6 @@ function EditMetricRuleDialog({
             <div className="grid gap-2">
               <Label>Severity</Label>
               <Select
-                value={form.severity}
                 onValueChange={(value) =>
                   setForm((current) => ({
                     ...current,
@@ -637,10 +800,16 @@ function EditMetricRuleDialog({
                   }))
                 }
               >
-                <SelectTrigger>
-                  <SelectValue />
+                <SelectTrigger className="h-10 w-full">
+                  <SelectValue>
+                    {form.severity === "CRITICAL" ? "Critical" : "Warning"}
+                  </SelectValue>
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent
+                  alignItemWithTrigger={false}
+                  sideOffset={6}
+                  className="duration-150"
+                >
                   <SelectItem value="WARNING">Warning</SelectItem>
                   <SelectItem value="CRITICAL">Critical</SelectItem>
                 </SelectContent>
@@ -655,10 +824,30 @@ function EditMetricRuleDialog({
             </p>
           )}
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={onClose}>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={mutation.isPending}
+              onClick={onClose}
+            >
               Cancel
             </Button>
-            <Button type="submit" disabled={mutation.isPending} aria-busy={mutation.isPending} className="min-w-[7.5rem]">
+            <Button
+              type="submit"
+              disabled={mutation.isPending}
+              aria-busy={mutation.isPending}
+              className="
+    min-w-[7.5rem]
+    bg-blue-600 text-white
+    shadow-sm shadow-blue-950/5
+    transition-[background-color,box-shadow,transform] duration-150
+    hover:bg-blue-700 hover:shadow
+    active:scale-[0.99] active:bg-blue-800
+  "
+            >
+              {mutation.isPending && (
+                <LoaderCircle className="size-4 animate-spin" />
+              )}
               {mutation.isPending ? "Saving..." : "Save changes"}
             </Button>
           </DialogFooter>

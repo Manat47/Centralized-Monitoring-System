@@ -33,19 +33,28 @@ import type {
   MetricRuleType,
 } from "../types/metric-rule";
 import { AdminOnly } from "@/app/features/auth/components/admin-only";
+import { LoaderCircle } from "lucide-react";
 
-const initialForm: CreateMetricRuleInput = {
+type MetricRuleForm = Omit<
+  CreateMetricRuleInput,
+  "thresholdValue" | "durationSeconds"
+> & {
+  thresholdValue: string;
+  durationSeconds: string;
+};
+
+const initialForm: MetricRuleForm = {
   assetId: "",
   metricType: "CPU_USAGE",
   operator: "GREATER_THAN_OR_EQUAL",
-  thresholdValue: 80,
-  durationSeconds: 300,
+  thresholdValue: "80",
+  durationSeconds: "300",
   severity: "WARNING",
 };
 
 export function CreateMetricRuleDialog() {
   const [open, setOpen] = useState(false);
-  const [form, setForm] = useState<CreateMetricRuleInput>(initialForm);
+  const [form, setForm] = useState<MetricRuleForm>(initialForm);
 
   const assetsQuery = useAssets();
   const targetsQuery = useMonitoringTargets();
@@ -98,7 +107,20 @@ export function CreateMetricRuleDialog() {
   return (
     <AdminOnly>
       <Dialog open={open} onOpenChange={handleOpenChange}>
-        <DialogTrigger render={<Button type="button" />}>
+        <DialogTrigger
+          render={
+            <Button
+              type="button"
+              className="
+        bg-blue-600 text-white
+        shadow-sm shadow-blue-950/5
+        transition-[background-color,box-shadow,transform] duration-150
+        hover:bg-blue-700 hover:shadow
+        active:scale-[0.99] active:bg-blue-800
+      "
+            />
+          }
+        >
           Create rule
         </DialogTrigger>
 
@@ -124,11 +146,15 @@ export function CreateMetricRuleDialog() {
                     }))
                   }
                 >
-                  <SelectTrigger>
+                  <SelectTrigger className="h-10 w-full">
                     <SelectValue placeholder="Select monitored server" />
                   </SelectTrigger>
 
-                  <SelectContent>
+                  <SelectContent
+                    alignItemWithTrigger={false}
+                    sideOffset={6}
+                    className="duration-150"
+                  >
                     {availableAssets.map((asset) => (
                       <SelectItem key={asset.assetId} value={asset.assetId}>
                         {asset.name}
@@ -144,7 +170,7 @@ export function CreateMetricRuleDialog() {
                 )}
               </div>
 
-              <div className="grid gap-4 sm:grid-cols-[1fr_1.15fr_0.8fr]">
+              <div className="grid gap-4 sm:grid-cols-[1fr_1.15fr_140px]">
                 <div className="grid gap-2">
                   <Label>Metric</Label>
 
@@ -157,11 +183,21 @@ export function CreateMetricRuleDialog() {
                       }))
                     }
                   >
-                    <SelectTrigger>
-                      <SelectValue />
+                    <SelectTrigger className="h-10 w-full">
+                      <SelectValue>
+                        {form.metricType === "CPU_USAGE"
+                          ? "CPU Usage"
+                          : form.metricType === "MEMORY_USAGE"
+                            ? "Memory Usage"
+                            : "Disk Usage"}
+                      </SelectValue>
                     </SelectTrigger>
 
-                    <SelectContent>
+                    <SelectContent
+                      alignItemWithTrigger={false}
+                      sideOffset={6}
+                      className="duration-150"
+                    >
                       <SelectItem value="CPU_USAGE">CPU Usage</SelectItem>
                       <SelectItem value="MEMORY_USAGE">Memory Usage</SelectItem>
                       <SelectItem value="DISK_USAGE">Disk Usage</SelectItem>
@@ -182,11 +218,19 @@ export function CreateMetricRuleDialog() {
                       }))
                     }
                   >
-                    <SelectTrigger>
-                      <SelectValue />
+                    <SelectTrigger className="h-10 w-full">
+                      <SelectValue>
+                        {form.operator === "GREATER_THAN"
+                          ? "Greater than (>)"
+                          : "Greater than or equal (>=)"}
+                      </SelectValue>
                     </SelectTrigger>
 
-                    <SelectContent>
+                    <SelectContent
+                      alignItemWithTrigger={false}
+                      sideOffset={6}
+                      className="duration-150"
+                    >
                       <SelectItem value="GREATER_THAN">
                         Greater than (&gt;)
                       </SelectItem>
@@ -207,10 +251,16 @@ export function CreateMetricRuleDialog() {
                     max={100}
                     value={form.thresholdValue}
                     required
+                    className="
+  h-8
+  focus-visible:border-blue-500
+  focus-visible:ring-2
+  focus-visible:ring-blue-500/20
+"
                     onChange={(event) =>
                       setForm((current) => ({
                         ...current,
-                        thresholdValue: Number(event.target.value),
+                        thresholdValue: event.target.value,
                       }))
                     }
                   />
@@ -225,12 +275,18 @@ export function CreateMetricRuleDialog() {
                     id="rule-duration"
                     type="number"
                     min={0}
-                    value={form.durationSeconds ?? 300}
+                    value={form.durationSeconds}
                     required
+                    className="
+    h-8
+    focus-visible:border-blue-500
+    focus-visible:ring-2
+    focus-visible:ring-blue-500/20
+  "
                     onChange={(event) =>
                       setForm((current) => ({
                         ...current,
-                        durationSeconds: Number(event.target.value),
+                        durationSeconds: event.target.value,
                       }))
                     }
                   />
@@ -248,11 +304,17 @@ export function CreateMetricRuleDialog() {
                       }))
                     }
                   >
-                    <SelectTrigger>
-                      <SelectValue />
+                    <SelectTrigger className="h-10 w-full">
+                      <SelectValue>
+                        {form.severity === "CRITICAL" ? "Critical" : "Warning"}
+                      </SelectValue>
                     </SelectTrigger>
 
-                    <SelectContent>
+                    <SelectContent
+                      alignItemWithTrigger={false}
+                      sideOffset={6}
+                      className="duration-150"
+                    >
                       <SelectItem value="WARNING">Warning</SelectItem>
                       <SelectItem value="CRITICAL">Critical</SelectItem>
                     </SelectContent>
@@ -287,8 +349,18 @@ export function CreateMetricRuleDialog() {
                   availableAssets.length === 0
                 }
                 aria-busy={createMutation.isPending}
-                className="min-w-[7rem]"
+                className="
+    min-w-[7rem]
+    bg-blue-600 text-white
+    shadow-sm shadow-blue-950/5
+    transition-[background-color,box-shadow,transform] duration-150
+    hover:bg-blue-700 hover:shadow
+    active:scale-[0.99] active:bg-blue-800
+  "
               >
+                {createMutation.isPending && (
+                  <LoaderCircle className="size-4 animate-spin" />
+                )}
                 {createMutation.isPending ? "Creating..." : "Create rule"}
               </Button>
             </DialogFooter>

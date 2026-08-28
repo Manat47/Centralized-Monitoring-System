@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -28,7 +29,7 @@ import type {
   CreateAssetInput,
 } from "../types/asset";
 import { AdminOnly } from "@/app/features/auth/components/admin-only";
-import { Plus } from "lucide-react";
+import { LoaderCircle, Plus } from "lucide-react";
 
 const initialForm: CreateAssetInput = {
   name: "",
@@ -128,7 +129,13 @@ export function CreateAssetDialog() {
           render={
             <Button
               type="button"
-              className="gap-2 bg-blue-600 text-white hover:bg-blue-700"
+              className="
+    gap-2 bg-blue-600 text-white
+    shadow-sm shadow-blue-950/5
+    transition-[background-color,box-shadow,transform] duration-150
+    hover:bg-blue-700 hover:shadow
+    active:scale-[0.99] active:bg-blue-800
+  "
             />
           }
         >
@@ -136,10 +143,14 @@ export function CreateAssetDialog() {
           Add Asset
         </DialogTrigger>
 
-        <DialogContent className="sm:max-w-lg">
+        <DialogContent className="sm:max-w-lg duration-150">
           <form onSubmit={handleSubmit}>
             <DialogHeader>
               <DialogTitle>Register Asset</DialogTitle>
+
+              <DialogDescription>
+                Add a server or application to the monitoring inventory.
+              </DialogDescription>
             </DialogHeader>
 
             <div className="grid gap-4 py-6">
@@ -151,6 +162,11 @@ export function CreateAssetDialog() {
                   maxLength={255}
                   required
                   onChange={(event) => updateField("name", event.target.value)}
+                  className="
+    focus-visible:border-blue-500
+    focus-visible:ring-2
+    focus-visible:ring-blue-500/20
+  "
                 />
               </div>
 
@@ -163,6 +179,11 @@ export function CreateAssetDialog() {
                   onChange={(event) =>
                     updateField("hostname", event.target.value)
                   }
+                  className="
+    focus-visible:border-blue-500
+    focus-visible:ring-2
+    focus-visible:ring-blue-500/20
+  "
                 />
               </div>
 
@@ -176,7 +197,7 @@ export function CreateAssetDialog() {
                       handleTargetTypeChange(value as AssetTargetType)
                     }
                   >
-                    <SelectTrigger>
+                    <SelectTrigger className="w-full">
                       <SelectValue />
                     </SelectTrigger>
 
@@ -196,7 +217,7 @@ export function CreateAssetDialog() {
                       updateField("environment", value as AssetEnvironment)
                     }
                   >
-                    <SelectTrigger>
+                    <SelectTrigger className="w-full">
                       <SelectValue />
                     </SelectTrigger>
 
@@ -210,8 +231,12 @@ export function CreateAssetDialog() {
               </div>
 
               {isServer ? (
-                <div className="grid gap-2">
+                <div
+                  key="server-address"
+                  className="grid gap-2 animate-in fade-in-0 slide-in-from-bottom-1 duration-150"
+                >
                   <Label htmlFor="asset-ip">IP Address</Label>
+
                   <Input
                     id="asset-ip"
                     value={form.ipAddress ?? ""}
@@ -220,11 +245,20 @@ export function CreateAssetDialog() {
                     onChange={(event) =>
                       updateField("ipAddress", event.target.value)
                     }
+                    className="
+    focus-visible:border-blue-500
+    focus-visible:ring-2
+    focus-visible:ring-blue-500/20
+  "
                   />
                 </div>
               ) : (
-                <div className="grid gap-2">
+                <div
+                  key="application-endpoint"
+                  className="grid gap-2 animate-in fade-in-0 slide-in-from-bottom-1 duration-150"
+                >
                   <Label htmlFor="asset-endpoint">Endpoint URL</Label>
+
                   <Input
                     id="asset-endpoint"
                     value={form.endpoint ?? ""}
@@ -234,12 +268,20 @@ export function CreateAssetDialog() {
                     onChange={(event) =>
                       updateField("endpoint", event.target.value)
                     }
+                    className="
+    focus-visible:border-blue-500
+    focus-visible:ring-2
+    focus-visible:ring-blue-500/20
+  "
                   />
                 </div>
               )}
 
               {createMutation.isError && (
-                <p className="text-sm text-destructive">
+                <p
+                  role="alert"
+                  className="rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700"
+                >
                   {createMutation.error instanceof Error
                     ? createMutation.error.message
                     : "Failed to create asset"}
@@ -260,9 +302,18 @@ export function CreateAssetDialog() {
               <Button
                 type="submit"
                 disabled={createMutation.isPending}
-                aria-busy={createMutation.isPending}
-                className="min-w-[7.5rem]"
+                className="
+    bg-blue-600 text-white
+    shadow-sm shadow-blue-950/5
+    transition-[background-color,box-shadow,transform] duration-150
+    hover:bg-blue-700 hover:shadow
+    active:scale-[0.99] active:bg-blue-800
+  "
               >
+                {createMutation.isPending && (
+                  <LoaderCircle className="size-4 animate-spin" />
+                )}
+
                 {createMutation.isPending ? "Registering..." : "Register asset"}
               </Button>
             </DialogFooter>
