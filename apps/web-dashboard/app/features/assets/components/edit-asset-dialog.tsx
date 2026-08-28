@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -28,9 +29,11 @@ import type {
   AssetTargetType,
   UpdateAssetInput,
 } from "../types/asset";
+import { LoaderCircle } from "lucide-react";
 
 interface EditAssetDialogProps {
   asset: Asset;
+  trigger?: React.ReactNode;
 }
 
 function createFormFromAsset(asset: Asset): UpdateAssetInput {
@@ -45,7 +48,7 @@ function createFormFromAsset(asset: Asset): UpdateAssetInput {
   };
 }
 
-export function EditAssetDialog({ asset }: EditAssetDialogProps) {
+export function EditAssetDialog({ asset, trigger }: EditAssetDialogProps) {
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState<UpdateAssetInput>(() =>
     createFormFromAsset(asset),
@@ -129,10 +132,14 @@ export function EditAssetDialog({ asset }: EditAssetDialogProps) {
         Edit
       </DialogTrigger>
 
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="sm:max-w-lg duration-150">
         <form onSubmit={handleSubmit}>
           <DialogHeader>
             <DialogTitle>Edit Asset</DialogTitle>
+
+            <DialogDescription>
+              Update the asset identity and connection information.
+            </DialogDescription>
           </DialogHeader>
 
           <div className="grid gap-4 py-6">
@@ -171,7 +178,7 @@ export function EditAssetDialog({ asset }: EditAssetDialogProps) {
                     handleTargetTypeChange(value as AssetTargetType)
                   }
                 >
-                  <SelectTrigger>
+                  <SelectTrigger className="w-full">
                     <SelectValue />
                   </SelectTrigger>
 
@@ -191,7 +198,7 @@ export function EditAssetDialog({ asset }: EditAssetDialogProps) {
                     updateField("environment", value as AssetEnvironment)
                   }
                 >
-                  <SelectTrigger>
+                  <SelectTrigger className="w-full">
                     <SelectValue />
                   </SelectTrigger>
 
@@ -205,7 +212,10 @@ export function EditAssetDialog({ asset }: EditAssetDialogProps) {
             </div>
 
             {isServer ? (
-              <div className="grid gap-2">
+              <div
+                key="server-address"
+                className="grid gap-2 animate-in fade-in-0 slide-in-from-bottom-1 duration-150"
+              >
                 <Label htmlFor={`ip-${asset.assetId}`}>IP Address</Label>
                 <Input
                   id={`ip-${asset.assetId}`}
@@ -217,7 +227,10 @@ export function EditAssetDialog({ asset }: EditAssetDialogProps) {
                 />
               </div>
             ) : (
-              <div className="grid gap-2">
+              <div
+                key="application-endpoint"
+                className="grid gap-2 animate-in fade-in-0 slide-in-from-bottom-1 duration-150"
+              >
                 <Label htmlFor={`endpoint-${asset.assetId}`}>
                   Endpoint URL
                 </Label>
@@ -234,7 +247,10 @@ export function EditAssetDialog({ asset }: EditAssetDialogProps) {
             )}
 
             {updateMutation.isError && (
-              <p className="text-sm text-destructive">
+              <p
+                role="alert"
+                className="rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700"
+              >
                 {updateMutation.error instanceof Error
                   ? updateMutation.error.message
                   : "Failed to update asset"}
@@ -255,9 +271,18 @@ export function EditAssetDialog({ asset }: EditAssetDialogProps) {
             <Button
               type="submit"
               disabled={updateMutation.isPending}
-              aria-busy={updateMutation.isPending}
-              className="min-w-[6.75rem]"
+              className="
+    bg-blue-600 text-white
+    shadow-sm shadow-blue-950/5
+    transition-[background-color,box-shadow,transform] duration-150
+    hover:bg-blue-700 hover:shadow
+    active:scale-[0.99] active:bg-blue-800
+  "
             >
+              {updateMutation.isPending && (
+                <LoaderCircle className="size-4 animate-spin" />
+              )}
+
               {updateMutation.isPending ? "Saving..." : "Save changes"}
             </Button>
           </DialogFooter>

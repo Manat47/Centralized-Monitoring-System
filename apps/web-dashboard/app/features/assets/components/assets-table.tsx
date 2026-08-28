@@ -253,7 +253,11 @@ export function AssetsTable() {
               </span>
             </SelectTrigger>
 
-            <SelectContent>
+            <SelectContent
+              alignItemWithTrigger={false}
+              sideOffset={6}
+              className="duration-150"
+            >
               <SelectItem value="ALL">All types</SelectItem>
               <SelectItem value="SERVER">Server</SelectItem>
               <SelectItem value="APPLICATION">Application</SelectItem>
@@ -274,7 +278,11 @@ export function AssetsTable() {
               </span>
             </SelectTrigger>
 
-            <SelectContent>
+            <SelectContent
+              alignItemWithTrigger={false}
+              sideOffset={6}
+              className="duration-150"
+            >
               <SelectItem value="ALL">All environments</SelectItem>
               <SelectItem value="PRODUCTION">Production</SelectItem>
               <SelectItem value="STAGING">Staging</SelectItem>
@@ -296,7 +304,11 @@ export function AssetsTable() {
               </span>
             </SelectTrigger>
 
-            <SelectContent>
+            <SelectContent
+              alignItemWithTrigger={false}
+              sideOffset={6}
+              className="duration-150"
+            >
               <SelectItem value="CURRENT">Current</SelectItem>
               <SelectItem value="ALL">All statuses</SelectItem>
               <SelectItem value="ACTIVATE">Active</SelectItem>
@@ -326,7 +338,7 @@ export function AssetsTable() {
             Clear
           </Button>
         </div>
-        <Table className="min-w-[920px]">
+        <Table className="min-w-230">
           <TableHeader>
             <TableRow className="bg-slate-50/70 hover:bg-slate-50/70">
               <TableHead className="pl-5 text-xs font-medium text-slate-500">
