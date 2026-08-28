@@ -104,6 +104,16 @@ export class MetricRuleEvaluationState {
     this.props.updatedAt = new Date();
   }
 
+  markSourceUnavailable(evaluatedAt: Date): void {
+    this.props.status = 'NORMAL';
+    this.props.violatedSince = null;
+    this.props.lastEvaluatedAt = evaluatedAt;
+    this.props.lastSampleAt = null;
+    this.props.lastActualValue = null;
+    this.props.recoveredAt = null;
+    this.props.updatedAt = evaluatedAt;
+  }
+
   reset(evaluatedAt: Date = new Date()): void {
     this.props.status = 'NORMAL';
     this.props.violatedSince = null;

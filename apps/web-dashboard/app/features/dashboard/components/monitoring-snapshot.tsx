@@ -1,7 +1,15 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Activity, ChevronDown } from "lucide-react";
+import { Activity } from "lucide-react";
+
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 import { useAssets } from "@/app/features/assets/api/use-assets";
 import { useCpuUsage } from "@/app/features/monitoring-targets/api/use-cpu-usage";
@@ -281,41 +289,32 @@ export function MonitoringSnapshot() {
         </div>
 
         {monitoredAssets.length > 0 && (
-          <div className="relative">
-            <select
-              value={effectiveSelectedAssetId}
-              onChange={(event) => setSelectedAssetId(event.target.value)}
-              className="
-        peer h-8 min-w-40 max-w-56
-        cursor-pointer appearance-none
-        rounded-md border border-slate-200
-        bg-white py-1 pl-3 pr-8
-        text-xs font-medium text-slate-700
-        outline-none
-        transition-[border-color,background-color,box-shadow] duration-150
-        hover:border-slate-300 hover:bg-slate-50
-        focus:border-blue-400 focus:ring-2 focus:ring-blue-100
-      "
+          <Select
+            value={effectiveSelectedAssetId}
+            onValueChange={(value) => {
+              if (value) {
+                setSelectedAssetId(value);
+              }
+            }}
+          >
+            <SelectTrigger className="h-8 min-w-40 max-w-56 bg-white text-xs font-medium">
+              <SelectValue>{selectedAsset?.name ?? "Select asset"}</SelectValue>
+            </SelectTrigger>
+
+            <SelectContent
+              side="bottom"
+              align="end"
+              sideOffset={6}
+              alignItemWithTrigger={false}
+              className="duration-150"
             >
               {monitoredAssets.map((asset) => (
-                <option key={asset.assetId} value={asset.assetId}>
+                <SelectItem key={asset.assetId} value={asset.assetId}>
                   {asset.name}
-                </option>
+                </SelectItem>
               ))}
-            </select>
-
-            <ChevronDown
-              aria-hidden="true"
-              className="
-        pointer-events-none
-        absolute right-2.5 top-1/2
-        size-3.5 -translate-y-1/2
-        text-slate-400
-        transition-colors duration-150
-        peer-focus:text-blue-500
-      "
-            />
-          </div>
+            </SelectContent>
+          </Select>
         )}
       </CardHeader>
 

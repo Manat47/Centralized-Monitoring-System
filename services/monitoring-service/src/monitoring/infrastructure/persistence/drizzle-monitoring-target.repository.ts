@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, isNull } from 'drizzle-orm';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
 
 import { DRIZZLE_DB } from '../../../database/database.provider';
@@ -35,6 +35,7 @@ export class DrizzleMonitoringTargetRepository implements MonitoringTargetReposi
         verificationStatus: data.verificationStatus,
         verifiedConfigFingerprint: data.verifiedConfigFingerprint,
         monitoringEnabled: data.monitoringEnabled,
+        archivedAt: data.archivedAt,
         lastVerifiedAt: data.lastVerifiedAt,
         lastCollectedAt: data.lastCollectedAt,
         lastError: data.lastError,
@@ -46,8 +47,15 @@ export class DrizzleMonitoringTargetRepository implements MonitoringTargetReposi
     return this.toDomain(row);
   }
 
-  async findAll(): Promise<MonitoringTarget[]> {
-    const rows = await this.db.select().from(schema.monitoringTargets);
+  async findAll(includeArchived = false): Promise<MonitoringTarget[]> {
+    const rows = await this.db
+      .select()
+      .from(schema.monitoringTargets)
+      .where(
+        includeArchived
+          ? undefined
+          : isNull(schema.monitoringTargets.archivedAt),
+      );
 
     return rows.map((row) => this.toDomain(row));
   }
@@ -62,11 +70,21 @@ export class DrizzleMonitoringTargetRepository implements MonitoringTargetReposi
     return row ? this.toDomain(row) : null;
   }
 
-  async findAllByAssetId(assetId: string): Promise<MonitoringTarget[]> {
+  async findAllByAssetId(
+    assetId: string,
+    includeArchived = false,
+  ): Promise<MonitoringTarget[]> {
     const rows = await this.db
       .select()
       .from(schema.monitoringTargets)
-      .where(eq(schema.monitoringTargets.assetId, assetId));
+      .where(
+        includeArchived
+          ? eq(schema.monitoringTargets.assetId, assetId)
+          : and(
+              eq(schema.monitoringTargets.assetId, assetId),
+              isNull(schema.monitoringTargets.archivedAt),
+            ),
+      );
 
     return rows.map((row) => this.toDomain(row));
   }
@@ -82,6 +100,7 @@ export class DrizzleMonitoringTargetRepository implements MonitoringTargetReposi
         and(
           eq(schema.monitoringTargets.assetId, assetId),
           eq(schema.monitoringTargets.monitoringType, monitoringType),
+          isNull(schema.monitoringTargets.archivedAt),
         ),
       )
       .limit(1);
@@ -93,7 +112,12 @@ export class DrizzleMonitoringTargetRepository implements MonitoringTargetReposi
     const rows = await this.db
       .select()
       .from(schema.monitoringTargets)
-      .where(eq(schema.monitoringTargets.monitoringEnabled, true));
+      .where(
+        and(
+          eq(schema.monitoringTargets.monitoringEnabled, true),
+          isNull(schema.monitoringTargets.archivedAt),
+        ),
+      );
 
     return rows.map((row) => this.toDomain(row));
   }
@@ -111,6 +135,7 @@ export class DrizzleMonitoringTargetRepository implements MonitoringTargetReposi
         verificationStatus: data.verificationStatus,
         verifiedConfigFingerprint: data.verifiedConfigFingerprint,
         monitoringEnabled: data.monitoringEnabled,
+        archivedAt: data.archivedAt,
         lastVerifiedAt: data.lastVerifiedAt,
         lastCollectedAt: data.lastCollectedAt,
         lastError: data.lastError,
@@ -134,6 +159,7 @@ export class DrizzleMonitoringTargetRepository implements MonitoringTargetReposi
       verificationStatus: row.verificationStatus,
       verifiedConfigFingerprint: row.verifiedConfigFingerprint,
       monitoringEnabled: row.monitoringEnabled,
+      archivedAt: row.archivedAt,
       lastVerifiedAt: row.lastVerifiedAt,
       lastCollectedAt: row.lastCollectedAt,
       lastError: row.lastError,

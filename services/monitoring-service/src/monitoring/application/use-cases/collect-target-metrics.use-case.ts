@@ -72,6 +72,12 @@ export class CollectTargetMetricsUseCase {
 
     const targetData = target.toObject();
 
+    if (targetData.archivedAt) {
+      throw new BadRequestException(
+        'Archived monitoring target cannot collect metrics',
+      );
+    }
+
     if (!targetData.monitoringEnabled) {
       throw new BadRequestException('Monitoring target is not enabled');
     }

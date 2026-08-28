@@ -13,6 +13,7 @@ export interface MonitoringTargetProps {
   verificationStatus: VerificationStatus; // สถานะการตรวจสอบ ความพร้อมใช้งานของ targets
   verifiedConfigFingerprint: string | null;
   monitoringEnabled: boolean; //แทนสถานะการเปิดปิด ตัว monitoring
+  archivedAt: Date | null;
   lastVerifiedAt: Date | null; // เวลาที่ verify ล่าสุด
   lastCollectedAt: Date | null; // เวลาที่เก็บ Metrics สำเร็จล่าสุด
   lastError: string | null; // เก็บ Error ล่าสุดที่เกิดกับ Target
@@ -104,6 +105,7 @@ export class MonitoringTarget {
       verificationStatus: 'NOT_VERIFIED',
       verifiedConfigFingerprint: null,
       monitoringEnabled: false,
+      archivedAt: null,
       lastVerifiedAt: null,
       lastCollectedAt: null,
       lastError: null,
@@ -113,6 +115,8 @@ export class MonitoringTarget {
   }
 
   markVerified(verifiedConfigFingerprint: string): void {
+    this.ensureNotArchived();
+
     if (!verifiedConfigFingerprint.trim()) {
       throw new Error('verifiedConfigFingerprint is required');
     }
@@ -127,6 +131,7 @@ export class MonitoringTarget {
   }
 
   markVerificationFailed(errorMessage: string): void {
+    this.ensureNotArchived();
     // เรียกเมื่อ Verify ไม่สำเร็จ
     this.props.verificationStatus = 'FAILED'; // NOT_VERIFIED -> FAILED
     this.props.verifiedConfigFingerprint = null;
@@ -137,6 +142,7 @@ export class MonitoringTarget {
   }
 
   invalidateVerification(): void {
+    this.ensureNotArchived();
     const now = new Date();
 
     this.props.verificationStatus = 'NOT_VERIFIED';
@@ -147,6 +153,7 @@ export class MonitoringTarget {
   }
 
   enableMonitoring(): void {
+    this.ensureNotArchived();
     if (this.props.verificationStatus !== 'VERIFIED') {
       // ต้อง Verify สำเร็จก่อนถึงจะเปิด Monitoring ได้
       throw new Error(
@@ -159,12 +166,14 @@ export class MonitoringTarget {
   }
 
   disableMonitoring(): void {
+    this.ensureNotArchived();
     // ใช้ปิด Monitoring
     this.props.monitoringEnabled = false;
     this.props.updatedAt = new Date();
   } // ไม่ต้องตรวจสอบเงื่อนไข เพราะไม่ว่าสถานะปัจจุบันจะเป็นอะไร ผู้ใช้ควรสามารถปิดได้เสมอ
 
   markCollected(): void {
+    this.ensureNotArchived();
     // เรียกหลังจากเก็บ Metrics สำเร็จ
     this.props.lastCollectedAt = new Date(); // เวลาเก็บสำเร็จล่าสุด
     this.props.lastError = null; // ล้าง error
@@ -172,6 +181,7 @@ export class MonitoringTarget {
   }
 
   markCollectionFailed(errorMessage: string): void {
+    this.ensureNotArchived();
     // เรียกเมื่อเก็บ Metrics ล้มเหลว
     this.props.lastError = errorMessage; // สาเหตุที่ล้มเหลว เช่น Network สะดุดชั่วคราว,Timeout
     this.props.updatedAt = new Date(); // เวลาปัจจุบัน
@@ -179,6 +189,23 @@ export class MonitoringTarget {
 
   getMonitoringType(): MonitoringType {
     return this.props.monitoringType;
+  }
+
+  archive(): void {
+    if (this.props.archivedAt) {
+      throw new Error('Monitoring target is already archived');
+    }
+
+    const now = new Date();
+    this.props.monitoringEnabled = false;
+    this.props.archivedAt = now;
+    this.props.updatedAt = now;
+  }
+
+  private ensureNotArchived(): void {
+    if (this.props.archivedAt) {
+      throw new Error('Archived monitoring target cannot be changed');
+    }
   }
 
   toObject(): MonitoringTargetProps {

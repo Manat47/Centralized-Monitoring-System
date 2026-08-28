@@ -96,6 +96,12 @@ function formatResolutionReason(reason: AlertResolutionReason | null): string {
     case "METRIC_RULE_ARCHIVED":
       return "Metric rule archived";
 
+    case "MONITORING_TARGET_PAUSED":
+      return "Monitoring target paused";
+
+    case "MONITORING_TARGET_ARCHIVED":
+      return "Monitoring target archived";
+
     case "ASSET_DEACTIVATED":
       return "Asset deactivated";
 

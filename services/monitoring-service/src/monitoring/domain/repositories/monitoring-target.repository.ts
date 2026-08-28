@@ -10,11 +10,14 @@ export const MONITORING_TARGET_REPOSITORY = Symbol(
 export interface MonitoringTargetRepository {
   create(target: MonitoringTarget): Promise<MonitoringTarget>;
 
-  findAll(): Promise<MonitoringTarget[]>;
+  findAll(includeArchived?: boolean): Promise<MonitoringTarget[]>;
 
   findById(targetId: string): Promise<MonitoringTarget | null>;
 
-  findAllByAssetId(assetId: string): Promise<MonitoringTarget[]>;
+  findAllByAssetId(
+    assetId: string,
+    includeArchived?: boolean,
+  ): Promise<MonitoringTarget[]>;
 
   findByAssetIdAndMonitoringType(
     assetId: string,

@@ -1,7 +1,10 @@
+import type { MonitoringType } from '../entities/monitoring-target.entity';
+
 export type AlertEventType =
   | 'METRIC_THRESHOLD_EXCEEDED'
   | 'METRIC_THRESHOLD_RECOVERED'
   | 'METRIC_RULE_STATE_CHANGED'
+  | 'MONITORING_TARGET_STATE_CHANGED'
   | 'HEALTH_CHECK_RESULT_RECORDED'
   | 'HEALTH_CHECK_TARGET_STATE_CHANGED';
 
@@ -43,6 +46,16 @@ export interface MetricRuleStateChangedEvent {
   message: string;
 }
 
+export interface MonitoringTargetStateChangedEvent {
+  eventId: string;
+  eventType: 'MONITORING_TARGET_STATE_CHANGED';
+  monitoringTargetId: string;
+  assetId: string;
+  monitoringType: MonitoringType;
+  state: 'RUNNING' | 'PAUSED' | 'ARCHIVED';
+  occurredAt: Date;
+}
+
 export interface HealthCheckResultRecordedEvent {
   eventId: string;
   eventType: 'HEALTH_CHECK_RESULT_RECORDED';
@@ -71,6 +84,7 @@ export type AlertEvent =
   | MetricThresholdExceededEvent
   | MetricThresholdRecoveredEvent
   | MetricRuleStateChangedEvent
+  | MonitoringTargetStateChangedEvent
   | HealthCheckResultRecordedEvent
   | HealthCheckTargetStateChangedEvent;
 

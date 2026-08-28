@@ -76,6 +76,8 @@ import { ArchiveHealthCheckTargetUseCase } from './application/use-cases/archive
 import { UpdateMetricRuleUseCase } from './application/use-cases/update-metric-rule.use-case';
 import { SetMetricRuleEnabledUseCase } from './application/use-cases/set-metric-rule-enabled.use-case';
 import { ArchiveMetricRuleUseCase } from './application/use-cases/archive-metric-rule.use-case';
+import { ArchiveMonitoringTargetUseCase } from './application/use-cases/archive-monitoring-target.use-case';
+import { MonitoringTargetMetricLifecycleService } from './application/services/monitoring-target-metric-lifecycle.service';
 @Module({
   imports: [
     HttpModule,
@@ -145,6 +147,7 @@ import { ArchiveMetricRuleUseCase } from './application/use-cases/archive-metric
     VerifyMonitoringTargetUseCase,
     EnableMonitoringUseCase,
     DisableMonitoringUseCase,
+    ArchiveMonitoringTargetUseCase,
     CollectTargetMetricsUseCase,
     CollectEnabledTargetsUseCase,
     MonitoringScheduler,
@@ -182,6 +185,7 @@ import { ArchiveMetricRuleUseCase } from './application/use-cases/archive-metric
     ArchiveMetricRuleUseCase,
     MonitoringEndpointResolver,
     MonitoringConfigFingerprintService,
+    MonitoringTargetMetricLifecycleService,
     {
       provide: MONITORING_TARGET_REPOSITORY,
       useClass: DrizzleMonitoringTargetRepository,

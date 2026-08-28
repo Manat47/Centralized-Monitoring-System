@@ -80,6 +80,10 @@ export const monitoringTargets = pgTable(
 
     monitoringEnabled: boolean('monitoring_enabled').default(false).notNull(),
 
+    archivedAt: timestamp('archived_at', {
+      withTimezone: true,
+    }),
+
     lastVerifiedAt: timestamp('last_verified_at', {
       withTimezone: true,
     }),
@@ -103,10 +107,9 @@ export const monitoringTargets = pgTable(
       .notNull(),
   },
   (table) => [
-    uniqueIndex('monitoring_targets_asset_type_unique').on(
-      table.assetId,
-      table.monitoringType,
-    ),
+    uniqueIndex('monitoring_targets_active_asset_type_unique')
+      .on(table.assetId, table.monitoringType)
+      .where(sql`${table.archivedAt} is null`),
   ],
 );
 

@@ -29,6 +29,7 @@ import { FindMonitoringTargetsUseCase } from '../application/use-cases/find-moni
 import { FindMonitoringTargetByIdUseCase } from '../application/use-cases/find-monitoring-target-by-id.use-case';
 import { QueryHttpRequestRateUseCase } from '../application/use-cases/query-http-request-rate.use-case';
 import { QueryMetricsReportSummaryUseCase } from '../application/use-cases/query-metrics-report-summary.use-case';
+import { ArchiveMonitoringTargetUseCase } from '../application/use-cases/archive-monitoring-target.use-case';
 
 @Controller('monitoring-targets')
 export class MonitoringTargetsController {
@@ -48,6 +49,7 @@ export class MonitoringTargetsController {
     private readonly findMonitoringTargetByIdUseCase: FindMonitoringTargetByIdUseCase,
     private readonly queryHttpRequestRateUseCase: QueryHttpRequestRateUseCase,
     private readonly queryMetricsReportSummaryUseCase: QueryMetricsReportSummaryUseCase,
+    private readonly archiveMonitoringTargetUseCase: ArchiveMonitoringTargetUseCase,
   ) {}
 
   @Post()
@@ -127,14 +129,32 @@ export class MonitoringTargetsController {
     return target.toObject();
   }
 
+  @Post(':id/archive')
+  async archive(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Headers('x-user-id') actorUserId: string,
+    @Headers('x-user-role') actorRole: 'ADMIN' | 'OPERATOR',
+    @Headers('x-user-email') actorEmail: string | undefined,
+  ) {
+    const target = await this.archiveMonitoringTargetUseCase.execute(id, {
+      actorUserId,
+      actorRole,
+      actorEmail,
+    });
+
+    return target.toObject();
+  }
+
   @Post(':id/collect')
   async collect(@Param('id', new ParseUUIDPipe()) id: string) {
     return this.collectTargetMetricsUseCase.execute(id);
   }
 
   @Get()
-  async findAll() {
-    const targets = await this.findMonitoringTargetsUseCase.execute();
+  async findAll(@Query('includeArchived') includeArchived?: string) {
+    const targets = await this.findMonitoringTargetsUseCase.execute(
+      includeArchived === 'true',
+    );
 
     return targets.map((target) => target.toObject());
   }

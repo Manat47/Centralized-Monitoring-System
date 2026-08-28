@@ -7,7 +7,12 @@ import { authenticatedFetch } from "@/app/lib/authenticated-fetch";
 const API_GATEWAY_URL =
   process.env.NEXT_PUBLIC_API_GATEWAY_URL ?? "http://localhost:3005/api";
 
-type MonitoringTargetAction = "verify" | "enable" | "disable" | "collect";
+type MonitoringTargetAction =
+  | "verify"
+  | "enable"
+  | "disable"
+  | "archive"
+  | "collect";
 
 async function runMonitoringTargetAction(
   targetId: string,
@@ -70,4 +75,10 @@ export function disableMonitoringTarget(
   targetId: string,
 ): Promise<MonitoringTarget> {
   return runMonitoringTargetAction(targetId, "disable");
+}
+
+export function archiveMonitoringTarget(
+  targetId: string,
+): Promise<MonitoringTarget> {
+  return runMonitoringTargetAction(targetId, "archive");
 }

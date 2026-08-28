@@ -3,6 +3,7 @@
 import { Fragment, useMemo, useState } from "react";
 import { Menu as MenuPrimitive } from "@base-ui/react/menu";
 import {
+  Archive,
   CircleAlert,
   LoaderCircle,
   MoreVertical,
@@ -15,9 +16,18 @@ import {
 import { AdminOnly } from "@/app/features/auth/components/admin-only";
 import { useAssets } from "@/app/features/assets/api/use-assets";
 import type { Asset } from "@/app/features/assets/types/asset";
+import { useMetricRules } from "@/app/features/metric-rules/api/use-metric-rules";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -38,6 +48,7 @@ import {
 import { cn } from "@/lib/utils";
 
 import {
+  useArchiveMonitoringTarget,
   useDisableMonitoringTarget,
   useEnableMonitoringTarget,
   useVerifyMonitoringTarget,
@@ -136,6 +147,13 @@ function getVerificationClass(status: VerificationStatus): string {
 }
 
 function getMonitoringState(target: MonitoringTarget, asset: Asset | undefined) {
+  if (target.archivedAt) {
+    return {
+      label: "Archived",
+      className: "border-slate-200 bg-slate-100 text-slate-600",
+    };
+  }
+
   if (asset?.status === "DEACTIVATE") {
     return {
       label: "Retired",
@@ -169,12 +187,20 @@ export function MonitoringTargetsTable() {
   const [monitoringStatus, setMonitoringStatus] = useState<
     "ALL" | "ENABLED" | "DISABLED"
   >("ALL");
+  const [archiveFilter, setArchiveFilter] = useState<
+    "CURRENT" | "ARCHIVED" | "ALL"
+  >("CURRENT");
+  const [archiveTarget, setArchiveTarget] = useState<MonitoringTarget | null>(
+    null,
+  );
 
-  const targetsQuery = useMonitoringTargets();
+  const targetsQuery = useMonitoringTargets(true);
   const assetsQuery = useAssets();
+  const metricRulesQuery = useMetricRules();
   const verifyMutation = useVerifyMonitoringTarget();
   const enableMutation = useEnableMonitoringTarget();
   const disableMutation = useDisableMonitoringTarget();
+  const archiveMutation = useArchiveMonitoringTarget();
 
   const targets = useMemo(
     () => targetsQuery.data ?? [],
@@ -206,18 +232,48 @@ export function MonitoringTargetsTable() {
         monitoringStatus === "ALL" ||
         (monitoringStatus === "ENABLED" && target.monitoringEnabled) ||
         (monitoringStatus === "DISABLED" && !target.monitoringEnabled);
+      const matchesArchive =
+        archiveFilter === "ALL" ||
+        (archiveFilter === "ARCHIVED"
+          ? Boolean(target.archivedAt)
+          : !target.archivedAt);
 
-      return matchesSearch && matchesVerification && matchesMonitoring;
+      return (
+        matchesSearch &&
+        matchesVerification &&
+        matchesMonitoring &&
+        matchesArchive
+      );
     });
-  }, [assetById, monitoringStatus, search, targets, verificationStatus]);
+  }, [
+    archiveFilter,
+    assetById,
+    monitoringStatus,
+    search,
+    targets,
+    verificationStatus,
+  ]);
 
   const isLoading = targetsQuery.isLoading || assetsQuery.isLoading;
   const actionError =
-    verifyMutation.error ?? enableMutation.error ?? disableMutation.error;
+    verifyMutation.error ??
+    enableMutation.error ??
+    disableMutation.error ??
+    archiveMutation.error;
   const filtersActive =
     Boolean(search) ||
     verificationStatus !== "ALL" ||
-    monitoringStatus !== "ALL";
+    monitoringStatus !== "ALL" ||
+    archiveFilter !== "CURRENT";
+  const affectedRuleCount = useMemo(() => {
+    if (!archiveTarget) {
+      return 0;
+    }
+
+    return (metricRulesQuery.data ?? []).filter(
+      (rule) => rule.assetId === archiveTarget.assetId && rule.enabled,
+    ).length;
+  }, [archiveTarget, metricRulesQuery.data]);
 
   if (isLoading) {
     return <MonitoringTargetsSkeleton />;
@@ -241,6 +297,7 @@ export function MonitoringTargetsTable() {
   }
 
   return (
+    <>
     <Card className="overflow-hidden border-slate-200 shadow-none">
       <CardContent className="p-0">
         <div className="flex flex-wrap items-center gap-3 border-b border-slate-200 p-4">
@@ -271,6 +328,30 @@ export function MonitoringTargetsTable() {
               <SelectItem value="NOT_VERIFIED">Not verified</SelectItem>
               <SelectItem value="VERIFIED">Verified</SelectItem>
               <SelectItem value="FAILED">Failed</SelectItem>
+            </SelectContent>
+          </Select>
+
+          <Select
+            value={archiveFilter}
+            onValueChange={(value) =>
+              setArchiveFilter(
+                (value ?? "CURRENT") as "CURRENT" | "ARCHIVED" | "ALL",
+              )
+            }
+          >
+            <SelectTrigger className="w-full bg-white sm:w-40">
+              <SelectValue>
+                {archiveFilter === "CURRENT"
+                  ? "Current"
+                  : archiveFilter === "ARCHIVED"
+                    ? "Archived"
+                    : "All records"}
+              </SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="CURRENT">Current</SelectItem>
+              <SelectItem value="ARCHIVED">Archived</SelectItem>
+              <SelectItem value="ALL">All records</SelectItem>
             </SelectContent>
           </Select>
 
@@ -307,6 +388,7 @@ export function MonitoringTargetsTable() {
               setSearch("");
               setVerificationStatus("ALL");
               setMonitoringStatus("ALL");
+              setArchiveFilter("CURRENT");
             }}
           >
             <RotateCcw className="size-4" />
@@ -366,7 +448,10 @@ export function MonitoringTargetsTable() {
                   (enableMutation.isPending &&
                     enableMutation.variables === target.targetId) ||
                   (disableMutation.isPending &&
-                    disableMutation.variables === target.targetId);
+                    disableMutation.variables === target.targetId) ||
+                  (archiveMutation.isPending &&
+                    archiveMutation.variables === target.targetId);
+                const isArchived = Boolean(target.archivedAt);
                 const isReadOnly = asset?.status === "DEACTIVATE";
                 const needsReverification =
                   target.verificationStatus !== "VERIFIED";
@@ -443,50 +528,69 @@ export function MonitoringTargetsTable() {
                                 className="z-50"
                               >
                                 <MenuPrimitive.Popup className="min-w-40 rounded-md bg-white p-1 text-sm text-slate-900 shadow-md ring-1 ring-slate-200 outline-none">
-                                  {isReadOnly ? (
+                                  {isArchived ? (
                                     <MenuPrimitive.Item
                                       disabled
                                       className="flex cursor-default items-center gap-2 rounded px-2 py-2 text-slate-400 outline-none"
                                     >
-                                      Read-only
-                                    </MenuPrimitive.Item>
-                                  ) : canDisable ? (
-                                    <MenuPrimitive.Item
-                                      onClick={() =>
-                                        disableMutation.mutate(target.targetId)
-                                      }
-                                      className="flex cursor-default items-center gap-2 rounded px-2 py-2 outline-none data-highlighted:bg-slate-100"
-                                    >
-                                      <Pause className="size-4" />
-                                      Disable
-                                    </MenuPrimitive.Item>
-                                  ) : needsReverification ? (
-                                    <MenuPrimitive.Item
-                                      disabled={!canReverify}
-                                      title={
-                                        canReverify
-                                          ? "Verify the current monitoring endpoint"
-                                          : "Activate the asset before re-verifying"
-                                      }
-                                      onClick={() =>
-                                        verifyMutation.mutate(target.targetId)
-                                      }
-                                      className="flex cursor-default items-center gap-2 rounded px-2 py-2 outline-none data-highlighted:bg-slate-100 data-disabled:text-slate-400"
-                                    >
-                                      <RefreshCw className="size-4" />
-                                      Re-verify
+                                      Archived
                                     </MenuPrimitive.Item>
                                   ) : (
-                                    <MenuPrimitive.Item
-                                      disabled={!canEnable}
-                                      onClick={() =>
-                                        enableMutation.mutate(target.targetId)
-                                      }
-                                      className="flex cursor-default items-center gap-2 rounded px-2 py-2 outline-none data-highlighted:bg-slate-100 data-disabled:text-slate-400"
-                                    >
-                                      <Play className="size-4" />
-                                      Enable
-                                    </MenuPrimitive.Item>
+                                    <>
+                                      {isReadOnly ? (
+                                        <MenuPrimitive.Item
+                                          disabled
+                                          className="flex cursor-default items-center gap-2 rounded px-2 py-2 text-slate-400 outline-none"
+                                        >
+                                          Read-only
+                                        </MenuPrimitive.Item>
+                                      ) : canDisable ? (
+                                        <MenuPrimitive.Item
+                                          onClick={() =>
+                                            disableMutation.mutate(target.targetId)
+                                          }
+                                          className="flex cursor-default items-center gap-2 rounded px-2 py-2 outline-none data-highlighted:bg-slate-100"
+                                        >
+                                          <Pause className="size-4" />
+                                          Disable
+                                        </MenuPrimitive.Item>
+                                      ) : needsReverification ? (
+                                        <MenuPrimitive.Item
+                                          disabled={!canReverify}
+                                          title={
+                                            canReverify
+                                              ? "Verify the current monitoring endpoint"
+                                              : "Activate the asset before re-verifying"
+                                          }
+                                          onClick={() =>
+                                            verifyMutation.mutate(target.targetId)
+                                          }
+                                          className="flex cursor-default items-center gap-2 rounded px-2 py-2 outline-none data-highlighted:bg-slate-100 data-disabled:text-slate-400"
+                                        >
+                                          <RefreshCw className="size-4" />
+                                          Re-verify
+                                        </MenuPrimitive.Item>
+                                      ) : (
+                                        <MenuPrimitive.Item
+                                          disabled={!canEnable}
+                                          onClick={() =>
+                                            enableMutation.mutate(target.targetId)
+                                          }
+                                          className="flex cursor-default items-center gap-2 rounded px-2 py-2 outline-none data-highlighted:bg-slate-100 data-disabled:text-slate-400"
+                                        >
+                                          <Play className="size-4" />
+                                          Enable
+                                        </MenuPrimitive.Item>
+                                      )}
+                                      <div className="my-1 border-t border-slate-100" />
+                                      <MenuPrimitive.Item
+                                        onClick={() => setArchiveTarget(target)}
+                                        className="flex cursor-default items-center gap-2 rounded px-2 py-2 text-rose-600 outline-none data-highlighted:bg-rose-50"
+                                      >
+                                        <Archive className="size-4" />
+                                        Archive
+                                      </MenuPrimitive.Item>
+                                    </>
                                   )}
                                 </MenuPrimitive.Popup>
                               </MenuPrimitive.Positioner>
@@ -520,6 +624,53 @@ export function MonitoringTargetsTable() {
         </Table>
       </CardContent>
     </Card>
+      <Dialog
+        open={Boolean(archiveTarget)}
+        onOpenChange={(open) => {
+          if (!open && !archiveMutation.isPending) {
+            setArchiveTarget(null);
+          }
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Archive monitoring target?</DialogTitle>
+            <DialogDescription>
+              Collection will stop, but target configuration, metrics, alerts,
+              and audit history will remain available.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+            {affectedRuleCount > 0
+              ? `${affectedRuleCount} enabled metric ${affectedRuleCount === 1 ? "rule" : "rules"} will move to No data. Any active metric alerts will be resolved as target archived.`
+              : "Any active metric alerts will be resolved as target archived."}
+          </div>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={archiveMutation.isPending}
+              onClick={() => setArchiveTarget(null)}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              disabled={!archiveTarget || archiveMutation.isPending}
+              onClick={() => {
+                if (!archiveTarget) return;
+                archiveMutation.mutate(archiveTarget.targetId, {
+                  onSuccess: () => setArchiveTarget(null),
+                });
+              }}
+            >
+              {archiveMutation.isPending ? "Archiving..." : "Archive target"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
 

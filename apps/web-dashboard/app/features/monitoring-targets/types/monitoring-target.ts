@@ -13,6 +13,7 @@ export interface MonitoringTarget {
   verificationStatus: VerificationStatus;
   verifiedConfigFingerprint: string | null;
   monitoringEnabled: boolean;
+  archivedAt: string | null;
 
   lastVerifiedAt: string | null;
   lastCollectedAt: string | null;
