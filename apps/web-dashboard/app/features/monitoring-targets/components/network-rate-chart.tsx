@@ -34,7 +34,9 @@ interface NetworkChartPoint {
   transmitBytesPerSecond: number;
 }
 
-function aggregateByTimestamp(data: NetworkRateDataPoint[]): NetworkChartPoint[] {
+function aggregateByTimestamp(
+  data: NetworkRateDataPoint[],
+): NetworkChartPoint[] {
   const aggregate = new Map<string, NetworkChartPoint>();
 
   for (const point of data) {
@@ -70,7 +72,9 @@ export function NetworkRateChart({
   }
 
   const rawData = networkQuery.data ?? [];
-  const devices = Array.from(new Set(rawData.map((point) => point.device))).sort();
+  const devices = Array.from(
+    new Set(rawData.map((point) => point.device)),
+  ).sort();
   const data = aggregateByTimestamp(
     selectedDevice === "ALL"
       ? rawData
@@ -114,7 +118,10 @@ export function NetworkRateChart({
         smooth: true,
         showSymbol: false,
         lineStyle: { width: 2 },
-        data: data.map((point) => [point.timestamp, point.receiveBytesPerSecond]),
+        data: data.map((point) => [
+          point.timestamp,
+          point.receiveBytesPerSecond,
+        ]),
       },
       {
         name: "TX",
@@ -122,7 +129,10 @@ export function NetworkRateChart({
         smooth: true,
         showSymbol: false,
         lineStyle: { width: 2 },
-        data: data.map((point) => [point.timestamp, point.transmitBytesPerSecond]),
+        data: data.map((point) => [
+          point.timestamp,
+          point.transmitBytesPerSecond,
+        ]),
       },
     ],
   };
@@ -146,7 +156,11 @@ export function NetworkRateChart({
               {selectedDevice === "ALL" ? "All interfaces" : selectedDevice}
             </SelectValue>
           </SelectTrigger>
-          <SelectContent>
+          <SelectContent
+            alignItemWithTrigger={false}
+            sideOffset={6}
+            className="duration-150"
+          >
             <SelectItem value="ALL">All interfaces</SelectItem>
             {devices.map((device) => (
               <SelectItem key={device} value={device}>
@@ -190,10 +204,18 @@ export function NetworkRateChart({
   );
 }
 
-function ChartMessage({ message, destructive = false }: { message: string; destructive?: boolean }) {
+function ChartMessage({
+  message,
+  destructive = false,
+}: {
+  message: string;
+  destructive?: boolean;
+}) {
   return (
     <Card className="border-slate-200 shadow-none">
-      <CardContent className={`py-16 text-center text-sm ${destructive ? "text-rose-600" : "text-slate-500"}`}>
+      <CardContent
+        className={`py-16 text-center text-sm ${destructive ? "text-rose-600" : "text-slate-500"}`}
+      >
         {message}
       </CardContent>
     </Card>

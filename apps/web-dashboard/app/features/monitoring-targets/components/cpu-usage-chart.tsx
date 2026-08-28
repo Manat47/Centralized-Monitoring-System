@@ -50,8 +50,7 @@ function averageByTimestamp(points: CpuUsageDataPoint[]): CpuChartPoint[] {
     timestamp,
     usagePercent: group.total / group.count,
   })).sort(
-    (a, b) =>
-      new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime(),
+    (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime(),
   );
 }
 
@@ -72,7 +71,9 @@ export function CpuUsageChart({
   }
 
   const rawData = cpuQuery.data ?? [];
-  const cpuCores = Array.from(new Set(rawData.map((point) => point.cpu))).sort();
+  const cpuCores = Array.from(
+    new Set(rawData.map((point) => point.cpu)),
+  ).sort();
   const data =
     selectedCpu === "ALL"
       ? averageByTimestamp(rawData)
@@ -84,8 +85,7 @@ export function CpuUsageChart({
           }))
           .sort(
             (a, b) =>
-              new Date(a.timestamp).getTime() -
-              new Date(b.timestamp).getTime(),
+              new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime(),
           );
   const stats = calculateMetricStats(data.map((point) => point.usagePercent));
 
@@ -150,7 +150,9 @@ export function CpuUsageChart({
         </div>
 
         <div className="flex items-center gap-3">
-          <span className="text-xs text-slate-500">{cpuCores.length} cores</span>
+          <span className="text-xs text-slate-500">
+            {cpuCores.length} cores
+          </span>
           <Select
             value={selectedCpu}
             onValueChange={(value) => value && setSelectedCpu(value)}
@@ -160,7 +162,11 @@ export function CpuUsageChart({
                 {selectedCpu === "ALL" ? "All cores (avg)" : selectedCpu}
               </SelectValue>
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent
+              alignItemWithTrigger={false}
+              sideOffset={6}
+              className="duration-150"
+            >
               <SelectItem value="ALL">All cores (avg)</SelectItem>
               {cpuCores.map((cpu) => (
                 <SelectItem key={cpu} value={cpu}>

@@ -50,7 +50,10 @@ function getMaximumUsageByTimestamp(data: DiskUsageDataPoint[]): number[] {
   for (const point of data) {
     maximumByTimestamp.set(
       point.timestamp,
-      Math.max(maximumByTimestamp.get(point.timestamp) ?? 0, point.usagePercent),
+      Math.max(
+        maximumByTimestamp.get(point.timestamp) ?? 0,
+        point.usagePercent,
+      ),
     );
   }
 
@@ -121,7 +124,9 @@ export function DiskUsageChart({
 
         for (const item of items) {
           const values = Array.isArray(item.value) ? item.value : [];
-          lines.push(`${String(item.seriesName)}: ${formatPercent(Number(values[1]))}`);
+          lines.push(
+            `${String(item.seriesName)}: ${formatPercent(Number(values[1]))}`,
+          );
         }
 
         return lines.join("<br/>");
@@ -189,7 +194,11 @@ export function DiskUsageChart({
               {selectedDisk === "ALL" ? "All devices" : selectedDisk}
             </SelectValue>
           </SelectTrigger>
-          <SelectContent>
+          <SelectContent
+            alignItemWithTrigger={false}
+            sideOffset={6}
+            className="duration-150"
+          >
             <SelectItem value="ALL">All devices</SelectItem>
             {diskKeys.map((diskKey) => (
               <SelectItem key={diskKey} value={diskKey}>
@@ -232,10 +241,16 @@ export function DiskUsageChart({
               <TableBody>
                 {latestRows.map((point) => (
                   <TableRow key={createDiskKey(point)}>
-                    <TableCell className="font-mono text-xs">{point.device}</TableCell>
-                    <TableCell className="font-mono text-xs">{point.mountpoint}</TableCell>
+                    <TableCell className="font-mono text-xs">
+                      {point.device}
+                    </TableCell>
+                    <TableCell className="font-mono text-xs">
+                      {point.mountpoint}
+                    </TableCell>
                     <TableCell>{point.filesystemType}</TableCell>
-                    <TableCell className="font-semibold">{formatPercent(point.usagePercent)}</TableCell>
+                    <TableCell className="font-semibold">
+                      {formatPercent(point.usagePercent)}
+                    </TableCell>
                     <TableCell>{formatBytes(point.usedBytes)}</TableCell>
                     <TableCell>{formatBytes(point.availableBytes)}</TableCell>
                     <TableCell>{formatBytes(point.totalBytes)}</TableCell>
@@ -250,10 +265,18 @@ export function DiskUsageChart({
   );
 }
 
-function ChartMessage({ message, destructive = false }: { message: string; destructive?: boolean }) {
+function ChartMessage({
+  message,
+  destructive = false,
+}: {
+  message: string;
+  destructive?: boolean;
+}) {
   return (
     <Card className="border-slate-200 shadow-none">
-      <CardContent className={`py-16 text-center text-sm ${destructive ? "text-rose-600" : "text-slate-500"}`}>
+      <CardContent
+        className={`py-16 text-center text-sm ${destructive ? "text-rose-600" : "text-slate-500"}`}
+      >
         {message}
       </CardContent>
     </Card>

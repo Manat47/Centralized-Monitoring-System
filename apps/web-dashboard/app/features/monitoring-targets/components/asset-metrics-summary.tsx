@@ -62,7 +62,11 @@ export function AssetMetricsSummary() {
             </SelectValue>
           </SelectTrigger>
 
-          <SelectContent>
+          <SelectContent
+            alignItemWithTrigger={false}
+            sideOffset={6}
+            className="duration-150"
+          >
             {TIME_RANGES.map((range) => (
               <SelectItem key={range.value} value={range.value}>
                 {range.label}
@@ -90,10 +94,7 @@ export function AssetMetricsSummary() {
         thresholds={getThresholds("DISK_USAGE")}
       />
 
-      <NetworkRateChart
-        assetId={params.assetId}
-        rangeMinutes={selectedRange}
-      />
+      <NetworkRateChart assetId={params.assetId} rangeMinutes={selectedRange} />
     </section>
   );
 }

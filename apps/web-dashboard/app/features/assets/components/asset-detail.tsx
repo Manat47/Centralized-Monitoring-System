@@ -15,10 +15,9 @@ import { AssetMetricsSummary } from "@/app/features/monitoring-targets/component
 import { useMonitoringTargets } from "@/app/features/monitoring-targets/api/use-monitoring-targets";
 import { useMetricsSummary } from "@/app/features/monitoring-targets/api/use-metrics-summary";
 import { useAlerts } from "@/app/features/alerts/api/use-alerts";
-import { AssetHealthOverview } from "./asset-health-overview";
 import { AssetAlertsOverview } from "./asset-alerts-overview";
 
-type AssetDetailTab = "overview" | "metrics" | "health" | "alerts";
+type AssetDetailTab = "overview" | "metrics" | "alerts";
 
 function formatTargetType(asset: Asset): string {
   switch (asset.targetType) {
@@ -85,12 +84,6 @@ function getStatusClass(asset: Asset): string {
   }
 }
 
-function getMonitoringClass(asset: Asset): string {
-  return asset.monitoringEnable
-    ? "border-blue-200 bg-blue-50 text-blue-700"
-    : "border-slate-200 bg-slate-50 text-slate-600";
-}
-
 function getAddress(asset: Asset): string {
   if (asset.targetType === "SERVER") {
     return asset.ipAddress ?? asset.hostname ?? "—";
@@ -151,10 +144,6 @@ const tabs: {
     label: "Metrics",
   },
   {
-    value: "health",
-    label: "Health",
-  },
-  {
     value: "alerts",
     label: "Alerts",
   },
@@ -202,6 +191,8 @@ export function AssetDetail() {
 
   const assetsQuery = useAssets();
 
+  const targetsQuery = useMonitoringTargets();
+
   const [activeTab, setActiveTab] = useState<AssetDetailTab>("overview");
 
   const asset = (assetsQuery.data ?? []).find(
@@ -241,6 +232,10 @@ export function AssetDetail() {
     );
   }
 
+  const monitoringEnabled = (targetsQuery.data ?? []).some(
+    (target) => target.assetId === asset.assetId && target.monitoringEnabled,
+  );
+
   const availableTabs = tabs.filter(
     (tab) => tab.value !== "metrics" || asset.targetType === "SERVER",
   );
@@ -276,8 +271,15 @@ export function AssetDetail() {
           </SummaryItem>
 
           <SummaryItem label="Monitoring">
-            <Badge variant="outline" className={getMonitoringClass(asset)}>
-              {asset.monitoringEnable ? "Enabled" : "Disabled"}
+            <Badge
+              variant="outline"
+              className={
+                monitoringEnabled
+                  ? "border-blue-200 bg-blue-50 text-blue-700"
+                  : "border-slate-200 bg-slate-50 text-slate-600"
+              }
+            >
+              {monitoringEnabled ? "Enabled" : "Disabled"}
             </Badge>
           </SummaryItem>
 
@@ -339,10 +341,6 @@ export function AssetDetail() {
           <AssetMetricsSummary />
         )}
 
-        {activeTab === "health" && (
-          <AssetHealthOverview assetId={asset.assetId} />
-        )}
-
         {activeTab === "alerts" && (
           <AssetAlertsOverview assetId={asset.assetId} />
         )}
@@ -360,7 +358,9 @@ function SummaryItem({
 }) {
   return (
     <div>
-      <p className="mb-2 text-xs text-slate-500">{label}</p>
+      <p className="mb-1.5 text-[11px] font-medium uppercase tracking-wide text-slate-500">
+        {label}
+      </p>
 
       <div className="text-sm font-medium text-slate-900">{children}</div>
     </div>
@@ -430,14 +430,23 @@ function AssetOverview({ asset }: { asset: Asset }) {
     <div className="space-y-5">
       {/* Operational Status */}
       <Card className="border-slate-200 bg-white shadow-none">
-        <div className="border-b border-slate-100 px-5 py-4">
-          <h2 className="text-sm font-semibold text-slate-900">
-            Operational Status
-          </h2>
+        <div className="flex flex-wrap items-start justify-between gap-3 border-b border-slate-100 px-5 py-4">
+          <div>
+            <h2 className="text-sm font-semibold text-slate-900">
+              Operational Status
+            </h2>
 
-          <p className="mt-1 text-xs text-slate-500">
-            Current operational state for this asset
-          </p>
+            <p className="mt-1 text-xs text-slate-500">
+              Current operational state for this asset
+            </p>
+          </div>
+
+          {monitoringTarget?.lastVerifiedAt && (
+            <p className="text-xs tabular-nums text-slate-400">
+              Last verification{" "}
+              {formatLastCollected(monitoringTarget.lastVerifiedAt)}
+            </p>
+          )}
         </div>
 
         <CardContent className="grid gap-4 p-5 md:grid-cols-2 xl:grid-cols-4">
@@ -448,19 +457,29 @@ function AssetOverview({ asset }: { asset: Asset }) {
           />
 
           <OverviewStatus
-            label="Runtime state"
-            value={formatRuntimeState(asset)}
+            label="Verification"
+            value={
+              !monitoringTarget
+                ? "Not configured"
+                : monitoringTarget.verificationStatus === "VERIFIED"
+                  ? "Verified"
+                  : monitoringTarget.verificationStatus === "FAILED"
+                    ? "Failed"
+                    : "Not verified"
+            }
             tone={
-              asset.status === "ACTIVATE"
-                ? "success"
-                : asset.status === "INACTIVATE"
-                  ? "warning"
-                  : "neutral"
+              !monitoringTarget
+                ? "neutral"
+                : monitoringTarget.verificationStatus === "VERIFIED"
+                  ? "success"
+                  : monitoringTarget.verificationStatus === "FAILED"
+                    ? "danger"
+                    : "warning"
             }
           />
 
           <OverviewStatus
-            label="Monitoring config"
+            label="Monitoring target"
             value={
               !monitoringTarget
                 ? "Not configured"
@@ -481,7 +500,7 @@ function AssetOverview({ asset }: { asset: Asset }) {
 
       {/* Latest metrics */}
       <Card className="border-slate-200 bg-white shadow-none">
-        <div className="border-b border-slate-100 px-5 py-4">
+        <div className="flex flex-wrap items-start justify-between gap-3 border-b border-slate-100 px-5 py-4">
           <div>
             <h2 className="text-sm font-semibold text-slate-900">
               Latest Resource Values
@@ -491,6 +510,13 @@ function AssetOverview({ asset }: { asset: Asset }) {
               Most recent infrastructure metrics
             </p>
           </div>
+
+          {monitoringTarget?.lastCollectedAt && (
+            <p className="text-xs tabular-nums text-slate-400">
+              Last collected{" "}
+              {formatLastCollected(monitoringTarget.lastCollectedAt)}
+            </p>
+          )}
         </div>
 
         {metricsQuery.isLoading ? (
@@ -540,43 +566,6 @@ function AssetOverview({ asset }: { asset: Asset }) {
           </CardContent>
         )}
       </Card>
-
-      {/* Asset Information */}
-      <Card className="border-slate-200 bg-white shadow-none">
-        <div className="border-b border-slate-100 px-5 py-4">
-          <h2 className="text-sm font-semibold text-slate-900">
-            Asset Information
-          </h2>
-
-          <p className="mt-1 text-xs text-slate-500">
-            Registered resource information
-          </p>
-        </div>
-
-        <CardContent className="grid gap-x-10 gap-y-6 p-5 md:grid-cols-2 xl:grid-cols-3">
-          <SummaryItem label="Asset name">{asset.name}</SummaryItem>
-
-          <SummaryItem label="Hostname">{asset.hostname ?? "—"}</SummaryItem>
-
-          <SummaryItem label="Target type">
-            {formatTargetType(asset)}
-          </SummaryItem>
-
-          <SummaryItem label="Environment">
-            {formatEnvironment(asset)}
-          </SummaryItem>
-
-          <SummaryItem
-            label={asset.targetType === "SERVER" ? "IP address" : "Endpoint"}
-          >
-            {getAddress(asset)}
-          </SummaryItem>
-
-          <SummaryItem label="Monitoring">
-            {asset.monitoringEnable ? "Enabled" : "Disabled"}
-          </SummaryItem>
-        </CardContent>
-      </Card>
     </div>
   );
 }
@@ -599,10 +588,12 @@ function OverviewStatus({
   }[tone];
 
   return (
-    <div className="rounded-lg border border-slate-200 p-4">
-      <p className="text-xs text-slate-500">{label}</p>
+    <div className="rounded-lg border border-slate-200 bg-slate-50/50 px-4 py-3">
+      <p className="text-[11px] font-medium uppercase tracking-wide text-slate-500">
+        {label}
+      </p>
 
-      <p className={`mt-2 text-sm font-semibold capitalize ${toneClass}`}>
+      <p className={`mt-1.5 text-sm font-semibold capitalize ${toneClass}`}>
         {value}
       </p>
     </div>
@@ -611,10 +602,12 @@ function OverviewStatus({
 
 function MetricValue({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-lg border border-slate-200 p-4">
-      <p className="text-xs text-slate-500">{label}</p>
+    <div className="rounded-lg border border-slate-200 bg-slate-50/50 px-4 py-3">
+      <p className="text-[11px] font-medium uppercase tracking-wide text-slate-500">
+        {label}
+      </p>
 
-      <p className="mt-2 text-xl font-semibold tracking-tight text-slate-950">
+      <p className="mt-1.5 text-xl font-semibold tracking-tight tabular-nums text-slate-950">
         {value}
       </p>
     </div>
