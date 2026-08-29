@@ -30,6 +30,7 @@ import { FindMonitoringTargetByIdUseCase } from '../application/use-cases/find-m
 import { QueryHttpRequestRateUseCase } from '../application/use-cases/query-http-request-rate.use-case';
 import { QueryMetricsReportSummaryUseCase } from '../application/use-cases/query-metrics-report-summary.use-case';
 import { ArchiveMonitoringTargetUseCase } from '../application/use-cases/archive-monitoring-target.use-case';
+import { QueryLatestMetricsSummariesUseCase } from '../application/use-cases/query-latest-metrics-summaries.use-case';
 
 @Controller('monitoring-targets')
 export class MonitoringTargetsController {
@@ -50,6 +51,7 @@ export class MonitoringTargetsController {
     private readonly queryHttpRequestRateUseCase: QueryHttpRequestRateUseCase,
     private readonly queryMetricsReportSummaryUseCase: QueryMetricsReportSummaryUseCase,
     private readonly archiveMonitoringTargetUseCase: ArchiveMonitoringTargetUseCase,
+    private readonly queryLatestMetricsSummariesUseCase: QueryLatestMetricsSummariesUseCase,
   ) {}
 
   @Post()
@@ -164,6 +166,11 @@ export class MonitoringTargetsController {
     const target = await this.findMonitoringTargetByIdUseCase.execute(id);
 
     return target.toObject();
+  }
+
+  @Get('metrics/latest-summaries')
+  queryLatestMetricsSummaries() {
+    return this.queryLatestMetricsSummariesUseCase.execute();
   }
 
   @Get(':assetId/metrics/summary')

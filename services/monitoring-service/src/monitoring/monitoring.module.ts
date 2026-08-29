@@ -78,6 +78,7 @@ import { SetMetricRuleEnabledUseCase } from './application/use-cases/set-metric-
 import { ArchiveMetricRuleUseCase } from './application/use-cases/archive-metric-rule.use-case';
 import { ArchiveMonitoringTargetUseCase } from './application/use-cases/archive-monitoring-target.use-case';
 import { MonitoringTargetMetricLifecycleService } from './application/services/monitoring-target-metric-lifecycle.service';
+import { QueryLatestMetricsSummariesUseCase } from './application/use-cases/query-latest-metrics-summaries.use-case';
 @Module({
   imports: [
     HttpModule,
@@ -157,6 +158,7 @@ import { MonitoringTargetMetricLifecycleService } from './application/services/m
     QueryNetworkRateUseCase,
     QueryCpuUsageUseCase,
     QueryMetricsSummaryUseCase,
+    QueryLatestMetricsSummariesUseCase,
     FindMonitoringTargetsUseCase,
     FindMonitoringTargetByIdUseCase,
     CreateMetricRuleUseCase,
