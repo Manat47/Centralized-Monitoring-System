@@ -1,12 +1,14 @@
 export type VerificationStatus = 'NOT_VERIFIED' | 'VERIFIED' | 'FAILED'; // ยังไม่เคยตรวจ | ตรวจสอบแล้วเชื่อมต่อได้ | ตรวจแล้วเชื่อมต่อไม่ได้
 export type MonitoringType = 'NODE_EXPORTER' | 'PROMETHEUS_APPLICATION'; // ประเภทของ Monitoring Target ว่าเป็น Node Exporter หรือ Prometheus Application
 export type MonitoringProtocol = 'HTTP' | 'HTTPS';
+export type MonitoringAddressSource = 'HOSTNAME' | 'IP_ADDRESS';
 export interface MonitoringTargetProps {
   // เปรียบเหมือนโครงสร้างภายในของ Entity
   targetId: string; // เก็บตัวตั้งค่าที่จะให้ระบบเข้าไปเก็บ metrics
   assetId: string; // เครื่องที่ต้องการให้ระบบไป monitor
   monitoringType: MonitoringType; // ประเภทของ Monitoring Target
   protocol: MonitoringProtocol | null;
+  addressSource: MonitoringAddressSource | null;
   port: number; // port ที่ Metrics endpoint เปิดให้เข้าไปใช้ดึงข้อมูล
   path: string; // ตำแหน้งที่ endpoint ใช้ดึง metrics
   scrapeIntervalSeconds: number; // ตัวที่กำหนดว่าจะต้องเข้าไปเก็บ metrics ทุกๆกี่วินาที
@@ -26,6 +28,7 @@ export interface CreateMonitoringTargetProps {
   assetId: string;
   monitoringType: MonitoringType;
   protocol?: MonitoringProtocol;
+  addressSource?: MonitoringAddressSource;
   port?: number;
   path?: string;
   scrapeIntervalSeconds?: number;
@@ -99,6 +102,10 @@ export class MonitoringTarget {
         input.monitoringType === 'NODE_EXPORTER'
           ? (input.protocol ?? 'HTTP')
           : null,
+      addressSource:
+        input.monitoringType === 'NODE_EXPORTER'
+          ? (input.addressSource ?? null)
+          : null,
       port,
       path,
       scrapeIntervalSeconds,
@@ -150,6 +157,23 @@ export class MonitoringTarget {
     this.props.verifiedConfigFingerprint = null;
     this.props.lastError = null;
     this.props.updatedAt = now;
+  }
+
+  changeAddressSource(addressSource: MonitoringAddressSource): void {
+    this.ensureNotArchived();
+
+    if (this.props.monitoringType !== 'NODE_EXPORTER') {
+      throw new Error(
+        'Address source is only supported for NODE_EXPORTER monitoring',
+      );
+    }
+
+    if (this.props.addressSource === addressSource) {
+      return;
+    }
+
+    this.props.addressSource = addressSource;
+    this.invalidateVerification();
   }
 
   enableMonitoring(): void {

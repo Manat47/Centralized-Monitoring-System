@@ -3,35 +3,18 @@ import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { firstValueFrom } from 'rxjs';
 
-interface AssetResponse {
-  status: string;
-}
-
-interface MonitoringTargetResponse {
-  monitoringEnabled: boolean;
-}
-
-interface MetricRuleResponse {
-  enabled: boolean;
-}
-
-interface AlertResponse {
-  severity: string;
-  status: string;
-}
+import {
+  type AlertResponse,
+  type AssetResponse,
+  buildDashboardOverview,
+  type HealthCheckTargetResponse,
+  type LatestMetricsSummaryResponse,
+  type MonitoringTargetResponse,
+} from './dashboard-overview';
 
 interface AlertListResponse {
   items: AlertResponse[];
-  total: number;
-}
-
-interface HealthCheckTargetResponse {
-  healthCheckTargetId: string;
-  enabled: boolean;
-}
-
-interface HealthCheckLatestResponse {
-  statusCode: number | null;
+  totalPages: number;
 }
 
 @Injectable()
@@ -45,121 +28,66 @@ export class DashboardService {
     const assetServiceUrl =
       this.configService.get<string>('ASSET_SERVICE_URL') ??
       'http://localhost:3000';
-
     const monitoringServiceUrl =
       this.configService.get<string>('MONITORING_SERVICE_URL') ??
       'http://localhost:3001';
-
     const alertingServiceUrl =
       this.configService.get<string>('ALERTING_SERVICE_URL') ??
       'http://localhost:3002';
 
-    const [
-      assetsResponse,
-      targetsResponse,
-      rulesResponse,
-      alertsResponse,
-      healthTargetsResponse,
-    ] = await Promise.all([
-      firstValueFrom(
-        this.httpService.get<AssetResponse[]>(`${assetServiceUrl}/assets`),
-      ),
-      firstValueFrom(
-        this.httpService.get<MonitoringTargetResponse[]>(
+    const [assets, targets, healthTargets, metrics, triggered, acknowledged] =
+      await Promise.all([
+        this.get<AssetResponse[]>(`${assetServiceUrl}/assets`),
+        this.get<MonitoringTargetResponse[]>(
           `${monitoringServiceUrl}/monitoring-targets`,
         ),
-      ),
-      firstValueFrom(
-        this.httpService.get<MetricRuleResponse[]>(
-          `${monitoringServiceUrl}/metric-rules`,
-        ),
-      ),
-      firstValueFrom(
-        this.httpService.get<AlertListResponse>(
-          `${alertingServiceUrl}/alerts?page=1&limit=100`,
-        ),
-      ),
-      firstValueFrom(
-        this.httpService.get<HealthCheckTargetResponse[]>(
+        this.get<HealthCheckTargetResponse[]>(
           `${monitoringServiceUrl}/health-check-targets`,
         ),
+        this.get<LatestMetricsSummaryResponse[]>(
+          `${monitoringServiceUrl}/monitoring-targets/metrics/latest-summaries`,
+        ),
+        this.getAllAlerts(alertingServiceUrl, 'TRIGGERED'),
+        this.getAllAlerts(alertingServiceUrl, 'ACKNOWLEDGED'),
+      ]);
+
+    return buildDashboardOverview({
+      assets,
+      monitoringTargets: targets,
+      healthCheckTargets: healthTargets,
+      alerts: [...triggered, ...acknowledged],
+      metrics,
+    });
+  }
+
+  private async get<T>(url: string): Promise<T> {
+    const response = await firstValueFrom(this.httpService.get<T>(url));
+    return response.data;
+  }
+
+  private async getAllAlerts(
+    alertingServiceUrl: string,
+    status: 'TRIGGERED' | 'ACKNOWLEDGED',
+  ): Promise<AlertResponse[]> {
+    const firstPage = await this.get<AlertListResponse>(
+      `${alertingServiceUrl}/alerts?status=${status}&page=1&limit=100`,
+    );
+
+    if (firstPage.totalPages <= 1) {
+      return firstPage.items;
+    }
+
+    const remainingPages = await Promise.all(
+      Array.from({ length: firstPage.totalPages - 1 }, (_, index) =>
+        this.get<AlertListResponse>(
+          `${alertingServiceUrl}/alerts?status=${status}&page=${index + 2}&limit=100`,
+        ),
       ),
-    ]);
-
-    const assets = assetsResponse.data;
-    const targets = targetsResponse.data;
-    const rules = rulesResponse.data;
-    const alerts = alertsResponse.data.items;
-
-    const enabledHealthTargets = healthTargetsResponse.data.filter(
-      (target) => target.enabled,
     );
 
-    const latestHealthChecks = await Promise.all(
-      enabledHealthTargets.map(async (target) => {
-        const response = await firstValueFrom(
-          this.httpService.get<HealthCheckLatestResponse | null>(
-            `${monitoringServiceUrl}/health-check-targets/${target.healthCheckTargetId}/latest`,
-          ),
-        );
-
-        return response.data;
-      }),
-    );
-
-    const checkedHealthChecks = latestHealthChecks.filter(
-      (check) => check !== null,
-    );
-
-    const availableHealthChecks = checkedHealthChecks.filter(
-      (check) =>
-        check.statusCode !== null &&
-        check.statusCode >= 200 &&
-        check.statusCode < 300,
-    ).length;
-
-    const unavailableHealthChecks =
-      checkedHealthChecks.length - availableHealthChecks;
-
-    const unknownHealthChecks =
-      enabledHealthTargets.length - checkedHealthChecks.length;
-
-    return {
-      assets: {
-        total: assets.length,
-        active: assets.filter((asset) => asset.status === 'ACTIVATE').length,
-      },
-
-      monitoringTargets: {
-        total: targets.length,
-        enabled: targets.filter((target) => target.monitoringEnabled).length,
-      },
-
-      metricRules: {
-        total: rules.length,
-        enabled: rules.filter((rule) => rule.enabled).length,
-      },
-
-      alerts: {
-        total: alertsResponse.data.total,
-        active: alerts.filter(
-          (alert) =>
-            alert.status === 'TRIGGERED' || alert.status === 'ACKNOWLEDGED',
-        ).length,
-        critical: alerts.filter(
-          (alert) =>
-            alert.severity === 'CRITICAL' &&
-            (alert.status === 'TRIGGERED' || alert.status === 'ACKNOWLEDGED'),
-        ).length,
-      },
-
-      healthChecks: {
-        total: enabledHealthTargets.length,
-        checked: checkedHealthChecks.length,
-        available: availableHealthChecks,
-        unavailable: unavailableHealthChecks,
-        unknown: unknownHealthChecks,
-      },
-    };
+    return [
+      ...firstPage.items,
+      ...remainingPages.flatMap((page) => page.items),
+    ];
   }
 }

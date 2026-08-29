@@ -9,6 +9,7 @@ import {
   Get,
   Query,
   Headers,
+  Patch,
 } from '@nestjs/common';
 
 import { CreateMonitoringTargetUseCase } from '../application/use-cases/create-monitoring-target.use-case';
@@ -30,6 +31,9 @@ import { FindMonitoringTargetByIdUseCase } from '../application/use-cases/find-m
 import { QueryHttpRequestRateUseCase } from '../application/use-cases/query-http-request-rate.use-case';
 import { QueryMetricsReportSummaryUseCase } from '../application/use-cases/query-metrics-report-summary.use-case';
 import { ArchiveMonitoringTargetUseCase } from '../application/use-cases/archive-monitoring-target.use-case';
+import { QueryLatestMetricsSummariesUseCase } from '../application/use-cases/query-latest-metrics-summaries.use-case';
+import { UpdateMonitoringTargetUseCase } from '../application/use-cases/update-monitoring-target.use-case';
+import { UpdateMonitoringTargetDto } from './dto/update-monitoring-target.dto';
 
 @Controller('monitoring-targets')
 export class MonitoringTargetsController {
@@ -50,6 +54,8 @@ export class MonitoringTargetsController {
     private readonly queryHttpRequestRateUseCase: QueryHttpRequestRateUseCase,
     private readonly queryMetricsReportSummaryUseCase: QueryMetricsReportSummaryUseCase,
     private readonly archiveMonitoringTargetUseCase: ArchiveMonitoringTargetUseCase,
+    private readonly queryLatestMetricsSummariesUseCase: QueryLatestMetricsSummariesUseCase,
+    private readonly updateMonitoringTargetUseCase: UpdateMonitoringTargetUseCase,
   ) {}
 
   @Post()
@@ -89,6 +95,24 @@ export class MonitoringTargetsController {
     @Headers('x-user-email') actorEmail: string | undefined,
   ) {
     const target = await this.verifyMonitoringTargetUseCase.execute(id, {
+      actorUserId,
+      actorRole,
+      actorEmail,
+    });
+
+    return target.toObject();
+  }
+
+  @Patch(':id')
+  async update(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body() dto: UpdateMonitoringTargetDto,
+    @Headers('x-user-id') actorUserId: string,
+    @Headers('x-user-role') actorRole: 'ADMIN' | 'OPERATOR',
+    @Headers('x-user-email') actorEmail: string | undefined,
+  ) {
+    const target = await this.updateMonitoringTargetUseCase.execute(id, {
+      ...dto,
       actorUserId,
       actorRole,
       actorEmail,
@@ -164,6 +188,11 @@ export class MonitoringTargetsController {
     const target = await this.findMonitoringTargetByIdUseCase.execute(id);
 
     return target.toObject();
+  }
+
+  @Get('metrics/latest-summaries')
+  queryLatestMetricsSummaries() {
+    return this.queryLatestMetricsSummariesUseCase.execute();
   }
 
   @Get(':assetId/metrics/summary')

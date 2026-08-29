@@ -8,6 +8,7 @@ import {
   LoaderCircle,
   MoreVertical,
   Pause,
+  Pencil,
   Play,
   RefreshCw,
   RotateCcw,
@@ -58,6 +59,13 @@ import type {
   MonitoringTarget,
   VerificationStatus,
 } from "../types/monitoring-target";
+import { EditMonitoringTargetAddressDialog } from "./edit-monitoring-target-address-dialog";
+import {
+  getAddressForSource,
+  getAvailableAddressSources,
+  getEffectiveAddressSource,
+  getNodeExporterUrl,
+} from "../lib/monitoring-address";
 
 function getAssetAddress(asset: Asset | undefined): string {
   if (!asset) {
@@ -84,12 +92,13 @@ function getScrapeUrl(
   asset: Asset | undefined,
 ): string {
   if (target.monitoringType === "NODE_EXPORTER") {
-    if (!target.protocol) {
-      return "—";
-    }
-
-    const protocol = target.protocol.toLowerCase();
-    return `${protocol}://${getAssetAddress(asset)}:${target.port}${target.path}`;
+    return (
+      getNodeExporterUrl(
+        target,
+        asset,
+        getEffectiveAddressSource(target, asset),
+      ) || "—"
+    );
   }
 
   if (!asset?.endpoint) {
@@ -197,6 +206,7 @@ export function MonitoringTargetsTable() {
   const [archiveTarget, setArchiveTarget] = useState<MonitoringTarget | null>(
     null,
   );
+  const [editTarget, setEditTarget] = useState<MonitoringTarget | null>(null);
 
   const targetsQuery = useMonitoringTargets(true);
   const assetsQuery = useAssets();
@@ -218,7 +228,13 @@ export function MonitoringTargetsTable() {
     return targets.filter((target) => {
       const asset = assetById.get(target.assetId);
       const assetName = asset?.name ?? "";
-      const address = getAssetAddress(asset);
+      const address =
+        target.monitoringType === "NODE_EXPORTER"
+          ? getAddressForSource(
+              asset,
+              getEffectiveAddressSource(target, asset),
+            )
+          : getAssetAddress(asset);
       const scrapeUrl = getScrapeUrl(target, asset);
 
       const matchesSearch =
@@ -473,6 +489,16 @@ export function MonitoringTargetsTable() {
               ) : (
                 filteredTargets.map((target) => {
                   const asset = assetById.get(target.assetId);
+                  const availableAddressSources =
+                    getAvailableAddressSources(asset);
+                  const selectedAddressAvailable = Boolean(
+                    getAddressForSource(asset, target.addressSource),
+                  );
+                  const canEditAddress =
+                    availableAddressSources.length > 1 ||
+                    (Boolean(target.addressSource) &&
+                      !selectedAddressAvailable &&
+                      availableAddressSources.length === 1);
                   const monitoringState = getMonitoringState(target, asset);
                   const isPending =
                     (verifyMutation.isPending &&
@@ -521,8 +547,25 @@ export function MonitoringTargetsTable() {
                           </div>
                         </TableCell>
                         <TableCell>{target.protocol ?? "—"}</TableCell>
-                        <TableCell className="font-mono text-xs">
-                          {getAssetAddress(asset)}
+                        <TableCell
+                          className="font-mono text-xs"
+                          title={getScrapeUrl(target, asset)}
+                        >
+                          <div>
+                            <p>
+                              {getAddressForSource(
+                                asset,
+                                getEffectiveAddressSource(target, asset),
+                              ) || "—"}
+                            </p>
+                            <p className="mt-0.5 font-sans text-[11px] text-slate-500">
+                              {target.addressSource === "HOSTNAME"
+                                ? "Hostname"
+                                : target.addressSource === "IP_ADDRESS"
+                                  ? "IP address"
+                                  : "Legacy automatic"}
+                            </p>
+                          </div>
                         </TableCell>
                         <TableCell className="font-mono text-xs">
                           {target.port}
@@ -637,6 +680,16 @@ export function MonitoringTargetsTable() {
                                         )}
                                         <div className="my-1 border-t border-slate-100" />
                                         <MenuPrimitive.Item
+                                          disabled={
+                                            !canEditAddress
+                                          }
+                                          onClick={() => setEditTarget(target)}
+                                          className="flex cursor-default items-center gap-2 rounded px-2 py-2 outline-none data-highlighted:bg-slate-100 data-disabled:text-slate-400"
+                                        >
+                                          <Pencil className="size-4" />
+                                          Connection address
+                                        </MenuPrimitive.Item>
+                                        <MenuPrimitive.Item
                                           onClick={() =>
                                             setArchiveTarget(target)
                                           }
@@ -728,6 +781,13 @@ export function MonitoringTargetsTable() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      <EditMonitoringTargetAddressDialog
+        target={editTarget}
+        asset={editTarget ? assetById.get(editTarget.assetId) : undefined}
+        onOpenChange={(open) => {
+          if (!open) setEditTarget(null);
+        }}
+      />
     </>
   );
 }

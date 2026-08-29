@@ -15,7 +15,6 @@ export interface Asset {
   endpoint: string | null;
   environment: AssetEnvironment;
   status: AssetStatus;
-  monitoringEnable: boolean;
   createdAt: string;
   updatedAt: string;
 }

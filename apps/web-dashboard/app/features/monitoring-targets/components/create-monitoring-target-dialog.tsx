@@ -36,8 +36,17 @@ import type {
   CreateMonitoringTargetInput,
   MonitoringTarget,
 } from "../types/monitoring-target";
+import {
+  getAddressForSource,
+  getAvailableAddressSources,
+  getNodeExporterUrl,
+} from "../lib/monitoring-address";
 
 type WizardStep = 1 | 2 | 3;
+
+function getServerAddress(asset: Asset | undefined): string {
+  return asset?.hostname?.trim() || asset?.ipAddress?.trim() || "";
+}
 
 const initialForm: CreateMonitoringTargetInput = {
   assetId: "",
@@ -52,10 +61,6 @@ const steps: { value: WizardStep; label: string }[] = [
   { value: 2, label: "Configuration" },
   { value: 3, label: "Verify & Enable" },
 ];
-
-function getServerAddress(asset: Asset | undefined): string {
-  return asset?.hostname?.trim() || asset?.ipAddress?.trim() || "";
-}
 
 function getErrorMessage(error: unknown, fallback: string): string {
   return error instanceof Error ? error.message : fallback;
@@ -93,6 +98,22 @@ export function CreateMonitoringTargetDialog() {
   const selectedAsset = (assetsQuery.data ?? []).find(
     (asset) => asset.assetId === form.assetId,
   );
+  const availableAddressSources = getAvailableAddressSources(selectedAsset);
+  const selectedAddress = getAddressForSource(
+    selectedAsset,
+    form.addressSource,
+  );
+  const scrapeUrl = selectedAsset
+    ? getNodeExporterUrl(
+        {
+          protocol: form.protocol ?? "HTTP",
+          port: Number(form.port ?? 9100),
+          path: form.path?.trim() || "/metrics",
+        },
+        selectedAsset,
+        form.addressSource,
+      )
+    : "";
   const selectedAssetLabel = selectedAsset
     ? `${selectedAsset.name} — ${getServerAddress(selectedAsset)}`
     : undefined;
@@ -147,6 +168,7 @@ export function CreateMonitoringTargetDialog() {
       try {
         target = await createMutation.mutateAsync({
           assetId: form.assetId,
+          addressSource: form.addressSource,
           protocol: form.protocol ?? "HTTP",
           port: Number(form.port),
           path: form.path?.trim() || "/metrics",
@@ -211,12 +233,19 @@ export function CreateMonitoringTargetDialog() {
                 <Label>Select Asset</Label>
                 <Select
                   value={form.assetId}
-                  onValueChange={(value) =>
+                  onValueChange={(value) => {
+                    const asset = (assetsQuery.data ?? []).find(
+                      (candidate) => candidate.assetId === value,
+                    );
+                    const sources = getAvailableAddressSources(asset);
+
                     setForm((current) => ({
                       ...current,
                       assetId: value ?? "",
-                    }))
-                  }
+                      addressSource:
+                        sources.length === 1 ? sources[0] : undefined,
+                    }));
+                  }}
                 >
                   <SelectTrigger className="h-10 w-full">
                     <SelectValue placeholder="Select a server asset">
@@ -253,7 +282,7 @@ export function CreateMonitoringTargetDialog() {
                   disabled={
                     prerequisiteQueryFailed ||
                     !selectedAsset ||
-                    !getServerAddress(selectedAsset)
+                    availableAddressSources.length === 0
                   }
                   onClick={() => setStep(2)}
                 >
@@ -265,6 +294,42 @@ export function CreateMonitoringTargetDialog() {
 
           {step === 2 && (
             <form onSubmit={handleCreateAndVerify} className="space-y-6 pt-5">
+              {availableAddressSources.length > 1 && (
+                <div className="grid gap-2">
+                  <Label>Connection address</Label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {availableAddressSources.map((source) => (
+                      <Button
+                        key={source}
+                        type="button"
+                        variant={
+                          form.addressSource === source ? "default" : "outline"
+                        }
+                        className="h-auto min-h-14 justify-start px-3 py-2 text-left"
+                        onClick={() =>
+                          setForm((current) => ({
+                            ...current,
+                            addressSource: source,
+                          }))
+                        }
+                      >
+                        <span>
+                          <span className="block text-sm font-medium">
+                            {source === "HOSTNAME" ? "Hostname" : "IP address"}
+                          </span>
+                          <span className="block font-mono text-xs opacity-80">
+                            {getAddressForSource(selectedAsset, source)}
+                          </span>
+                        </span>
+                      </Button>
+                    ))}
+                  </div>
+                  <p className="text-xs text-slate-500">
+                    Choose the address reachable from the monitoring service.
+                  </p>
+                </div>
+              )}
+
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="grid gap-2">
                   <Label>Protocol</Label>
@@ -293,7 +358,7 @@ export function CreateMonitoringTargetDialog() {
                   <Label htmlFor="monitoring-host">Host</Label>
                   <Input
                     id="monitoring-host"
-                    value={getServerAddress(selectedAsset)}
+                    value={selectedAddress}
                     readOnly
                     className="bg-slate-50 font-mono"
                   />
@@ -352,6 +417,13 @@ export function CreateMonitoringTargetDialog() {
                 </div>
               </div>
 
+              <div className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2">
+                <p className="text-xs text-slate-500">Scrape URL</p>
+                <p className="mt-1 break-all font-mono text-xs text-slate-900">
+                  {scrapeUrl || "Select a connection address"}
+                </p>
+              </div>
+
               {createMutation.isError && (
                 <p className="text-sm text-rose-600">
                   {getErrorMessage(
@@ -370,7 +442,10 @@ export function CreateMonitoringTargetDialog() {
                 >
                   Back
                 </Button>
-                <Button type="submit" disabled={isVerifying}>
+                <Button
+                  type="submit"
+                  disabled={isVerifying || !form.addressSource || !scrapeUrl}
+                >
                   {isVerifying && (
                     <LoaderCircle className="size-4 animate-spin" />
                   )}
@@ -390,10 +465,7 @@ export function CreateMonitoringTargetDialog() {
                       Verification successful
                     </p>
                     <p className="mt-1 text-xs">
-                      Node Exporter is reachable at{" "}
-                      {form.protocol?.toLowerCase()}
-                      ://{getServerAddress(selectedAsset)}:{form.port}
-                      {form.path}.
+                      Node Exporter is reachable at {scrapeUrl}.
                     </p>
                   </div>
                 </div>

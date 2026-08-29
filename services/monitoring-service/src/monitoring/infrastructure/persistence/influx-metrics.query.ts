@@ -8,8 +8,10 @@ import {
 } from '@influxdata/influxdb-client';
 
 import type {
+  AssetMetricDataPoint,
   MetricDataPoint,
   MetricsQuery,
+  QueryMetricForAssetsInput,
   QueryMetricInput,
 } from '../../domain/ports/metrics-query.port';
 
@@ -75,6 +77,60 @@ export class InfluxMetricsQuery implements MetricsQuery {
         }
 
         return {
+          timestamp: new Date(timestamp),
+          value,
+          labels: this.extractLabels(row),
+        };
+      },
+    );
+  }
+
+  async queryMetricForAssets(
+    input: QueryMetricForAssetsInput,
+  ): Promise<AssetMetricDataPoint[]> {
+    if (input.assetIds.length === 0) {
+      return [];
+    }
+
+    const query = flux`
+  from(bucket: ${this.bucket})
+    |> range(
+      start: ${input.start},
+      stop: ${input.end}
+    )
+    |> filter(
+      fn: (r) =>
+        r._measurement == ${input.measurement}
+    )
+    |> filter(
+      fn: (r) =>
+        contains(value: r.assetId, set: ${input.assetIds})
+    )
+    |> filter(
+      fn: (r) =>
+        r._field == "value"
+    )
+    |> sort(columns: ["_time"])
+`;
+
+    return this.queryApi.collectRows<AssetMetricDataPoint>(
+      query,
+      (values: string[], tableMeta: FluxTableMetaData) => {
+        const row = tableMeta.toObject(values) as Record<string, unknown>;
+        const timestamp = row._time;
+        const value = row._value;
+        const assetId = row.assetId;
+
+        if (
+          typeof timestamp !== 'string' ||
+          typeof value !== 'number' ||
+          typeof assetId !== 'string'
+        ) {
+          return undefined;
+        }
+
+        return {
+          assetId,
           timestamp: new Date(timestamp),
           value,
           labels: this.extractLabels(row),
