@@ -5,6 +5,7 @@ describe('MonitoringTarget', () => {
     return MonitoringTarget.create('target-001', {
       assetId: 'asset-001',
       monitoringType: 'NODE_EXPORTER',
+      addressSource: 'HOSTNAME',
     });
   }
 
@@ -15,6 +16,7 @@ describe('MonitoringTarget', () => {
       targetId: 'target-001',
       assetId: 'asset-001',
       monitoringType: 'NODE_EXPORTER',
+      addressSource: 'HOSTNAME',
       protocol: 'HTTP',
       port: 9100,
       path: '/metrics',
@@ -22,6 +24,22 @@ describe('MonitoringTarget', () => {
       verificationStatus: 'NOT_VERIFIED',
       monitoringEnabled: false,
       archivedAt: null,
+    });
+  });
+
+  it('invalidates verification when the address source changes', () => {
+    const target = createNodeTarget();
+    target.markVerified('fingerprint');
+    target.enableMonitoring();
+
+    target.changeAddressSource('IP_ADDRESS');
+
+    expect(target.toObject()).toMatchObject({
+      addressSource: 'IP_ADDRESS',
+      verificationStatus: 'NOT_VERIFIED',
+      verifiedConfigFingerprint: null,
+      monitoringEnabled: false,
+      lastError: null,
     });
   });
 

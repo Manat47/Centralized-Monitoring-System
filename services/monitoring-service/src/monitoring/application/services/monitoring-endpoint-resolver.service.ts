@@ -42,9 +42,33 @@ export class MonitoringEndpointResolver {
     }
 
     if (targetData.monitoringType === 'NODE_EXPORTER') {
-      const host = asset.hostname?.trim() || asset.ipAddress?.trim();
+      const hostname = asset.hostname?.trim();
+      const ipAddress = asset.ipAddress?.trim();
+      let host: string | undefined;
+
+      if (targetData.addressSource === 'HOSTNAME') {
+        host = hostname;
+      } else if (targetData.addressSource === 'IP_ADDRESS') {
+        host = ipAddress;
+      } else {
+        // Targets created before address_source was introduced keep the old
+        // hostname-first behavior until an operator selects a source.
+        host = hostname || ipAddress;
+      }
 
       if (!host) {
+        if (targetData.addressSource === 'HOSTNAME') {
+          throw new BadRequestException(
+            'Selected hostname is not configured on the SERVER asset',
+          );
+        }
+
+        if (targetData.addressSource === 'IP_ADDRESS') {
+          throw new BadRequestException(
+            'Selected IP address is not configured on the SERVER asset',
+          );
+        }
+
         throw new BadRequestException(
           'SERVER asset does not have a hostname or IP address',
         );

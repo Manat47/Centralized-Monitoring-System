@@ -7,11 +7,18 @@ import {
   Max,
   Min,
 } from 'class-validator';
-import type { MonitoringProtocol } from '../../domain/entities/monitoring-target.entity';
+import type {
+  MonitoringAddressSource,
+  MonitoringProtocol,
+} from '../../domain/entities/monitoring-target.entity';
 
 export class CreateMonitoringTargetDto {
   @IsUUID()
   assetId!: string;
+
+  @IsOptional()
+  @IsIn(['HOSTNAME', 'IP_ADDRESS'])
+  addressSource?: MonitoringAddressSource;
 
   @IsOptional()
   @IsIn(['HTTP', 'HTTPS'])

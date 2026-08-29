@@ -9,6 +9,7 @@ import {
   disableMonitoringTarget,
   enableMonitoringTarget,
   verifyMonitoringTarget,
+  updateMonitoringTarget,
 } from "./update-monitoring-target";
 
 export function useCreateMonitoringTarget() {
@@ -63,6 +64,22 @@ export function useDisableMonitoringTarget() {
       await queryClient.invalidateQueries({
         queryKey: ["monitoring-targets"],
       });
+    },
+  });
+}
+
+export function useUpdateMonitoringTarget() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: updateMonitoringTarget,
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["monitoring-targets"] }),
+        queryClient.invalidateQueries({ queryKey: ["metric-rules"] }),
+        queryClient.invalidateQueries({ queryKey: ["alerts"] }),
+        queryClient.invalidateQueries({ queryKey: ["dashboard"] }),
+      ]);
     },
   });
 }

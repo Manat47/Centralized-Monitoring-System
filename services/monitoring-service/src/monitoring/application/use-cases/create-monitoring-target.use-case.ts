@@ -12,6 +12,7 @@ import {
   type CreateMonitoringTargetProps, // เป็น Type ที่ Entity กำหนดว่าตอนสร้าง Target ต้องส่งข้อมูลอะไรเข้าไป
   type MonitoringType,
   type MonitoringProtocol,
+  type MonitoringAddressSource,
 } from '../../domain/entities/monitoring-target.entity';
 import {
   ASSET_READER,
@@ -28,6 +29,7 @@ import {
 
 export interface CreateMonitoringTargetInput {
   assetId: string;
+  addressSource?: MonitoringAddressSource;
   protocol?: MonitoringProtocol;
   port?: number;
   path?: string;
@@ -92,16 +94,44 @@ export class CreateMonitoringTargetUseCase {
 
     let port = input.port;
     const path = input.path;
+    let addressSource: MonitoringAddressSource | undefined;
 
     if (asset.assetType === 'SERVER') {
-      const serverAddress = asset.hostname?.trim() || asset.ipAddress?.trim();
+      const hostname = asset.hostname?.trim();
+      const ipAddress = asset.ipAddress?.trim();
 
-      if (!serverAddress) {
+      if (!hostname && !ipAddress) {
         throw new BadRequestException(
           'SERVER asset does not have a hostname or IP address',
         );
       }
+
+      if (input.addressSource === 'HOSTNAME' && !hostname) {
+        throw new BadRequestException(
+          'Selected hostname is not configured on the SERVER asset',
+        );
+      }
+
+      if (input.addressSource === 'IP_ADDRESS' && !ipAddress) {
+        throw new BadRequestException(
+          'Selected IP address is not configured on the SERVER asset',
+        );
+      }
+
+      if (!input.addressSource && hostname && ipAddress) {
+        throw new BadRequestException(
+          'addressSource is required when the SERVER asset has both a hostname and an IP address',
+        );
+      }
+
+      addressSource =
+        input.addressSource ?? (hostname ? 'HOSTNAME' : 'IP_ADDRESS');
     } else {
+      if (input.addressSource) {
+        throw new BadRequestException(
+          'addressSource is only supported for SERVER assets',
+        );
+      }
       if (!asset.endpoint) {
         throw new BadRequestException(
           'APPLICATION asset does not have an endpoint',
@@ -135,6 +165,7 @@ export class CreateMonitoringTargetUseCase {
       //เอาข้อมูลจาก 2 แหล่งมารวมกัน
       assetId: asset.assetId, // Asset Service
       monitoringType, // กำหนดจาก asset.assetType
+      addressSource,
       protocol: monitoringType === 'NODE_EXPORTER' ? input.protocol : undefined,
       port, //  User Input
       path, // User Input
@@ -162,6 +193,7 @@ export class CreateMonitoringTargetUseCase {
       metadata: {
         assetId: data.assetId,
         monitoringType: data.monitoringType,
+        addressSource: data.addressSource,
         protocol: data.protocol,
         port: data.port,
         path: data.path,

@@ -29,6 +29,7 @@ export class DrizzleMonitoringTargetRepository implements MonitoringTargetReposi
         assetId: data.assetId,
         monitoringType: data.monitoringType,
         protocol: data.protocol,
+        addressSource: data.addressSource,
         port: data.port,
         path: data.path,
         scrapeIntervalSeconds: data.scrapeIntervalSeconds,
@@ -129,6 +130,7 @@ export class DrizzleMonitoringTargetRepository implements MonitoringTargetReposi
       .update(schema.monitoringTargets)
       .set({
         protocol: data.protocol,
+        addressSource: data.addressSource,
         port: data.port,
         path: data.path,
         scrapeIntervalSeconds: data.scrapeIntervalSeconds,
@@ -153,6 +155,7 @@ export class DrizzleMonitoringTargetRepository implements MonitoringTargetReposi
       assetId: row.assetId,
       monitoringType: row.monitoringType,
       protocol: row.protocol,
+      addressSource: row.addressSource,
       port: row.port,
       path: row.path,
       scrapeIntervalSeconds: row.scrapeIntervalSeconds,

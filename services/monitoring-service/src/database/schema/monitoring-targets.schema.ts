@@ -49,6 +49,11 @@ export const monitoringProtocolEnum = pgEnum('monitoring_protocol', [
   'HTTPS',
 ]);
 
+export const monitoringAddressSourceEnum = pgEnum('monitoring_address_source', [
+  'HOSTNAME',
+  'IP_ADDRESS',
+]);
+
 export const monitoringTargets = pgTable(
   'monitoring_targets',
   {
@@ -61,6 +66,8 @@ export const monitoringTargets = pgTable(
       .notNull(),
 
     protocol: monitoringProtocolEnum('protocol'),
+
+    addressSource: monitoringAddressSourceEnum('address_source'),
 
     port: integer('port').notNull(),
 
