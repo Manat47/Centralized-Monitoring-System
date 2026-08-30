@@ -135,7 +135,12 @@ export function UsersTable() {
                   setPage(1);
                 }}
                 placeholder="Name or email"
-                className="h-9 pl-9"
+                className="
+  h-9 pl-9
+  focus-visible:border-blue-500
+  focus-visible:ring-2
+  focus-visible:ring-blue-500/20
+"
               />
             </div>
           </div>
@@ -151,12 +156,16 @@ export function UsersTable() {
                 setPage(1);
               }}
             >
-              <SelectTrigger className="h-9 w-full sm:w-40">
+              <SelectTrigger className="h-15 w-full sm:w-50">
                 <SelectValue>
                   {role === "ALL" ? "All roles" : formatRole(role)}
                 </SelectValue>
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent
+                alignItemWithTrigger={false}
+                sideOffset={6}
+                className="duration-150"
+              >
                 <SelectItem value="ALL">All roles</SelectItem>
                 <SelectItem value="ADMIN">Admin</SelectItem>
                 <SelectItem value="OPERATOR">Operator</SelectItem>
@@ -175,12 +184,16 @@ export function UsersTable() {
                 setPage(1);
               }}
             >
-              <SelectTrigger className="h-9 w-full sm:w-40">
+              <SelectTrigger className="h-15 w-full sm:w-50">
                 <SelectValue>
                   {status === "ALL" ? "All statuses" : formatStatus(status)}
                 </SelectValue>
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent
+                alignItemWithTrigger={false}
+                sideOffset={6}
+                className="duration-150"
+              >
                 <SelectItem value="ALL">All statuses</SelectItem>
                 <SelectItem value="INVITED">Invited</SelectItem>
                 <SelectItem value="ACTIVE">Active</SelectItem>
@@ -193,6 +206,7 @@ export function UsersTable() {
             type="button"
             variant="ghost"
             size="sm"
+            className="h-9"
             disabled={!hasFilters}
             onClick={resetFilters}
           >
@@ -200,7 +214,7 @@ export function UsersTable() {
             Clear
           </Button>
 
-          <span className="ml-auto pb-2 text-sm text-muted-foreground">
+          <span className="ml-auto flex h-9 items-center text-sm text-muted-foreground">
             {usersQuery.isFetching
               ? "Updating..."
               : `${total} ${total === 1 ? "user" : "users"}`}
@@ -222,18 +236,36 @@ export function UsersTable() {
             </TableHeader>
 
             <TableBody
-              className={usersQuery.isFetching ? "opacity-60" : undefined}
+              className={
+                usersQuery.isFetching
+                  ? "opacity-60 transition-opacity duration-150"
+                  : "transition-opacity duration-150"
+              }
             >
               {usersQuery.isLoading ? (
                 Array.from({ length: 6 }).map((_, index) => (
                   <TableRow key={index}>
-                    <TableCell><Skeleton className="h-4 w-28" /></TableCell>
-                    <TableCell><Skeleton className="h-3 w-40" /></TableCell>
-                    <TableCell><Skeleton className="h-5 w-20" /></TableCell>
-                    <TableCell><Skeleton className="h-5 w-24" /></TableCell>
-                    <TableCell><Skeleton className="h-3 w-28" /></TableCell>
-                    <TableCell><Skeleton className="h-3 w-28" /></TableCell>
-                    <TableCell><Skeleton className="ml-auto h-8 w-32" /></TableCell>
+                    <TableCell>
+                      <Skeleton className="h-4 w-28" />
+                    </TableCell>
+                    <TableCell>
+                      <Skeleton className="h-3 w-40" />
+                    </TableCell>
+                    <TableCell>
+                      <Skeleton className="h-5 w-20" />
+                    </TableCell>
+                    <TableCell>
+                      <Skeleton className="h-5 w-24" />
+                    </TableCell>
+                    <TableCell>
+                      <Skeleton className="h-3 w-28" />
+                    </TableCell>
+                    <TableCell>
+                      <Skeleton className="h-3 w-28" />
+                    </TableCell>
+                    <TableCell>
+                      <Skeleton className="ml-auto h-8 w-32" />
+                    </TableCell>
                   </TableRow>
                 ))
               ) : users.length === 0 ? (
@@ -261,7 +293,10 @@ export function UsersTable() {
                   const isCurrentUser = currentUser?.userId === user.userId;
 
                   return (
-                    <TableRow key={user.userId} className="transition-colors duration-150">
+                    <TableRow
+                      key={user.userId}
+                      className="transition-colors duration-150 hover:bg-slate-50/70"
+                    >
                       <TableCell>
                         <div className="flex items-center gap-2">
                           <span className="font-medium">
@@ -274,7 +309,7 @@ export function UsersTable() {
                           )}
                         </div>
                       </TableCell>
-                      <TableCell className="font-mono text-xs">
+                      <TableCell className="text-sm text-slate-700">
                         {user.email}
                       </TableCell>
                       <TableCell>

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
-import { Pencil } from "lucide-react";
+import { LoaderCircle, Pencil } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -71,10 +71,22 @@ export function EditUserDialog({ user, isCurrentUser }: EditUserDialogProps) {
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger
-        render={<Button type="button" size="sm" variant="outline" />}
+        render={
+          <Button
+            type="button"
+            size="icon-sm"
+            variant="ghost"
+            title={`Edit ${user.displayName}`}
+            className="
+        transition-[color,background-color,transform] duration-150
+        hover:bg-blue-50 hover:text-blue-700
+        active:scale-95
+      "
+          />
+        }
       >
         <Pencil className="size-4" />
-        Edit
+        <span className="sr-only">Edit user</span>
       </DialogTrigger>
 
       <DialogContent className="sm:max-w-md">
@@ -100,6 +112,12 @@ export function EditUserDialog({ user, isCurrentUser }: EditUserDialogProps) {
                 maxLength={100}
                 required
                 onChange={(event) => setDisplayName(event.target.value)}
+                className="
+  h-10
+  focus-visible:border-blue-500
+  focus-visible:ring-2
+  focus-visible:ring-blue-500/20
+"
               />
             </div>
 
@@ -113,11 +131,15 @@ export function EditUserDialog({ user, isCurrentUser }: EditUserDialogProps) {
                   setRole((value ?? user.role) as UserRole)
                 }
               >
-                <SelectTrigger>
+                <SelectTrigger className="h-10 w-full">
                   <SelectValue />
                 </SelectTrigger>
 
-                <SelectContent>
+                <SelectContent
+                  alignItemWithTrigger={false}
+                  sideOffset={6}
+                  className="duration-150"
+                >
                   <SelectItem value="ADMIN">Admin</SelectItem>
 
                   <SelectItem value="OPERATOR">Operator</SelectItem>
@@ -155,7 +177,19 @@ export function EditUserDialog({ user, isCurrentUser }: EditUserDialogProps) {
               disabled={
                 updateMutation.isPending || displayName.trim().length < 2
               }
+              aria-busy={updateMutation.isPending}
+              className="
+    min-w-[8.5rem]
+    bg-blue-600 text-white
+    transition-[background-color,transform] duration-150
+    hover:bg-blue-700
+    active:scale-[0.99] active:bg-blue-800
+  "
             >
+              {updateMutation.isPending && (
+                <LoaderCircle className="size-4 animate-spin" />
+              )}
+
               {updateMutation.isPending ? "Saving..." : "Save changes"}
             </Button>
           </DialogFooter>
