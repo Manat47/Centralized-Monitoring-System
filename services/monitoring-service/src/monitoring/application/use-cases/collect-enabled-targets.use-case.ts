@@ -74,17 +74,19 @@ export class CollectEnabledTargetsUseCase {
 
   private isDueForCollection(
     target: {
+      lastAttemptedAt: Date | null;
       lastCollectedAt: Date | null;
       scrapeIntervalSeconds: number;
     },
     now: Date,
   ): boolean {
-    if (!target.lastCollectedAt) {
+    const cadenceAnchor = target.lastAttemptedAt ?? target.lastCollectedAt;
+
+    if (!cadenceAnchor) {
       return true;
     }
 
-    const elapsedMilliseconds =
-      now.getTime() - target.lastCollectedAt.getTime();
+    const elapsedMilliseconds = now.getTime() - cadenceAnchor.getTime();
 
     const scrapeIntervalMilliseconds = target.scrapeIntervalSeconds * 1000;
 

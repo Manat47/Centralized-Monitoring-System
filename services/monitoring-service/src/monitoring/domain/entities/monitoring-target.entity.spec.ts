@@ -24,6 +24,8 @@ describe('MonitoringTarget', () => {
       verificationStatus: 'NOT_VERIFIED',
       monitoringEnabled: false,
       archivedAt: null,
+      lastAttemptedAt: null,
+      lastCollectedAt: null,
     });
   });
 

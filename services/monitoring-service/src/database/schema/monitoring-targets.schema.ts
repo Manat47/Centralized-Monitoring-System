@@ -95,6 +95,10 @@ export const monitoringTargets = pgTable(
       withTimezone: true,
     }),
 
+    lastAttemptedAt: timestamp('last_attempted_at', {
+      withTimezone: true,
+    }),
+
     lastCollectedAt: timestamp('last_collected_at', {
       withTimezone: true,
     }),
