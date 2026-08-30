@@ -99,9 +99,21 @@ export function NotificationSettingsForm() {
   if (recipientsQuery.isLoading) {
     return (
       <Card className="gap-0 py-0">
-        <CardHeader className="space-y-2 border-b py-4"><Skeleton className="h-5 w-40" /><Skeleton className="h-3 w-80 max-w-full" /></CardHeader>
-        <CardContent className="space-y-4 py-5"><div className="flex flex-wrap gap-2"><Skeleton className="h-14 w-64 max-w-full" /><Skeleton className="h-14 w-64 max-w-full" /></div><Skeleton className="h-10 w-full" /></CardContent>
-        <CardFooter className="flex justify-between"><Skeleton className="h-4 w-36" /><Skeleton className="h-9 w-72 max-w-full" /></CardFooter>
+        <CardHeader className="space-y-2 border-b py-4">
+          <Skeleton className="h-5 w-40" />
+          <Skeleton className="h-3 w-80 max-w-full" />
+        </CardHeader>
+        <CardContent className="space-y-4 py-5">
+          <div className="flex flex-wrap gap-2">
+            <Skeleton className="h-14 w-64 max-w-full" />
+            <Skeleton className="h-14 w-64 max-w-full" />
+          </div>
+          <Skeleton className="h-10 w-full" />
+        </CardContent>
+        <CardFooter className="flex justify-between">
+          <Skeleton className="h-4 w-36" />
+          <Skeleton className="h-9 w-72 max-w-full" />
+        </CardFooter>
       </Card>
     );
   }
@@ -134,7 +146,8 @@ export function NotificationSettingsForm() {
             <div>
               <CardTitle>Email Recipients</CardTitle>
               <CardDescription>
-                Alert notifications are sent to the email addresses listed below.
+                Alert notifications are sent to the email addresses listed
+                below.
               </CardDescription>
             </div>
           </div>
@@ -142,8 +155,11 @@ export function NotificationSettingsForm() {
 
         <CardContent className="space-y-4 py-5">
           {emails.length > 0 ? (
-            <div className="flex flex-wrap gap-2" aria-label="Configured recipients">
-              {emails.map((email) => (
+            <div
+              className="flex flex-wrap gap-2"
+              aria-label="Configured recipients"
+            >
+              {emails.map((email) =>
                 (() => {
                   const user = usersByEmail.get(email);
 
@@ -163,11 +179,14 @@ export function NotificationSettingsForm() {
                             {user.displayName}
                           </span>
                         )}
-                        <span className="block truncate font-mono text-xs text-muted-foreground">
+                        <span className="block truncate text-sm text-muted-foreground">
                           {email}
                         </span>
                       </span>
-                      <Badge variant="outline" className="hidden sm:inline-flex">
+                      <Badge
+                        variant="outline"
+                        className="hidden sm:inline-flex"
+                      >
                         {user ? "System user" : "External"}
                       </Badge>
                       {user?.status === "INACTIVE" && (
@@ -176,7 +195,14 @@ export function NotificationSettingsForm() {
                       <button
                         type="button"
                         onClick={() => removeEmail(email)}
-                        className="shrink-0 rounded-sm text-muted-foreground transition-colors duration-150 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        className="
+  shrink-0 rounded-sm
+  text-muted-foreground
+  transition-[color,background-color] duration-150
+  hover:bg-red-50 hover:text-red-600
+  focus-visible:outline-none
+  focus-visible:ring-2 focus-visible:ring-red-500/20
+"
                         aria-label={`Remove ${email}`}
                         title={`Remove ${email}`}
                       >
@@ -184,8 +210,8 @@ export function NotificationSettingsForm() {
                       </button>
                     </div>
                   );
-                })()
-              ))}
+                })(),
+              )}
             </div>
           ) : (
             <p className="rounded-md border border-dashed px-4 py-5 text-center text-sm text-muted-foreground">
@@ -208,7 +234,10 @@ export function NotificationSettingsForm() {
             </p>
           )}
           {savedMessage && (
-            <p className="flex items-center gap-1.5 text-sm text-emerald-700" role="status">
+            <p
+              className="flex items-center gap-1.5 text-sm text-emerald-700"
+              role="status"
+            >
               <Check className="size-4" />
               {savedMessage}
             </p>
@@ -218,7 +247,8 @@ export function NotificationSettingsForm() {
         <CardFooter className="flex flex-col justify-between gap-3 sm:flex-row">
           <div>
             <p className="text-sm text-muted-foreground">
-              {emails.length} {emails.length === 1 ? "recipient" : "recipients"} configured
+              {emails.length} {emails.length === 1 ? "recipient" : "recipients"}{" "}
+              configured
             </p>
             {hasChanges && (
               <p className="text-xs text-amber-700">
@@ -261,7 +291,13 @@ export function NotificationSettingsForm() {
               onClick={saveChanges}
               disabled={!hasChanges || updateMutation.isPending}
               aria-busy={updateMutation.isPending}
-              className="min-w-[8rem]"
+              className="
+    min-w-[8rem]
+    bg-blue-600 text-white
+    transition-[background-color,transform] duration-150
+    hover:bg-blue-700
+    active:scale-[0.99] active:bg-blue-800
+  "
             >
               {updateMutation.isPending && (
                 <LoaderCircle className="size-4 animate-spin" />
@@ -273,8 +309,9 @@ export function NotificationSettingsForm() {
       </Card>
 
       <p className="text-sm text-muted-foreground">
-        Recipients are delivery destinations only and do not need a system account.
-        Channel: <span className="font-medium text-foreground">Email (Gmail SMTP)</span>.
+        Recipients are delivery destinations only and do not need a system
+        account. Channel:{" "}
+        <span className="font-medium text-foreground">Email (Gmail SMTP)</span>.
       </p>
     </div>
   );
