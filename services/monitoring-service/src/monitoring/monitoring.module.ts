@@ -80,6 +80,8 @@ import { ArchiveMonitoringTargetUseCase } from './application/use-cases/archive-
 import { MonitoringTargetMetricLifecycleService } from './application/services/monitoring-target-metric-lifecycle.service';
 import { QueryLatestMetricsSummariesUseCase } from './application/use-cases/query-latest-metrics-summaries.use-case';
 import { UpdateMonitoringTargetUseCase } from './application/use-cases/update-monitoring-target.use-case';
+import { QueryAssetLifecycleImpactUseCase } from './application/use-cases/query-asset-lifecycle-impact.use-case';
+import { AssetLifecycleImpactController } from './presentation/asset-lifecycle-impact.controller';
 @Module({
   imports: [
     HttpModule,
@@ -143,6 +145,7 @@ import { UpdateMonitoringTargetUseCase } from './application/use-cases/update-mo
     MonitoringTargetsController,
     MetricRulesController,
     HealthCheckTargetsController,
+    AssetLifecycleImpactController,
   ],
   providers: [
     CreateMonitoringTargetUseCase,
@@ -190,6 +193,7 @@ import { UpdateMonitoringTargetUseCase } from './application/use-cases/update-mo
     MonitoringEndpointResolver,
     MonitoringConfigFingerprintService,
     MonitoringTargetMetricLifecycleService,
+    QueryAssetLifecycleImpactUseCase,
     {
       provide: MONITORING_TARGET_REPOSITORY,
       useClass: DrizzleMonitoringTargetRepository,

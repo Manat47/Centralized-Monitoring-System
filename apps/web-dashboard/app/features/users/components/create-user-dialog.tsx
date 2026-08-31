@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
-import { MailPlus } from "lucide-react";
+import { MailPlus, LoaderCircle } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -67,7 +67,19 @@ export function CreateUserDialog() {
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogTrigger render={<Button type="button" />}>
+      <DialogTrigger
+        render={
+          <Button
+            type="button"
+            className="
+        bg-blue-600 text-white
+        transition-[background-color,transform] duration-150
+        hover:bg-blue-700
+        active:scale-[0.99] active:bg-blue-800
+      "
+          />
+        }
+      >
         <MailPlus className="size-4" />
         Invite user
       </DialogTrigger>
@@ -77,7 +89,8 @@ export function CreateUserDialog() {
           <DialogHeader>
             <DialogTitle>Invite user</DialogTitle>
             <DialogDescription>
-              Send a one-time password setup link to a new administrator or operator.
+              Send a one-time password setup link to a new administrator or
+              operator.
             </DialogDescription>
           </DialogHeader>
 
@@ -97,6 +110,12 @@ export function CreateUserDialog() {
                     displayName: event.target.value,
                   }))
                 }
+                className="
+  h-10
+  focus-visible:border-blue-500
+  focus-visible:ring-2
+  focus-visible:ring-blue-500/20
+"
               />
             </div>
 
@@ -114,6 +133,12 @@ export function CreateUserDialog() {
                     email: event.target.value,
                   }))
                 }
+                className="
+  h-10
+  focus-visible:border-blue-500
+  focus-visible:ring-2
+  focus-visible:ring-blue-500/20
+"
               />
             </div>
 
@@ -129,11 +154,15 @@ export function CreateUserDialog() {
                   }))
                 }
               >
-                <SelectTrigger>
+                <SelectTrigger className="h-10 w-full">
                   <SelectValue />
                 </SelectTrigger>
 
-                <SelectContent>
+                <SelectContent
+                  alignItemWithTrigger={false}
+                  sideOffset={6}
+                  className="duration-150"
+                >
                   <SelectItem value="ADMIN">Admin</SelectItem>
 
                   <SelectItem value="OPERATOR">Operator</SelectItem>
@@ -160,7 +189,22 @@ export function CreateUserDialog() {
               Cancel
             </Button>
 
-            <Button type="submit" disabled={createMutation.isPending} aria-busy={createMutation.isPending} className="min-w-[8.5rem]">
+            <Button
+              type="submit"
+              disabled={createMutation.isPending}
+              aria-busy={createMutation.isPending}
+              className="
+    min-w-[8.5rem]
+    bg-blue-600 text-white
+    transition-[background-color,transform] duration-150
+    hover:bg-blue-700
+    active:scale-[0.99] active:bg-blue-800
+  "
+            >
+              {createMutation.isPending && (
+                <LoaderCircle className="size-4 animate-spin" />
+              )}
+
               {createMutation.isPending ? "Sending..." : "Send invitation"}
             </Button>
           </DialogFooter>

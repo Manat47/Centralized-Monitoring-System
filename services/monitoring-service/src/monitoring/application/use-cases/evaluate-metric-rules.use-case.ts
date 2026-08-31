@@ -50,6 +50,16 @@ export interface EvaluateMetricRulesResult {
   events: MetricRuleViolation[];
 }
 
+function formatMetricName(metricType: string): string {
+  const labels: Record<string, string> = {
+    CPU_USAGE: 'CPU usage',
+    MEMORY_USAGE: 'Memory usage',
+    DISK_USAGE: 'Disk usage',
+  };
+
+  return labels[metricType] ?? metricType.replaceAll('_', ' ').toLowerCase();
+}
+
 @Injectable()
 export class EvaluateMetricRulesUseCase {
   private readonly logger = new Logger(EvaluateMetricRulesUseCase.name);
@@ -126,6 +136,7 @@ export class EvaluateMetricRulesUseCase {
           rule,
           now,
           target.toObject().scrapeIntervalSeconds,
+          asset.name,
         );
 
         if (ruleResult.triggeredEvent) {
@@ -153,6 +164,7 @@ export class EvaluateMetricRulesUseCase {
     rule: MetricRule,
     now: Date,
     scrapeIntervalSeconds: number,
+    assetName: string,
   ): Promise<{
     triggeredEvent: MetricRuleViolation | null;
     recovered: boolean;
@@ -222,8 +234,8 @@ export class EvaluateMetricRulesUseCase {
           actualValue,
           occurredAt: now,
           message:
-            `${data.metricType} recovered for asset ${data.assetId}: ` +
-            `${actualValue}% is below ${data.thresholdValue}%`,
+            `${formatMetricName(data.metricType)} recovered on ${assetName}: ` +
+            `${actualValue.toFixed(1)}% is below the ${data.thresholdValue}% threshold`,
         });
       }
 

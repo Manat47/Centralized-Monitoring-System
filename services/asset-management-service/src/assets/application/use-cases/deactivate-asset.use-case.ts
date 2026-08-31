@@ -9,6 +9,10 @@ import {
   AUDIT_EVENT_PUBLISHER,
   type AuditEventPublisher,
 } from '../../domain/ports/audit-event-publisher.port';
+import {
+  ASSET_LIFECYCLE_EVENT_PUBLISHER,
+  type AssetLifecycleEventPublisher,
+} from '../../domain/ports/asset-lifecycle-event-publisher.port';
 
 export interface DeactivateAssetInput {
   actorUserId: string;
@@ -24,6 +28,9 @@ export class DeactivateAssetUseCase {
 
     @Inject(AUDIT_EVENT_PUBLISHER)
     private readonly auditEventPublisher: AuditEventPublisher,
+
+    @Inject(ASSET_LIFECYCLE_EVENT_PUBLISHER)
+    private readonly assetLifecycleEventPublisher: AssetLifecycleEventPublisher,
   ) {}
 
   async execute(assetId: string, input: DeactivateAssetInput): Promise<Asset> {
@@ -38,25 +45,34 @@ export class DeactivateAssetUseCase {
 
     const updatedAsset = await this.assetRepository.update(asset);
 
-    await this.auditEventPublisher.publish({
-      actorUserId: input.actorUserId,
-      actorRole: input.actorRole,
-      actorEmail: input.actorEmail,
+    const occurredAt = new Date();
 
-      action: 'ASSET_DEACTIVATED',
+    await Promise.all([
+      this.auditEventPublisher.publish({
+        actorUserId: input.actorUserId,
+        actorRole: input.actorRole,
+        actorEmail: input.actorEmail,
 
-      resourceType: 'ASSET',
-      resourceId: assetId,
-      resourceName: updatedAsset.toObject().name,
+        action: 'ASSET_DEACTIVATED',
 
-      result: 'SUCCESS',
-      metadata: {
-        previousStatus,
-        status: updatedAsset.toObject().status,
-      },
+        resourceType: 'ASSET',
+        resourceId: assetId,
+        resourceName: updatedAsset.toObject().name,
 
-      occurredAt: new Date(),
-    });
+        result: 'SUCCESS',
+        metadata: {
+          previousStatus,
+          status: updatedAsset.toObject().status,
+        },
+
+        occurredAt,
+      }),
+      this.assetLifecycleEventPublisher.publish({
+        eventType: 'ASSET_DEACTIVATED',
+        assetId,
+        occurredAt,
+      }),
+    ]);
 
     return updatedAsset;
   }

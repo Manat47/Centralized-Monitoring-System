@@ -59,7 +59,12 @@ function StatusBadge({ status }: { status: ReportStatus }) {
   }
 
   if (status === "GENERATING") {
-    return <Badge variant="secondary">Generating</Badge>;
+    return (
+      <Badge variant="secondary" className="gap-1.5">
+        <LoaderCircle className="size-3 animate-spin" />
+        Generating
+      </Badge>
+    );
   }
 
   return (
@@ -145,7 +150,11 @@ export function ReportsTable() {
                       : "On demand"}
                 </SelectValue>
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent
+                alignItemWithTrigger={false}
+                sideOffset={6}
+                className="duration-150"
+              >
                 <SelectItem value="ALL">All report types</SelectItem>
                 <SelectItem value="ON_DEMAND">On demand</SelectItem>
                 <SelectItem value="MONTHLY">Monthly</SelectItem>
@@ -165,7 +174,11 @@ export function ReportsTable() {
                     : status.charAt(0) + status.slice(1).toLowerCase()}
                 </SelectValue>
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent
+                alignItemWithTrigger={false}
+                sideOffset={6}
+                className="duration-150"
+              >
                 <SelectItem value="ALL">All statuses</SelectItem>
                 <SelectItem value="GENERATING">Generating</SelectItem>
                 <SelectItem value="COMPLETED">Completed</SelectItem>
@@ -186,7 +199,11 @@ export function ReportsTable() {
                     : (assetNames.get(assetId) ?? "Selected asset")}
                 </SelectValue>
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent
+                alignItemWithTrigger={false}
+                sideOffset={6}
+                className="duration-150"
+              >
                 <SelectItem value="ALL">All scopes</SelectItem>
                 {assetsQuery.data?.map((asset) => (
                   <SelectItem key={asset.assetId} value={asset.assetId}>
@@ -195,13 +212,27 @@ export function ReportsTable() {
                 ))}
               </SelectContent>
             </Select>
-            <span className={cn("ml-auto text-sm text-muted-foreground", reportsQuery.isFetching && "animate-pulse")}>
+            <span
+              className={cn(
+                "ml-auto text-sm text-muted-foreground",
+                reportsQuery.isFetching && "animate-pulse",
+              )}
+            >
               {reportsQuery.isFetching
                 ? "Updating..."
                 : `${reportsQuery.data?.total ?? 0} reports`}
             </span>
             {user?.role === "ADMIN" && (
-              <Button type="button" onClick={() => openGenerate()}>
+              <Button
+                type="button"
+                onClick={() => openGenerate()}
+                className="
+    bg-blue-600 text-white
+    transition-[background-color,transform] duration-150
+    hover:bg-blue-700
+    active:scale-[0.99] active:bg-blue-800
+  "
+              >
                 <FilePlus2 className="size-4" />
                 Generate report
               </Button>
@@ -232,7 +263,12 @@ export function ReportsTable() {
                   <TableHead className="w-24 text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
-              <TableBody className={cn("transition-opacity duration-150", reportsQuery.isFetching && "opacity-70")}>
+              <TableBody
+                className={cn(
+                  "transition-opacity duration-150",
+                  reportsQuery.isFetching && "opacity-70",
+                )}
+              >
                 {reportsQuery.data?.items.length === 0 ? (
                   <TableRow>
                     <TableCell
@@ -244,15 +280,15 @@ export function ReportsTable() {
                   </TableRow>
                 ) : (
                   reportsQuery.data?.items.map((report) => (
-                    <TableRow key={report.reportId} className="transition-colors duration-150">
+                    <TableRow
+                      key={report.reportId}
+                      className="transition-colors duration-150 hover:bg-slate-50/70"
+                    >
                       <TableCell>
                         <p className="font-medium">
                           {report.reportType === "MONTHLY"
                             ? "Monthly report"
                             : "On-demand report"}
-                        </p>
-                        <p className="font-mono text-xs text-muted-foreground">
-                          {report.reportId.slice(0, 8)}
                         </p>
                       </TableCell>
                       <TableCell>
@@ -299,6 +335,11 @@ export function ReportsTable() {
                               variant="ghost"
                               size="icon-sm"
                               title="Download PDF"
+                              className="
+    transition-[color,background-color,transform] duration-150
+    hover:bg-blue-50 hover:text-blue-700
+    active:scale-95
+  "
                               disabled={
                                 downloadMutation.isPending &&
                                 downloadMutation.variables === report.reportId
@@ -324,8 +365,20 @@ export function ReportsTable() {
                                 size="icon-sm"
                                 title="Generate again"
                                 onClick={() => openGenerate(report)}
+                                className="
+    group
+    transition-[color,background-color,transform] duration-150
+    hover:bg-blue-50 hover:text-blue-700
+    active:scale-95
+  "
                               >
-                                <RotateCcw className="size-4" />
+                                <RotateCcw
+                                  className="
+      size-4
+      transition-transform duration-150
+      group-hover:-rotate-45
+    "
+                                />
                                 <span className="sr-only">Generate again</span>
                               </Button>
                             )}
@@ -379,5 +432,32 @@ export function ReportsTable() {
 }
 
 function ReportsSkeleton() {
-  return <Card className="overflow-hidden gap-0 py-0"><CardContent className="p-0"><div className="flex flex-col gap-2 border-b p-4 sm:flex-row sm:flex-wrap"><Skeleton className="h-8 w-full sm:w-44" /><Skeleton className="h-8 w-full sm:w-40" /><Skeleton className="h-8 w-full sm:w-52" /><Skeleton className="ml-auto h-8 w-full sm:w-36" /></div><Skeleton className="h-10 w-full rounded-none" />{Array.from({ length: 6 }).map((_, index) => <div key={index} className="grid h-16 grid-cols-[1.2fr_1fr_1.2fr_1fr_0.8fr] items-center gap-5 border-t border-slate-100 px-4"><div className="space-y-2"><Skeleton className="h-3 w-28" /><Skeleton className="h-2.5 w-16" /></div><Skeleton className="h-3 w-28" /><Skeleton className="h-3 w-36" /><Skeleton className="h-3 w-28" /><Skeleton className="h-5 w-20" /></div>)}</CardContent></Card>;
+  return (
+    <Card className="overflow-hidden gap-0 py-0">
+      <CardContent className="p-0">
+        <div className="flex flex-col gap-2 border-b p-4 sm:flex-row sm:flex-wrap">
+          <Skeleton className="h-8 w-full sm:w-44" />
+          <Skeleton className="h-8 w-full sm:w-40" />
+          <Skeleton className="h-8 w-full sm:w-52" />
+          <Skeleton className="ml-auto h-8 w-full sm:w-36" />
+        </div>
+        <Skeleton className="h-10 w-full rounded-none" />
+        {Array.from({ length: 6 }).map((_, index) => (
+          <div
+            key={index}
+            className="grid h-16 grid-cols-[1.2fr_1fr_1.2fr_1fr_0.8fr] items-center gap-5 border-t border-slate-100 px-4"
+          >
+            <div className="space-y-2">
+              <Skeleton className="h-3 w-28" />
+              <Skeleton className="h-2.5 w-16" />
+            </div>
+            <Skeleton className="h-3 w-28" />
+            <Skeleton className="h-3 w-36" />
+            <Skeleton className="h-3 w-28" />
+            <Skeleton className="h-5 w-20" />
+          </div>
+        ))}
+      </CardContent>
+    </Card>
+  );
 }

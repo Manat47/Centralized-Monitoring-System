@@ -138,7 +138,12 @@ export function RecipientPicker({
                 }
               }}
               placeholder="Search a system user or enter an external email"
-              className="h-10 pl-9"
+              className="
+  h-10 pl-9
+  focus-visible:border-blue-500
+  focus-visible:ring-2
+  focus-visible:ring-blue-500/20
+"
               role="combobox"
               aria-expanded={open}
               aria-controls="recipient-options"
@@ -153,9 +158,15 @@ export function RecipientPicker({
           <Button
             type="button"
             size="lg"
+            variant="outline"
             disabled={!canAddExternal}
             onClick={() => add(normalizedQuery)}
             title="Add external email"
+            className="
+    transition-[color,background-color,border-color,transform] duration-150
+    hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700
+    active:scale-[0.99]
+  "
           >
             <Plus className="size-4" />
             Add email

@@ -1,7 +1,21 @@
 "use client";
 
 import { useState } from "react";
-import { Ban, Mail, Power, PowerOff } from "lucide-react";
+import {
+  Ban,
+  Ellipsis,
+  LoaderCircle,
+  Mail,
+  Power,
+  PowerOff,
+} from "lucide-react";
+
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 import { useAuth } from "@/app/features/auth/components/auth-provider";
 import { Button } from "@/components/ui/button";
@@ -91,58 +105,75 @@ export function UserActions({ user }: UserActionsProps) {
 
   return (
     <>
-      <div className="flex justify-end gap-2">
+      <div className="flex justify-end gap-1">
         <EditUserDialog user={user} isCurrentUser={isCurrentUser} />
 
-        {isInvitation ? (
-          <>
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              disabled={resendMutation.isPending || revokeMutation.isPending}
-              onClick={() => setConfirmationAction("RESEND")}
-            >
-              <Mail className="size-4" />
-              Resend
-            </Button>
-            {user.invitationStatus !== "REVOKED" && (
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            render={
               <Button
                 type="button"
+                variant="outline"
                 size="icon-sm"
-                variant="ghost"
-                disabled={resendMutation.isPending || revokeMutation.isPending}
-                onClick={() => setConfirmationAction("REVOKE")}
-                title={`Revoke invitation for ${user.displayName}`}
-              >
-                <Ban className="size-4" />
-                <span className="sr-only">Revoke invitation</span>
-              </Button>
-            )}
-          </>
-        ) : (
-          <Button
-            type="button"
-            size="sm"
-            variant={user.status === "ACTIVE" ? "destructive" : "outline"}
-            disabled={statusMutation.isPending || isCurrentUser}
-            onClick={() => setConfirmationAction("STATUS")}
-            title={
-              isCurrentUser
-                ? "You cannot deactivate your own account"
-                : activating
-                  ? `Activate ${user.displayName}`
-                  : `Deactivate ${user.displayName}`
+                title={`More actions for ${user.displayName}`}
+              />
             }
           >
-            {activating ? <Power className="size-4" /> : <PowerOff className="size-4" />}
-            {statusMutation.isPending
-              ? "Updating..."
-              : activating
-                ? "Activate"
-                : "Deactivate"}
-          </Button>
-        )}
+            <Ellipsis className="size-4" />
+            <span className="sr-only">More actions</span>
+          </DropdownMenuTrigger>
+
+          <DropdownMenuContent
+            align="end"
+            sideOffset={6}
+            className="min-w-44 duration-150"
+          >
+            {isInvitation ? (
+              <>
+                <DropdownMenuItem
+                  disabled={
+                    resendMutation.isPending || revokeMutation.isPending
+                  }
+                  onClick={() => setConfirmationAction("RESEND")}
+                >
+                  <Mail className="size-4" />
+                  Resend invitation
+                </DropdownMenuItem>
+
+                {user.invitationStatus !== "REVOKED" && (
+                  <DropdownMenuItem
+                    disabled={
+                      resendMutation.isPending || revokeMutation.isPending
+                    }
+                    onClick={() => setConfirmationAction("REVOKE")}
+                    className="text-destructive focus:text-destructive"
+                  >
+                    <Ban className="size-4" />
+                    Revoke invitation
+                  </DropdownMenuItem>
+                )}
+              </>
+            ) : (
+              <DropdownMenuItem
+                disabled={statusMutation.isPending || isCurrentUser}
+                onClick={() => setConfirmationAction("STATUS")}
+                className={
+                  activating
+                    ? undefined
+                    : "text-destructive focus:text-destructive"
+                }
+              >
+                {activating ? (
+                  <Power className="size-4" />
+                ) : (
+                  <PowerOff className="size-4" />
+                )}
+
+                {activating ? "Activate user" : "Deactivate user"}
+              </DropdownMenuItem>
+            )}
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
 
       <Dialog
@@ -155,9 +186,11 @@ export function UserActions({ user }: UserActionsProps) {
             <DialogDescription>{dialogCopy.description}</DialogDescription>
           </DialogHeader>
 
-          <div className="rounded-md border bg-muted/40 px-4 py-3">
-            <p className="text-sm font-medium">{user.displayName}</p>
-            <p className="mt-0.5 break-all text-xs text-muted-foreground">
+          <div className="py-1">
+            <p className="text-sm font-medium text-slate-900">
+              {user.displayName}
+            </p>
+            <p className="mt-0.5 break-all text-sm text-slate-500">
               {user.email}
             </p>
           </div>
@@ -187,9 +220,25 @@ export function UserActions({ user }: UserActionsProps) {
                   ? "destructive"
                   : "default"
               }
+              className={
+                confirmationAction === "REVOKE" ||
+                (confirmationAction === "STATUS" && !activating)
+                  ? undefined
+                  : `
+          bg-blue-600 text-white
+          transition-[background-color,transform] duration-150
+          hover:bg-blue-700
+          active:scale-[0.99] active:bg-blue-800
+        `
+              }
               disabled={activeMutation.isPending}
+              aria-busy={activeMutation.isPending}
               onClick={() => void handleConfirm()}
             >
+              {activeMutation.isPending && (
+                <LoaderCircle className="size-4 animate-spin" />
+              )}
+
               {activeMutation.isPending ? "Working..." : dialogCopy.confirm}
             </Button>
           </DialogFooter>

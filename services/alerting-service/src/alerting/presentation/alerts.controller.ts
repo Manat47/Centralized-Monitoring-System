@@ -1,4 +1,12 @@
-import { Controller, Get, Param, Patch, Query, Headers } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Param,
+  ParseUUIDPipe,
+  Patch,
+  Query,
+  Headers,
+} from '@nestjs/common';
 
 import { FindAlertsUseCase } from '../application/use-cases/find-alerts.use-case';
 import { FindAlertByIdUseCase } from '../application/use-cases/find-alert-by-id.use-case';
@@ -7,6 +15,7 @@ import { CloseAlertUseCase } from '../application/use-cases/close-alert.use-case
 import { FindAlertsQueryDto } from './dto/find-alerts-query.dto';
 import { QueryAlertReportSummaryUseCase } from '../application/use-cases/query-alert-report-summary.use-case';
 import { QueryAlertReportSummaryDto } from './dto/query-alert-report-summary.dto';
+import { QueryAssetAlertImpactUseCase } from '../application/use-cases/query-asset-alert-impact.use-case';
 @Controller('alerts')
 export class AlertsController {
   constructor(
@@ -15,6 +24,7 @@ export class AlertsController {
     private readonly acknowledgeAlertUseCase: AcknowledgeAlertUseCase,
     private readonly closeAlertUseCase: CloseAlertUseCase,
     private readonly queryAlertReportSummaryUseCase: QueryAlertReportSummaryUseCase,
+    private readonly queryAssetAlertImpactUseCase: QueryAssetAlertImpactUseCase,
   ) {}
 
   @Get()
@@ -33,6 +43,13 @@ export class AlertsController {
       from: new Date(query.from),
       to: new Date(query.to),
     });
+  }
+
+  @Get('asset/:assetId/lifecycle-impact')
+  getAssetLifecycleImpact(
+    @Param('assetId', new ParseUUIDPipe()) assetId: string,
+  ) {
+    return this.queryAssetAlertImpactUseCase.execute(assetId);
   }
 
   @Get(':id')

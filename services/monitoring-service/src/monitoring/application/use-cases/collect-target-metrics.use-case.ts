@@ -82,6 +82,9 @@ export class CollectTargetMetricsUseCase {
       throw new BadRequestException('Monitoring target is not enabled');
     }
 
+    target.markCollectionAttempted();
+    await this.monitoringTargetRepository.update(target);
+
     const collector = this.metricsCollectorResolver.resolve(
       target.getMonitoringType(),
     );

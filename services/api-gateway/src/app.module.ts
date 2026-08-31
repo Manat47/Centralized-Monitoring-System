@@ -9,6 +9,7 @@ import {
   makeCounterProvider,
 } from '@willsoto/nestjs-prometheus';
 import { HttpMetricsMiddleware } from './metrics/http-metrics.middleware';
+import { AssetLifecycleImpactModule } from './asset-lifecycle-impact/asset-lifecycle-impact.module';
 
 @Module({
   imports: [
@@ -24,6 +25,7 @@ import { HttpMetricsMiddleware } from './metrics/http-metrics.middleware';
 
     DashboardModule,
     SystemStatusModule,
+    AssetLifecycleImpactModule,
   ],
   providers: [
     makeCounterProvider({

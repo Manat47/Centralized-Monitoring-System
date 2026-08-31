@@ -17,6 +17,7 @@ export interface MonitoringTargetProps {
   monitoringEnabled: boolean; //แทนสถานะการเปิดปิด ตัว monitoring
   archivedAt: Date | null;
   lastVerifiedAt: Date | null; // เวลาที่ verify ล่าสุด
+  lastAttemptedAt: Date | null;
   lastCollectedAt: Date | null; // เวลาที่เก็บ Metrics สำเร็จล่าสุด
   lastError: string | null; // เก็บ Error ล่าสุดที่เกิดกับ Target
   createdAt: Date; // เวลาที่ Target ถูกสร้าง (โดยปกติไม่ควรเปลี่ยนหลังจากสร้างแล้ว)
@@ -114,6 +115,7 @@ export class MonitoringTarget {
       monitoringEnabled: false,
       archivedAt: null,
       lastVerifiedAt: null,
+      lastAttemptedAt: null,
       lastCollectedAt: null,
       lastError: null,
       createdAt: now,
@@ -202,6 +204,14 @@ export class MonitoringTarget {
     this.props.lastCollectedAt = new Date(); // เวลาเก็บสำเร็จล่าสุด
     this.props.lastError = null; // ล้าง error
     this.props.updatedAt = new Date(); // เวลาปัจจุบัน
+  }
+
+  markCollectionAttempted(): void {
+    this.ensureNotArchived();
+    const now = new Date();
+
+    this.props.lastAttemptedAt = now;
+    this.props.updatedAt = now;
   }
 
   markCollectionFailed(errorMessage: string): void {

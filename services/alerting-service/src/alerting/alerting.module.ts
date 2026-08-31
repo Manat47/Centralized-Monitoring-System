@@ -29,6 +29,7 @@ import { HEALTH_CHECK_ALERT_STATE_REPOSITORY } from './domain/repositories/healt
 import { DrizzleHealthCheckAlertStateRepository } from './infrastructure/persistence/drizzle-health-check-alert-state.repository';
 import { EvaluateStaleHealthChecksUseCase } from './application/use-cases/evaluate-stale-health-checks.use-case';
 import { AlertEvaluationScheduler } from './infrastructure/schedulers/alert-evaluation.scheduler';
+import { QueryAssetAlertImpactUseCase } from './application/use-cases/query-asset-alert-impact.use-case';
 
 @Module({
   imports: [
@@ -107,6 +108,7 @@ import { AlertEvaluationScheduler } from './infrastructure/schedulers/alert-eval
     AcknowledgeAlertUseCase,
     CloseAlertUseCase,
     QueryAlertReportSummaryUseCase,
+    QueryAssetAlertImpactUseCase,
     ResolveAlertsForDeactivatedAssetUseCase,
     EvaluateStaleHealthChecksUseCase,
     AlertEvaluationScheduler,

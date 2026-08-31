@@ -18,6 +18,7 @@ export interface MonitoringTarget {
   archivedAt: string | null;
 
   lastVerifiedAt: string | null;
+  lastAttemptedAt: string | null;
   lastCollectedAt: string | null;
   lastError: string | null;
   createdAt: string;
