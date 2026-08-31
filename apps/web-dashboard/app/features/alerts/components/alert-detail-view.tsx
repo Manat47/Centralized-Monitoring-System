@@ -29,6 +29,13 @@ import { useState } from "react";
 
 const ReactECharts = dynamic(() => import("echarts-for-react"), { ssr: false });
 
+function sortMetricPoints(points: [string, number][]): [string, number][] {
+  return points.sort(
+    (left, right) =>
+      new Date(left[0]).getTime() - new Date(right[0]).getTime(),
+  );
+}
+
 export function AlertDetailView() {
   const { alertId } = useParams<{ alertId: string }>();
   const alertQuery = useAlertById(alertId);
@@ -295,20 +302,23 @@ function MetricContext({ alert }: { alert: Alert }) {
             point.usagePercent,
           ]),
         );
-        return [...grouped].map(
-          ([timestamp, valuesAtTime]) =>
-            [
-              timestamp,
-              valuesAtTime.reduce((sum, value) => sum + value, 0) /
-                valuesAtTime.length,
-            ] as [string, number],
+        return sortMetricPoints(
+          [...grouped].map(
+            ([timestamp, valuesAtTime]) =>
+              [
+                timestamp,
+                valuesAtTime.reduce((sum, value) => sum + value, 0) /
+                  valuesAtTime.length,
+              ] as [string, number],
+          ),
         );
       }
       if (alert.metricType === "MEMORY_USAGE")
-        return (
-          await getMemoryUsage({ assetId: alert.assetId, start, end })
-        ).map(
-          (point) => [point.timestamp, point.usagePercent] as [string, number],
+        return sortMetricPoints(
+          (await getMemoryUsage({ assetId: alert.assetId, start, end })).map(
+            (point) =>
+              [point.timestamp, point.usagePercent] as [string, number],
+          ),
         );
       if (alert.metricType === "DISK_USAGE") {
         const values = await getDiskUsage({
@@ -323,7 +333,7 @@ function MetricContext({ alert }: { alert: Alert }) {
             Math.max(grouped.get(point.timestamp) ?? 0, point.usagePercent),
           ),
         );
-        return [...grouped] as [string, number][];
+        return sortMetricPoints([...grouped] as [string, number][]);
       }
       return [];
     },
