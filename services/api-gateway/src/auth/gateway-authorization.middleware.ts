@@ -78,6 +78,14 @@ function isSharedRoute(method: string, path: string): boolean {
 
   if (
     method === 'GET' &&
+    (path === '/api/asset-lifecycle-impact' ||
+      path.startsWith('/api/asset-lifecycle-impact/'))
+  ) {
+    return true;
+  }
+
+  if (
+    method === 'GET' &&
     (path === '/api/monitoring-targets' ||
       path.startsWith('/api/monitoring-targets/'))
   ) {

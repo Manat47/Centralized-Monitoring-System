@@ -1,62 +1,68 @@
-## Summary
+# Notification Service
 
-Bootstrap Notification Service สำหรับรับ alert events จาก Alerting Service ผ่าน RabbitMQ และส่งต่อผ่าน `NotificationSender` port รอบนี้ใช้ `ConsoleNotificationSender` เพื่อพิสูจน์ event flow ก่อนเชื่อม provider จริง
+The Notification service consumes notification events and delivers operational
+email through Gmail SMTP. It also owns the configured recipient list used for
+alert notifications.
 
-## Changes
+See the [root README](../../README.md) for the full architecture and stack setup.
 
-- Bootstrap `notification-service` โครงสร้างตาม hexagonal architecture
-- เพิ่ม `NotificationEventConsumer` สำหรับรับ event จาก RabbitMQ
-- เพิ่ม `SendNotificationUseCase`
-- เพิ่ม `NotificationSender` outbound port
-- เพิ่ม `ConsoleNotificationSender` adapter
-- เพิ่ม manual acknowledgement หลังประมวลผลสำเร็จ
-- รองรับ event types `ALERT_TRIGGERED` และ `ALERT_RESOLVED`
+## Responsibilities
 
-## Architecture
+- Consume alert and user-invitation notification events from RabbitMQ.
+- Render readable HTML and plain-text email content.
+- Deliver messages through authenticated SMTP.
+- Store a deduplicated list of notification recipient email addresses.
+- Accept both system-user addresses and external addresses.
+- Send a test message to the currently configured recipients.
+- Publish audit events when recipient settings change.
 
-```text
-RabbitMQ
-→ NotificationEventConsumer
-→ SendNotificationUseCase
-→ NotificationSender (port)
-→ ConsoleNotificationSender (adapter)
+Recipients are delivery destinations only. An address does not need a system
+account, and adding it does not grant application access.
+
+## HTTP API
+
+The service listens on port `3003`.
+
+| Method | Route | Purpose |
+| --- | --- | --- |
+| `GET` | `/notification-recipients` | List configured recipients |
+| `PUT` | `/notification-recipients` | Replace the recipient list |
+| `POST` | `/notification-recipients/test` | Send a test notification |
+| `GET` | `/health` | Service health probe |
+
+The settings UI uses `/api/notification-recipients` through the API Gateway.
+
+## Persistence and Events
+
+- PostgreSQL stores recipient configuration.
+- RabbitMQ supplies notification events.
+- RabbitMQ receives audit events for recipient changes and test sends.
+
+## Environment
+
+| Variable | Purpose |
+| --- | --- |
+| `PORT` | HTTP port; defaults to `3003` |
+| `DATABASE_URL` | Notification PostgreSQL connection string |
+| `RABBITMQ_URL` | RabbitMQ connection string |
+| `RABBITMQ_NOTIFICATION_QUEUE` | Incoming notification queue; defaults to `notification_events` |
+| `RABBITMQ_AUDIT_QUEUE` | Audit event queue; defaults to `audit_events` |
+| `SMTP_USER` | Gmail account used as the sender |
+| `SMTP_PASS` | Gmail app password or SMTP credential |
+
+## Development
+
+```bash
+npm ci
+npm run db:migrate
+npm run start:dev
 ```
 
-## RabbitMQ
-
-| Config      | Value                               |
-| ----------- | ----------------------------------- |
-| Queue       | `notification_events`               |
-| Pattern     | `notification.alert.changed`        |
-| Event Types | `ALERT_TRIGGERED`, `ALERT_RESOLVED` |
-
-## Event Contract
-
-```typescript
-interface NotificationEvent {
-  eventType: 'ALERT_TRIGGERED' | 'ALERT_RESOLVED';
-  alertId: string;
-  ruleId: string;
-  assetId: string;
-  metricType: string;
-  severity: 'WARNING' | 'CRITICAL';
-  message: string;
-  occurredAt: string;
-}
+```bash
+npm test -- --runInBand
+npm run test:e2e
+npm run build
 ```
 
-## Tested Flow
-
-```text
-Alerting Service → publish ALERT_TRIGGERED → RabbitMQ → Notification Service → Console log
-Alerting Service → publish ALERT_RESOLVED  → RabbitMQ → Notification Service → Console log
-```
-
-- [x] `ALERT_TRIGGERED` ผ่าน RabbitMQ แล้ว log ออก console
-- [x] `ALERT_RESOLVED` ผ่าน RabbitMQ แล้ว log ออก console
-- [x] Unit test `SendNotificationUseCase` ผ่าน
-- [x] Message ถูก acknowledge หลังประมวลผลสำเร็จ
-
-## Current Scope
-
-Service รอบนี้เป็น stateless ยังไม่มี database สิ่งที่ยังอยู่นอก scope ได้แก่ Email/LINE/Webhook provider, delivery history, retry policy, delivery status, recipient preferences และ deduplication
+Use a dedicated SMTP credential for development. Do not commit it or use a
+personal account password.
