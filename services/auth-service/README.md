@@ -1,98 +1,76 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# Auth Service
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+The Auth service owns users, credentials, refresh sessions, invitations, and
+role assignment for the Centralized Monitoring System.
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+See the [root README](../../README.md) for the full architecture and stack setup.
 
-## Description
+## Authentication Flow
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+1. A pre-provisioned administrator creates a user with an email, display name,
+   and role. No password is chosen by the administrator.
+2. The service creates a time-limited invitation and publishes an email event.
+3. The invited user opens the dashboard link and sets a password.
+4. Login returns a short-lived access token and sets a rotating refresh token in
+   an HTTP-only cookie.
+5. Logout revokes the refresh session and clears the cookie.
 
-## Project setup
+Roles are `ADMIN` and `OPERATOR`. User administration is restricted to
+administrators. User states include invited, active, and inactive account flows.
 
-```bash
-$ npm install
-```
+## HTTP API
 
-## Compile and run the project
+The service listens on port `3004`.
 
-```bash
-# development
-$ npm run start
+| Method | Route | Purpose |
+| --- | --- | --- |
+| `POST` | `/auth/login` | Authenticate with email and password |
+| `POST` | `/auth/refresh` | Rotate the refresh session and issue an access token |
+| `POST` | `/auth/logout` | Revoke the current refresh session |
+| `GET` | `/auth/me` | Return the authenticated user |
+| `POST` | `/auth/invitations/validate` | Validate an invitation token |
+| `POST` | `/auth/invitations/accept` | Set the invited user's password |
+| `POST` | `/users` | Create a user invitation |
+| `GET` | `/users`, `/users/:userId` | List or inspect users |
+| `PATCH` | `/users/:userId` | Update display name or role |
+| `PATCH` | `/users/:userId/status` | Activate or deactivate a user |
+| `POST` | `/users/:userId/invitations/resend` | Replace and resend a pending invitation |
+| `DELETE` | `/users/:userId/invitations` | Revoke a pending invitation |
+| `GET` | `/health`, `/health/ready` | Liveness and database readiness probes |
 
-# watch mode
-$ npm run start:dev
+The dashboard accesses these endpoints under `/api` through the API Gateway.
 
-# production mode
-$ npm run start:prod
-```
+## Environment
 
-## Run tests
+| Variable | Purpose |
+| --- | --- |
+| `PORT` | HTTP port; defaults to `3004` |
+| `DATABASE_URL` | Auth PostgreSQL connection string |
+| `JWT_ACCESS_SECRET` | Access-token signing secret; must match API Gateway |
+| `JWT_ACCESS_EXPIRES_IN` | Access-token lifetime; defaults to `15m` |
+| `REFRESH_TOKEN_EXPIRES_IN_DAYS` | Refresh-session lifetime; defaults to `7` |
+| `USER_INVITATION_EXPIRES_IN_HOURS` | Invitation lifetime; defaults to `48` |
+| `FRONTEND_URL` | Base URL used in invitation links; defaults to `http://localhost:3010` |
+| `RABBITMQ_URL` | RabbitMQ connection string |
+| `RABBITMQ_NOTIFICATION_QUEUE` | Invitation email queue; defaults to `notification_events` |
+| `RABBITMQ_AUDIT_QUEUE` | Audit event queue |
 
-```bash
-# unit tests
-$ npm run test
+In production, `NODE_ENV=production` marks the refresh cookie as secure. Serve
+the dashboard and Gateway over HTTPS before enabling that mode.
 
-# e2e tests
-$ npm run test:e2e
-
-# test coverage
-$ npm run test:cov
-```
-
-## Deployment
-
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
-
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
+## Development
 
 ```bash
-$ npm install -g @nestjs/mau
-$ mau deploy
+npm ci
+npm run db:migrate
+npm run start:dev
 ```
 
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
+```bash
+npm test -- --runInBand
+npm run test:e2e
+npm run build
+```
 
-## Resources
-
-Check out a few resources that may come in handy when working with NestJS:
-
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
-
-## Support
-
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
-
-## Stay in touch
-
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
-
-## License
-
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+The repository does not currently seed a default administrator. A fresh
+environment requires an explicitly provisioned initial admin account.

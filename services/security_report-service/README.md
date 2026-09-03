@@ -1,98 +1,83 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# Security and Report Service
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+This service owns two related operational records: immutable audit entries and
+generated monitoring reports. The folder retains its existing
+`security_report-service` name for compatibility.
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+See the [root README](../../README.md) for the full architecture and stack setup.
 
-## Description
+## Audit Responsibilities
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+- Consume audit events from RabbitMQ.
+- Validate and persist actor, action, resource, result, metadata, and event time.
+- Provide filtered audit-log queries for administrators.
+- Keep audit ingestion separate from the availability of the originating
+  service's HTTP request path.
 
-## Project setup
+## Report Responsibilities
+
+- Generate an all-assets or single-asset report for a requested time range.
+- Read asset, metric, health-check, and alert summaries from their owning
+  services.
+- Populate the versioned Word template in `templates/`.
+- Convert the rendered document to PDF with LibreOffice.
+- Persist generation status and failure details.
+- Store completed PDF files under `storage/reports`.
+- Generate the previous month's all-assets report at midnight on the first day
+  of each month in the `Asia/Bangkok` time zone.
+
+## HTTP API
+
+The service listens on port `3006`.
+
+| Method | Route | Purpose |
+| --- | --- | --- |
+| `GET` | `/audit-logs` | Filter and list audit records |
+| `GET` | `/reports` | List generated reports |
+| `GET` | `/reports/:id` | Get report metadata and status |
+| `GET` | `/reports/:id/download` | Download a completed PDF |
+| `POST` | `/reports/generate` | Generate an on-demand report |
+
+The dashboard accesses these endpoints as `/api/audit-logs` and `/api/reports`
+through the API Gateway.
+
+## Persistence and Dependencies
+
+- PostgreSQL stores audit records and report metadata.
+- RabbitMQ supplies audit events.
+- Asset, Monitoring, and Alerting services supply report data over HTTP.
+- LibreOffice performs DOCX-to-PDF conversion.
+
+## Environment
+
+| Variable | Purpose |
+| --- | --- |
+| `PORT` | HTTP port; defaults to `3006` |
+| `DATABASE_URL` | Security/report PostgreSQL connection string |
+| `RABBITMQ_URL` | RabbitMQ connection string |
+| `RABBITMQ_AUDIT_QUEUE` | Incoming audit queue; defaults to `audit_events` |
+| `ASSET_SERVICE_URL` | Asset service base URL |
+| `MONITORING_SERVICE_URL` | Monitoring service base URL |
+| `ALERTING_SERVICE_URL` | Alerting service base URL |
+| `LIBREOFFICE_PATH` | LibreOffice executable path |
+| `REPORT_TEMPLATE_PATH` | DOCX template path; defaults to `templates/monitoring-report-template.docx` |
+| `REPORT_TEMPLATE_VERSION` | Template version stored with report metadata |
+
+Docker persists generated PDFs in the `report_storage` volume.
+
+## Development
 
 ```bash
-$ npm install
+npm ci
+npm run db:migrate
+npm run start:dev
 ```
-
-## Compile and run the project
 
 ```bash
-# development
-$ npm run start
-
-# watch mode
-$ npm run start:dev
-
-# production mode
-$ npm run start:prod
+npm test -- --runInBand
+npm run test:e2e
+npm run build
 ```
 
-## Run tests
-
-```bash
-# unit tests
-$ npm run test
-
-# e2e tests
-$ npm run test:e2e
-
-# test coverage
-$ npm run test:cov
-```
-
-## Deployment
-
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
-
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
-
-```bash
-$ npm install -g @nestjs/mau
-$ mau deploy
-```
-
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
-
-## Resources
-
-Check out a few resources that may come in handy when working with NestJS:
-
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
-
-## Support
-
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
-
-## Stay in touch
-
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
-
-## License
-
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+When changing the Word template or its data mapping, render a real PDF and
+inspect its layout in addition to running unit tests.
