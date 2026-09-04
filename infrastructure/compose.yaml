@@ -76,6 +76,8 @@ services:
   nginx:
     image: nginx:latest
     restart: unless-stopped
+    profiles:
+      - proxy
     ports:
       - "${NGINX_PORT}:80"
     volumes:
@@ -114,11 +116,14 @@ services:
       PORT: 3001
       DATABASE_URL: postgresql://${MONITORING_DB_USER}:${MONITORING_DB_PASSWORD}@monitoring-db:5432/${MONITORING_DB_NAME}
       ASSET_SERVICE_URL: http://asset-service:3000
+      ALERTING_SERVICE_URL: http://alerting-service:3002
       INFLUXDB_URL: http://influxdb:8086
       INFLUXDB_TOKEN: ${INFLUXDB_ADMIN_TOKEN}
       INFLUXDB_ORG: ${INFLUXDB_ORG}
       INFLUXDB_BUCKET: ${INFLUXDB_BUCKET}
       RABBITMQ_URL: amqp://${RABBITMQ_USER}:${RABBITMQ_PASSWORD}@rabbitmq:5672
+      RABBITMQ_ALERT_QUEUE: alert_events
+      RABBITMQ_AUDIT_QUEUE: audit_events
     ports:
       - "3001:3001"
     depends_on:
@@ -129,6 +134,8 @@ services:
       influxdb:
         condition: service_started
       asset-service:
+        condition: service_started
+      alerting-service:
         condition: service_started
 
   alerting-db:
@@ -152,6 +159,29 @@ services:
       timeout: 5s
       retries: 10
 
+  alerting-service:
+    build:
+      context: ../services/alerting-service
+      dockerfile: Dockerfile
+    image: centralized-monitoring/alerting-service:dev
+    restart: unless-stopped
+    env_file:
+      - ../services/alerting-service/.env
+    environment:
+      PORT: 3002
+      DATABASE_URL: postgresql://${ALERTING_DB_USER}:${ALERTING_DB_PASSWORD}@alerting-db:5432/${ALERTING_DB_NAME}
+      RABBITMQ_URL: amqp://${RABBITMQ_USER}:${RABBITMQ_PASSWORD}@rabbitmq:5672
+      RABBITMQ_ALERT_QUEUE: alert_events
+      RABBITMQ_NOTIFICATION_QUEUE: notification_events
+      RABBITMQ_AUDIT_QUEUE: audit_events
+    ports:
+      - "3002:3002"
+    depends_on:
+      alerting-db:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
   auth-db:
     image: postgres:17-alpine
     container_name: auth-db
@@ -169,6 +199,29 @@ services:
       interval: 5s
       timeout: 5s
       retries: 10
+
+  auth-service:
+    build:
+      context: ../services/auth-service
+      dockerfile: Dockerfile
+    image: centralized-monitoring/auth-service:dev
+    restart: unless-stopped
+    env_file:
+      - ../services/auth-service/.env
+    environment:
+      NODE_ENV: development
+      PORT: 3004
+      DATABASE_URL: postgresql://${AUTH_DB_USER}:${AUTH_DB_PASSWORD}@auth-db:5432/${AUTH_DB_NAME}
+      RABBITMQ_URL: amqp://${RABBITMQ_USER}:${RABBITMQ_PASSWORD}@rabbitmq:5672
+      RABBITMQ_AUDIT_QUEUE: audit_events
+      RABBITMQ_NOTIFICATION_QUEUE: notification_events
+    ports:
+      - "3004:3004"
+    depends_on:
+      auth-db:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
 
   security-report-db:
     image: postgres:17-alpine
@@ -192,6 +245,41 @@ services:
       timeout: 5s
       retries: 10
 
+  security-report-service:
+    build:
+      context: ../services/security_report-service
+      dockerfile: Dockerfile
+    image: centralized-monitoring/security-report-service:dev
+    restart: unless-stopped
+    env_file:
+      - ../services/security_report-service/.env
+    environment:
+      PORT: 3006
+      DATABASE_URL: postgresql://${SECURITY_REPORT_DB_USER}:${SECURITY_REPORT_DB_PASSWORD}@security-report-db:5432/${SECURITY_REPORT_DB_NAME}
+      RABBITMQ_URL: amqp://${RABBITMQ_USER}:${RABBITMQ_PASSWORD}@rabbitmq:5672
+      RABBITMQ_AUDIT_QUEUE: audit_events
+      ASSET_SERVICE_URL: http://asset-service:3000
+      MONITORING_SERVICE_URL: http://monitoring-service:3001
+      ALERTING_SERVICE_URL: http://alerting-service:3002
+      LIBREOFFICE_PATH: /usr/bin/libreoffice
+      REPORT_TEMPLATE_PATH: templates/monitoring-report-template.docx
+      REPORT_TEMPLATE_VERSION: v9
+    ports:
+      - "3006:3006"
+    volumes:
+      - report_storage:/app/storage/reports
+    depends_on:
+      security-report-db:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      asset-service:
+        condition: service_started
+      monitoring-service:
+        condition: service_started
+      alerting-service:
+        condition: service_started
+
   notification-db:
     image: postgres:17-alpine
     container_name: notification-db
@@ -214,6 +302,60 @@ services:
       timeout: 5s
       retries: 10
 
+  notification-service:
+    build:
+      context: ../services/notification-service
+      dockerfile: Dockerfile
+    image: centralized-monitoring/notification-service:dev
+    restart: unless-stopped
+    env_file:
+      - ../services/notification-service/.env
+    environment:
+      PORT: 3003
+      DATABASE_URL: postgresql://${NOTIFICATION_DB_USER}:${NOTIFICATION_DB_PASSWORD}@notification-db:5432/${NOTIFICATION_DB_NAME}
+      RABBITMQ_URL: amqp://${RABBITMQ_USER}:${RABBITMQ_PASSWORD}@rabbitmq:5672
+      RABBITMQ_NOTIFICATION_QUEUE: notification_events
+      RABBITMQ_AUDIT_QUEUE: audit_events
+    ports:
+      - "3003:3003"
+    depends_on:
+      notification-db:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
+  api-gateway:
+    build:
+      context: ../services/api-gateway
+      dockerfile: Dockerfile
+    image: centralized-monitoring/api-gateway:dev
+    restart: unless-stopped
+    env_file:
+      - ../services/api-gateway/.env
+    environment:
+      PORT: 3005
+      ASSET_SERVICE_URL: http://asset-service:3000
+      MONITORING_SERVICE_URL: http://monitoring-service:3001
+      ALERTING_SERVICE_URL: http://alerting-service:3002
+      NOTIFICATION_SERVICE_URL: http://notification-service:3003
+      AUTH_SERVICE_URL: http://auth-service:3004
+      SECURITY_REPORT_SERVICE_URL: http://security-report-service:3006
+    ports:
+      - "3005:3005"
+    depends_on:
+      asset-service:
+        condition: service_started
+      monitoring-service:
+        condition: service_started
+      alerting-service:
+        condition: service_started
+      notification-service:
+        condition: service_started
+      auth-service:
+        condition: service_started
+      security-report-service:
+        condition: service_started
+
 volumes:
   asset_db_data:
   influxdb_data:
@@ -223,3 +365,4 @@ volumes:
   auth_db_data:
   security_report_db_data:
   notification_db_data:
+  report_storage:
