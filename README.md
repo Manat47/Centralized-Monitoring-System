@@ -35,39 +35,7 @@ The V1 dashboard is designed to answer two questions quickly:
   as PDF, both on demand and on a monthly schedule.
 
 ## Architecture
-
-```mermaid
-flowchart LR
-    Browser[Web browser] --> Web[Next.js dashboard :3010]
-    Web --> Gateway[API Gateway :3005]
-
-    Gateway --> Auth[Auth service :3004]
-    Gateway --> Assets[Asset service :3000]
-    Gateway --> Monitoring[Monitoring service :3001]
-    Gateway --> Alerting[Alerting service :3002]
-    Gateway --> Notifications[Notification service :3003]
-    Gateway --> Reports[Security and report service :3006]
-
-    Monitoring --> Exporter[Node Exporter /metrics]
-    Monitoring --> Endpoints[Application health URLs]
-    Monitoring --> InfluxDB[(InfluxDB)]
-
-    Assets --> AssetDB[(Asset PostgreSQL)]
-    Monitoring --> MonitoringDB[(Monitoring PostgreSQL)]
-    Alerting --> AlertDB[(Alert PostgreSQL)]
-    Auth --> AuthDB[(Auth PostgreSQL)]
-    Notifications --> NotificationDB[(Notification PostgreSQL)]
-    Reports --> ReportDB[(Report PostgreSQL)]
-
-    Monitoring --> RabbitMQ[(RabbitMQ)]
-    Assets --> RabbitMQ
-    Auth --> RabbitMQ
-    Alerting --> RabbitMQ
-    Notifications --> RabbitMQ
-    RabbitMQ --> Alerting
-    RabbitMQ --> Notifications
-    RabbitMQ --> Reports
-```
+<img width="872" height="1145" alt="Microservice Pattern Design" src="https://github.com/user-attachments/assets/b76fccf5-efcf-4565-a0df-116527363017" />
 
 The browser communicates with backend services only through the API Gateway.
 Each transactional service owns its PostgreSQL database. InfluxDB stores metric
