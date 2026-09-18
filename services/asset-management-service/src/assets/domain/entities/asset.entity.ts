@@ -1,10 +1,16 @@
-export type AssetTargetType = 'SERVER' | 'APPLICATION' | 'SERVICE';
+/* 
+Domain Entity
+กำหนดโครงสร้างข้อมูลของ asset
+business rule 
+ */
 
-export type AssetEnvironment = 'PRODUCTION' | 'STAGING' | 'DEVELOPMENT';
+export type AssetTargetType = 'SERVER' | 'APPLICATION' | 'SERVICE'; // กำหนดประเภทของ asset
 
-export const ASSET_STATUSES = ['ACTIVATE', 'INACTIVATE', 'DEACTIVATE'] as const;
+export type AssetEnvironment = 'PRODUCTION' | 'STAGING' | 'DEVELOPMENT'; // ENV ที่ระบบรองรับ
 
-export type AssetStatus = (typeof ASSET_STATUSES)[number];
+export const ASSET_STATUSES = ['ACTIVATE', 'INACTIVATE', 'DEACTIVATE'] as const; // กำหนดสถานะของ asset
+
+export type AssetStatus = (typeof ASSET_STATUSES)[number]; // สามารถใช้อาเรย์ตรวจสอบค่า ตอนรันไทม์ได้
 
 export const ASSET_OPERATIONAL_STATUSES = ['ACTIVATE', 'INACTIVATE'] as const;
 
@@ -12,6 +18,7 @@ export type AssetOperationalStatus =
   (typeof ASSET_OPERATIONAL_STATUSES)[number];
 
 export interface AssetProps {
+  // กำหนดโครงสร้างข้อมูลของ asset เมื่อถูกสร้างแล้วจะมีหน้าตาอย่างไร
   assetId: string;
   name: string;
   hostname: string | null;
@@ -25,6 +32,7 @@ export interface AssetProps {
 }
 
 export interface CreateAssetProps {
+  // คือข้อมูลที่ต้องใช้ในการสร้าง asset ใหม่
   name: string;
   hostname?: string | null;
   targetType: AssetTargetType;
@@ -34,13 +42,14 @@ export interface CreateAssetProps {
 }
 
 export class Asset {
-  private constructor(private props: AssetProps) {}
+  private constructor(private props: AssetProps) {} // private constructor เพื่อให้สามารถสร้าง instance ของ Asset ได้เฉพาะภายใน class เท่านั้น
 
   static restore(props: AssetProps): Asset {
     return new Asset(props);
   }
 
   static validateTarget(
+    // business rule สำหรับการ validate targetType, ipAddress, endpoint
     targetType: AssetTargetType,
     ipAddress?: string | null,
     endpoint?: string | null,
@@ -58,6 +67,7 @@ export class Asset {
   }
 
   update(data: Partial<CreateAssetProps>): void {
+    // business rule สำหรับการ update asset
     if (this.props.status === 'DEACTIVATE') {
       throw new Error('Deactivated asset cannot be modified');
     }
@@ -83,6 +93,7 @@ export class Asset {
   }
 
   changeStatus(status: AssetOperationalStatus): void {
+    // สลับสถานะใช้งานระหว่าง ACTIVATE และ INACTIVATE
     if (this.props.status === 'DEACTIVATE') {
       throw new Error('Deactivated asset cannot change status directly');
     }
@@ -92,6 +103,7 @@ export class Asset {
   }
 
   deactivate(): void {
+    // ยกเลิก Asset แบบถาวร ไม่สามารถเปิดกลับหรือแก้ไขได้
     if (this.props.status === 'DEACTIVATE') {
       throw new Error('Asset is already deactivated');
     }
