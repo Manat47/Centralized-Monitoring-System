@@ -356,6 +356,25 @@ services:
       security-report-service:
         condition: service_started
 
+  web-dashboard:
+    build:
+      context: ../apps/web-dashboard
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_GATEWAY_URL: /api
+        API_GATEWAY_INTERNAL_URL: http://api-gateway:3005
+    image: centralized-monitoring/web-dashboard:dev
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 3010
+      HOSTNAME: 0.0.0.0
+    ports:
+      - "${WEB_DASHBOARD_PORT:-3010}:3010"
+    depends_on:
+      api-gateway:
+        condition: service_started
+
 volumes:
   asset_db_data:
   influxdb_data:
