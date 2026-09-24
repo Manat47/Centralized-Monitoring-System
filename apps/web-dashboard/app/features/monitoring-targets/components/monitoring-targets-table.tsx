@@ -225,43 +225,53 @@ export function MonitoringTargetsTable() {
   const filteredTargets = useMemo(() => {
     const normalizedSearch = search.trim().toLowerCase();
 
-    return targets.filter((target) => {
-      const asset = assetById.get(target.assetId);
-      const assetName = asset?.name ?? "";
-      const address =
-        target.monitoringType === "NODE_EXPORTER"
-          ? getAddressForSource(
-              asset,
-              getEffectiveAddressSource(target, asset),
-            )
-          : getAssetAddress(asset);
-      const scrapeUrl = getScrapeUrl(target, asset);
+    return targets
+      .filter((target) => {
+        const asset = assetById.get(target.assetId);
+        const assetName = asset?.name ?? "";
+        const address =
+          target.monitoringType === "NODE_EXPORTER"
+            ? getAddressForSource(
+                asset,
+                getEffectiveAddressSource(target, asset),
+              )
+            : getAssetAddress(asset);
+        const scrapeUrl = getScrapeUrl(target, asset);
 
-      const matchesSearch =
-        !normalizedSearch ||
-        assetName.toLowerCase().includes(normalizedSearch) ||
-        address.toLowerCase().includes(normalizedSearch) ||
-        scrapeUrl.toLowerCase().includes(normalizedSearch);
-      const matchesVerification =
-        verificationStatus === "ALL" ||
-        target.verificationStatus === verificationStatus;
-      const matchesMonitoring =
-        monitoringStatus === "ALL" ||
-        (monitoringStatus === "ENABLED" && target.monitoringEnabled) ||
-        (monitoringStatus === "DISABLED" && !target.monitoringEnabled);
-      const matchesArchive =
-        archiveFilter === "ALL" ||
-        (archiveFilter === "ARCHIVED"
-          ? Boolean(target.archivedAt)
-          : !target.archivedAt);
+        const matchesSearch =
+          !normalizedSearch ||
+          assetName.toLowerCase().includes(normalizedSearch) ||
+          address.toLowerCase().includes(normalizedSearch) ||
+          scrapeUrl.toLowerCase().includes(normalizedSearch);
 
-      return (
-        matchesSearch &&
-        matchesVerification &&
-        matchesMonitoring &&
-        matchesArchive
-      );
-    });
+        const matchesVerification =
+          verificationStatus === "ALL" ||
+          target.verificationStatus === verificationStatus;
+
+        const matchesMonitoring =
+          monitoringStatus === "ALL" ||
+          (monitoringStatus === "ENABLED" && target.monitoringEnabled) ||
+          (monitoringStatus === "DISABLED" && !target.monitoringEnabled);
+
+        const matchesArchive =
+          archiveFilter === "ALL" ||
+          (archiveFilter === "ARCHIVED"
+            ? Boolean(target.archivedAt)
+            : !target.archivedAt);
+
+        return (
+          matchesSearch &&
+          matchesVerification &&
+          matchesMonitoring &&
+          matchesArchive
+        );
+      })
+      .sort((left, right) => {
+        const leftAsset = assetById.get(left.assetId);
+        const rightAsset = assetById.get(right.assetId);
+
+        return (leftAsset?.name ?? "").localeCompare(rightAsset?.name ?? "");
+      });
   }, [
     archiveFilter,
     assetById,
@@ -680,9 +690,7 @@ export function MonitoringTargetsTable() {
                                         )}
                                         <div className="my-1 border-t border-slate-100" />
                                         <MenuPrimitive.Item
-                                          disabled={
-                                            !canEditAddress
-                                          }
+                                          disabled={!canEditAddress}
                                           onClick={() => setEditTarget(target)}
                                           className="flex cursor-default items-center gap-2 rounded px-2 py-2 outline-none data-highlighted:bg-slate-100 data-disabled:text-slate-400"
                                         >
