@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { LoaderCircle } from "lucide-react";
+import { CheckCircle2, LoaderCircle } from "lucide-react";
 
 import type { Asset } from "@/app/features/assets/types/asset";
 import { Button } from "@/components/ui/button";
@@ -107,12 +107,21 @@ export function EditMonitoringTargetAddressDialog({
               <Button
                 key={option}
                 type="button"
-                variant={source === option ? "default" : "outline"}
-                className="h-auto min-h-16 justify-start px-3 py-2 text-left"
+                variant="outline"
+                className={`h-auto min-h-16 cursor-pointer justify-between px-3 py-2 text-left transition-colors ${
+                  source === option
+                    ? "border-blue-600 bg-blue-50 text-blue-950 ring-2 ring-blue-100 hover:bg-blue-100"
+                    : "bg-white hover:border-blue-300 hover:bg-blue-50/50"
+                }`}
                 disabled={isPending}
                 onClick={() => {
                   if (!target) return;
-                  setSelection({ targetId: target.targetId, source: option });
+
+                  setSelection({
+                    targetId: target.targetId,
+                    source: option,
+                  });
+
                   setError(null);
                 }}
               >
@@ -120,10 +129,15 @@ export function EditMonitoringTargetAddressDialog({
                   <span className="block text-sm font-medium">
                     {option === "HOSTNAME" ? "Hostname" : "IP address"}
                   </span>
+
                   <span className="block font-mono text-xs opacity-80">
                     {getAddressForSource(asset, option)}
                   </span>
                 </span>
+
+                {source === option && (
+                  <CheckCircle2 className="size-5 shrink-0 text-blue-600" />
+                )}
               </Button>
             ))}
           </div>
@@ -156,6 +170,7 @@ export function EditMonitoringTargetAddressDialog({
           </Button>
           <Button
             type="button"
+            className="bg-blue-600 text-white hover:bg-blue-700 active:bg-blue-800"
             disabled={!source || !scrapeUrl || isPending}
             onClick={handleSaveAndVerify}
           >
