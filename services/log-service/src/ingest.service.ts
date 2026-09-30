@@ -2,17 +2,23 @@ import {
   BadRequestException,
   ConflictException,
   Injectable,
+  Logger,
   ServiceUnavailableException,
+  HttpException,
+  HttpStatus,
   UnauthorizedException,
 } from '@nestjs/common';
 import { createHash, randomUUID } from 'node:crypto';
 import { DataStore } from './data.store';
-import { LogInfrastructure, StoredLog } from './log.infrastructure';
-
-type InputLog = Record<string, unknown>;
+import { LogInfrastructure } from './log.infrastructure';
+import {
+  LogInputError,
+  normalizeLogEvent,
+} from './log-events/application/services/log-event-normalizer.service';
 
 @Injectable()
 export class IngestService {
+  private readonly logger = new Logger(IngestService.name);
   constructor(
     private readonly db: DataStore,
     private readonly infra: LogInfrastructure,
@@ -65,7 +71,12 @@ export class IngestService {
       project_id: string;
       token_id: string;
     };
-    await this.infra.recordRequest(token.project_id);
+    const rpm = await this.infra.recordRequest(token.project_id);
+    if (rpm > this.infra.rateLimitRpm)
+      throw new HttpException(
+        'Project request rate limit exceeded',
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
     const firstUseInMinute = await this.infra.redis.set(
       `log:lastused:${token.token_id}`,
       '1',
@@ -80,112 +91,6 @@ export class IngestService {
       );
     }
     return token.project_id;
-  }
-
-  private validateEvent(input: InputLog, index: number): StoredLog {
-    const allowed = new Set([
-      'timestamp',
-      'source',
-      'event_type',
-      'message',
-      'tenant_id',
-      'status_code',
-      'duration_ms',
-      'metadata',
-    ]);
-    for (const key of Object.keys(input)) {
-      if (!allowed.has(key))
-        throw new BadRequestException(`events[${index}].${key} is not allowed`);
-    }
-    const required = (key: string, max: number) => {
-      const value = input[key];
-      if (typeof value !== 'string' || !value.trim() || value.length > max)
-        throw new BadRequestException(
-          `events[${index}].${key} must be a non-empty string of at most ${max} characters`,
-        );
-      return value;
-    };
-    const now = Date.now();
-    const timestamp =
-      input.timestamp === undefined
-        ? new Date(now).toISOString()
-        : input.timestamp;
-    const time = typeof timestamp === 'string' ? Date.parse(timestamp) : NaN;
-    if (
-      !Number.isFinite(time) ||
-      time < now - 30 * 86400_000 ||
-      time > now + 5 * 60_000
-    )
-      throw new BadRequestException(
-        `events[${index}].timestamp is outside the accepted range`,
-      );
-    if (
-      input.tenant_id !== undefined &&
-      (typeof input.tenant_id !== 'string' || input.tenant_id.length > 100)
-    )
-      throw new BadRequestException(`events[${index}].tenant_id is invalid`);
-    if (
-      input.status_code !== undefined &&
-      (!Number.isInteger(input.status_code) ||
-        Number(input.status_code) < 0 ||
-        Number(input.status_code) > 999)
-    )
-      throw new BadRequestException(`events[${index}].status_code is invalid`);
-    if (
-      input.duration_ms !== undefined &&
-      (typeof input.duration_ms !== 'number' ||
-        !Number.isFinite(input.duration_ms) ||
-        input.duration_ms < 0)
-    )
-      throw new BadRequestException(`events[${index}].duration_ms is invalid`);
-    let metadata: Record<string, string | number | boolean> | undefined;
-    if (input.metadata !== undefined) {
-      if (
-        !input.metadata ||
-        typeof input.metadata !== 'object' ||
-        Array.isArray(input.metadata)
-      )
-        throw new BadRequestException(
-          `events[${index}].metadata must be an object`,
-        );
-      const entries = Object.entries(input.metadata);
-      if (entries.length > 16)
-        throw new BadRequestException(
-          `events[${index}].metadata has too many keys`,
-        );
-      metadata = {};
-      for (const [key, value] of entries) {
-        if (
-          !key ||
-          key.length > 64 ||
-          key === 'project_id' ||
-          !(
-            typeof value === 'boolean' ||
-            (typeof value === 'string' && value.length <= 256) ||
-            (typeof value === 'number' && Number.isFinite(value))
-          )
-        )
-          throw new BadRequestException(
-            `events[${index}].metadata.${key} is invalid`,
-          );
-        metadata[key] = value;
-      }
-    }
-    return {
-      eventId: randomUUID(),
-      timestamp: new Date(time).toISOString(),
-      source: required('source', 100),
-      event_type: required('event_type', 100),
-      message: required('message', 4000),
-      ...(input.tenant_id !== undefined ? { tenant_id: input.tenant_id } : {}),
-      ...(input.status_code !== undefined
-        ? { status_code: input.status_code as number }
-        : {}),
-      ...(input.duration_ms !== undefined
-        ? { duration_ms: input.duration_ms }
-        : {}),
-      ...(metadata ? { metadata } : {}),
-    };
   }
 
   async ingest(
@@ -219,9 +124,13 @@ export class IngestService {
     )
       throw new BadRequestException('Invalid Idempotency-Key');
     const events = input.map((item, index) => {
-      if (!item || typeof item !== 'object' || Array.isArray(item))
-        throw new BadRequestException(`events[${index}] must be an object`);
-      return this.validateEvent(item as InputLog, index);
+      try {
+        return normalizeLogEvent(item, index);
+      } catch (error) {
+        if (error instanceof LogInputError)
+          throw new BadRequestException(error.message);
+        throw error;
+      }
     });
     const payloadHash = createHash('sha256')
       .update(JSON.stringify(input))
@@ -280,13 +189,19 @@ export class IngestService {
         );
       throw new ServiceUnavailableException('Log queue is unavailable');
     }
-    await this.db.recordAccepted(
-      batchId,
-      projectId,
-      acceptedAt.toISOString(),
-      events.length,
-      idempotencyKey,
-    );
+    try {
+      await this.db.recordAccepted(
+        batchId,
+        projectId,
+        acceptedAt.toISOString(),
+        events.length,
+        idempotencyKey,
+      );
+    } catch (error) {
+      // RabbitMQ has already confirmed the durable batch. The worker retries
+      // this ledger write using its unique batch ID.
+      this.logger.warn(`Accepted batch ledger will retry: ${String(error)}`);
+    }
     return { acceptedRecords: events.length, duplicate: false };
   }
 }

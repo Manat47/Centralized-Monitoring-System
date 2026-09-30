@@ -15,18 +15,8 @@ import type {
 import Redis from 'ioredis';
 import { createHash, randomUUID } from 'node:crypto';
 import { DataStore } from './data.store';
-
-export interface StoredLog {
-  eventId: string;
-  timestamp: string;
-  source: string;
-  event_type: string;
-  message: string;
-  tenant_id?: string;
-  status_code?: number;
-  duration_ms?: number;
-  metadata?: Record<string, string | number | boolean>;
-}
+import type { StoredLog } from './log-events/domain/entities/log-event.entity';
+import { ProcessActivityEventUseCase } from './log-events/application/use-cases/process-activity-event.use-case';
 
 export interface QueuedLogs {
   batchId: string;
@@ -38,6 +28,7 @@ export interface QueuedLogs {
 
 const LOG_QUEUE = 'app_logs_queue';
 const DEAD_LETTER_QUEUE = 'app_logs_dead_letter';
+const RETRY_QUEUE = 'app_logs_retry';
 const LOG_EXCHANGE = 'app_logs';
 const LOG_ROUTING_KEY = 'logs.events';
 
@@ -52,7 +43,14 @@ export class LogInfrastructure implements OnModuleInit, OnModuleDestroy {
   private publisher?: ConfirmChannel;
   private consumer?: Channel;
 
-  constructor(private readonly db: DataStore) {
+  readonly rateLimitRpm = Number(process.env.LOG_RATE_LIMIT_RPM ?? 600);
+
+  constructor(
+    private readonly db: DataStore,
+    private readonly processActivity: ProcessActivityEventUseCase,
+  ) {
+    if (!Number.isInteger(this.rateLimitRpm) || this.rateLimitRpm < 1)
+      throw new Error('LOG_RATE_LIMIT_RPM must be a positive integer');
     this.redis = new Redis(process.env.REDIS_URL ?? 'redis://localhost:6379', {
       lazyConnect: true,
       maxRetriesPerRequest: 1,
@@ -77,13 +75,22 @@ export class LogInfrastructure implements OnModuleInit, OnModuleDestroy {
     });
     await this.publisher.assertQueue(LOG_QUEUE, { durable: true });
     await this.publisher.assertQueue(DEAD_LETTER_QUEUE, { durable: true });
+    await this.publisher.assertQueue(RETRY_QUEUE, {
+      durable: true,
+      arguments: {
+        'x-message-ttl': 2000,
+        'x-dead-letter-exchange': LOG_EXCHANGE,
+        'x-dead-letter-routing-key': LOG_ROUTING_KEY,
+      },
+    });
     await this.publisher.bindQueue(LOG_QUEUE, LOG_EXCHANGE, LOG_ROUTING_KEY);
     await this.publisher.assertQueue(
       process.env.RABBITMQ_AUDIT_QUEUE ?? 'audit_events',
       { durable: true },
     );
     this.consumer = await this.connection.createChannel();
-    await this.consumer.prefetch(5);
+    // One worker preserves receive order for rolling detection windows on this node.
+    await this.consumer.prefetch(1);
     await this.consumer.consume(
       LOG_QUEUE,
       (message) => {
@@ -145,6 +152,7 @@ export class LogInfrastructure implements OnModuleInit, OnModuleDestroy {
     exchange: string,
     routingKey: string,
     payload: unknown,
+    headers?: Record<string, unknown>,
   ) {
     const channel = this.publisher;
     if (!channel) throw new Error('RabbitMQ is unavailable');
@@ -152,8 +160,10 @@ export class LogInfrastructure implements OnModuleInit, OnModuleDestroy {
       channel.publish(
         exchange,
         routingKey,
-        Buffer.from(JSON.stringify(payload)),
-        { persistent: true, contentType: 'application/json' },
+        Buffer.isBuffer(payload)
+          ? payload
+          : Buffer.from(JSON.stringify(payload)),
+        { persistent: true, contentType: 'application/json', headers },
         (error) =>
           error
             ? reject(error instanceof Error ? error : new Error(String(error)))
@@ -184,14 +194,22 @@ export class LogInfrastructure implements OnModuleInit, OnModuleDestroy {
     );
   }
 
-  async recordRequest(projectId: string | null) {
+  async recordRequest(projectId: string | null): Promise<number> {
     const key = projectId ? `log:rpm:${projectId}` : 'log:rpm:invalid';
     const now = Date.now();
-    const pipeline = this.redis.multi();
-    pipeline.zadd(key, now, `${now}:${randomUUID()}`);
-    pipeline.zremrangebyscore(key, 0, now - 60_000);
-    pipeline.expire(key, 120);
-    await pipeline.exec();
+    return Number(
+      await this.redis.eval(
+        `redis.call('ZADD', KEYS[1], ARGV[1], ARGV[2])
+       redis.call('ZREMRANGEBYSCORE', KEYS[1], '-inf', ARGV[3])
+       redis.call('EXPIRE', KEYS[1], 120)
+       return redis.call('ZCARD', KEYS[1])`,
+        1,
+        key,
+        now,
+        `${now}:${randomUUID()}`,
+        now - 60_000,
+      ),
+    );
   }
 
   async getRpm(projectId: string): Promise<number> {
@@ -205,6 +223,19 @@ export class LogInfrastructure implements OnModuleInit, OnModuleDestroy {
     const key = 'log:rpm:invalid';
     await this.redis.zremrangebyscore(key, 0, Date.now() - 60_000);
     return this.redis.zcard(key);
+  }
+
+  async ready(): Promise<boolean> {
+    if (!this.publisher || !this.consumer) return false;
+    const [db, redis, influx] = await Promise.all([
+      this.db.query('SELECT 1'),
+      this.redis.ping(),
+      fetch(`${process.env.INFLUXDB_URL}/health`, {
+        signal: AbortSignal.timeout(3000),
+      }),
+      this.publisher.checkQueue(LOG_QUEUE),
+    ]);
+    return Boolean(db.rowCount) && redis === 'PONG' && influx.ok;
   }
 
   private async consume(message: ConsumeMessage | null) {
@@ -240,9 +271,29 @@ export class LogInfrastructure implements OnModuleInit, OnModuleDestroy {
       const writer = this.influx.getWriteApi(
         this.influxOrg,
         this.influxBucket,
-        'ms',
+        'ns',
       );
       for (const event of payload.events) {
+        if (!event.receivedAt) event.receivedAt = payload.acceptedAt;
+        if (!event.kind) event.kind = 'APPLICATION';
+        if (event.kind === 'ACTIVITY') {
+          const offset = parseInt(
+            event.eventId.replaceAll('-', '').slice(0, 8),
+            16,
+          );
+          const storageNs =
+            BigInt(Date.parse(event.receivedAt)) * 1_000_000n + BigInt(offset);
+          writer.writePoint(
+            new Point('activity_log')
+              .tag('project_id', payload.projectId)
+              .stringField('event_id', event.eventId)
+              .stringField('occurred_at', event.timestamp)
+              .stringField('received_at', event.receivedAt)
+              .stringField('payload', JSON.stringify(event))
+              .timestamp(storageNs.toString()),
+          );
+          continue;
+        }
         const point = new Point('app_log')
           .tag('project_id', payload.projectId)
           .tag('event_id', event.eventId)
@@ -260,6 +311,11 @@ export class LogInfrastructure implements OnModuleInit, OnModuleDestroy {
         writer.writePoint(point);
       }
       await writer.close();
+      for (const event of payload.events) {
+        if (!event.receivedAt) event.receivedAt = payload.acceptedAt;
+        if (!event.kind) event.kind = 'APPLICATION';
+        await this.processActivity.execute(payload.projectId, event);
+      }
       await this.db.recordAccepted(
         payload.batchId,
         payload.projectId,
@@ -270,8 +326,26 @@ export class LogInfrastructure implements OnModuleInit, OnModuleDestroy {
       this.consumer.ack(message);
     } catch (error) {
       this.logger.error('Failed to persist queued logs; retrying', error);
-      await new Promise((resolve) => setTimeout(resolve, 2000));
-      this.consumer?.nack(message, false, true);
+      const priorAttempts = Number(message.properties.headers?.retryCount ?? 0);
+      try {
+        if (priorAttempts >= 10) {
+          await this.confirmPublish('', DEAD_LETTER_QUEUE, {
+            reason: String(error),
+            raw: message.content.toString('base64'),
+          });
+        } else {
+          await this.confirmPublish('', RETRY_QUEUE, message.content, {
+            retryCount: priorAttempts + 1,
+          });
+        }
+        this.consumer?.ack(message);
+      } catch (publishError) {
+        this.logger.error(
+          'Could not publish retry or dead-letter message',
+          publishError,
+        );
+        this.consumer?.nack(message, false, true);
+      }
     }
   }
 

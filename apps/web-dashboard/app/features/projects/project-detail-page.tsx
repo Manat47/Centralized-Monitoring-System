@@ -8,8 +8,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { projectApi, type Activity, type LogEvent, type Member, type Project,
   type ProjectRole, type ProjectToken, type Usage } from "./api";
+import { ActivityLogsPanel } from "./activity-logs-panel";
+import { ActivityRulesPanel } from "./activity-rules-panel";
 
-type Tab = "logs" | "tokens" | "members" | "activity";
+type Tab = "logs" | "activity-logs" | "rules" | "tokens" | "members" | "activity";
 const date = (value: string) => new Intl.DateTimeFormat("en-GB", {
   dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Bangkok",
 }).format(new Date(value));
@@ -109,6 +111,9 @@ export function ProjectDetailPage({ projectId }: { projectId: string }) {
   const sample = JSON.stringify({ source: "payment_gateway",
     event_type: "transaction_failed", message: "Gateway timeout from upstream",
     status_code: 500, metadata: { environment: "production" } }, null, 2);
+  const activitySample = JSON.stringify({ event_type: "auth.login", user_id: "usr_10293",
+    severity: "info", client: { ip: "203.0.113.195", device_type: "Desktop" },
+    metadata: { status: "success", session_id: "sess_abc123" } }, null, 2);
   const secret = newToken || "YOUR_PROJECT_TOKEN";
   const snippets: Record<string, string> = {
     cURL: `curl -X POST '${endpoint}' -H 'Authorization: Bearer ${secret}' -H 'Content-Type: application/json' -d '${sample.replace(/\n/g, "")}'`,
@@ -128,16 +133,16 @@ export function ProjectDetailPage({ projectId }: { projectId: string }) {
     <div className="grid gap-4 sm:grid-cols-2">
       <Card><CardHeader><CardTitle className="text-base">Requests per minute</CardTitle></CardHeader>
         <CardContent><div className="text-3xl font-semibold">{usage?.requestsPerMinute ?? "—"}</div>
-          <p className="mt-1 text-xs text-muted-foreground">Rolling 60 seconds · all requests with a valid token</p></CardContent></Card>
+          <p className="mt-1 text-xs text-muted-foreground">Rolling 60 seconds · {usage?.rateLimitRpm ?? 600} request limit per project (HTTP 429)</p></CardContent></Card>
       <Card><CardHeader><CardTitle className="text-base">Accepted records this month</CardTitle></CardHeader>
         <CardContent><div className="text-3xl font-semibold">{usage?.acceptedRecords.toLocaleString() ?? "—"}</div>
           <p className="mt-1 text-xs text-muted-foreground">{usage?.month ?? "Current month"} · Asia/Bangkok · no quota enforced</p></CardContent></Card>
     </div>
 
     <div className="flex flex-wrap gap-2 border-b pb-2" role="tablist" aria-label="Project sections">
-      {(["logs", "tokens", "members", "activity"] as const).filter((item) => item !== "tokens" || canManageTokens).map((item) =>
+      {(["logs", "activity-logs", "rules", "tokens", "members", "activity"] as const).filter((item) => item !== "tokens" || canManageTokens).map((item) =>
         <Button key={item} role="tab" aria-selected={tab === item} variant={tab === item ? "default" : "ghost"}
-          onClick={() => setTab(item)} className="capitalize">{item === "logs" ? "Log Explorer" : item}</Button>)}
+          onClick={() => setTab(item)} className="capitalize">{item === "logs" ? "Log Explorer" : item === "activity-logs" ? "Activity Logs" : item === "rules" ? "Rules & Findings" : item === "activity" ? "Management History" : item}</Button>)}
     </div>
 
     {tab === "logs" && <div className="space-y-4">
@@ -166,6 +171,9 @@ export function ProjectDetailPage({ projectId }: { projectId: string }) {
       </CardContent></Card>}
     </div>}
 
+    {tab === "activity-logs" && <ActivityLogsPanel projectId={projectId} />}
+    {tab === "rules" && <ActivityRulesPanel projectId={projectId} isOwner={isOwner} />}
+
     {tab === "tokens" && canManageTokens && <div className="space-y-4">
       <Card><CardHeader><CardTitle className="text-base">API tokens</CardTitle></CardHeader><CardContent className="space-y-4">
         <form onSubmit={createToken} className="flex flex-col gap-3 sm:flex-row"><Input aria-label="Token name" placeholder="Token name, e.g. production" value={name} maxLength={100} onChange={(event) => setName(event.target.value)} required /><Button type="submit" disabled={busy}>Create token</Button></form>
@@ -177,6 +185,7 @@ export function ProjectDetailPage({ projectId }: { projectId: string }) {
       <Card><CardHeader><CardTitle className="text-base">Send your first event</CardTitle></CardHeader><CardContent className="space-y-4">
         <p className="text-xs text-muted-foreground">Replace YOUR_HOST with your HTTPS domain. The project ID is derived from the token and must not appear in the request body. For retryable requests, reuse an Idempotency-Key only when retrying the same payload.</p>
         {Object.entries(snippets).map(([language, code]) => <div key={language}><div className="mb-2 flex items-center justify-between"><strong className="text-sm">{language}</strong><Button size="sm" variant="outline" onClick={() => void navigator.clipboard.writeText(code)}><Copy className="mr-2 size-3" />Copy</Button></div><pre className="overflow-x-auto rounded-md bg-slate-950 p-3 text-xs text-slate-100">{code}</pre></div>)}
+        <div><strong className="text-sm">Activity login example</strong><pre className="mt-2 overflow-x-auto rounded-md bg-slate-950 p-3 text-xs text-slate-100">{activitySample}</pre><p className="mt-2 text-xs text-muted-foreground">Send auth.logout with the same metadata.session_id to calculate session duration.</p></div>
       </CardContent></Card>
     </div>}
 

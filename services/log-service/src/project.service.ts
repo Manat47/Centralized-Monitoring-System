@@ -386,6 +386,7 @@ export class ProjectService implements OnModuleInit, OnModuleDestroy {
       timezone: 'Asia/Bangkok',
       acceptedRecords: Number(result.rows[0]?.accepted_records ?? 0),
       requestsPerMinute: await this.infra.getRpm(projectId),
+      rateLimitRpm: this.infra.rateLimitRpm,
     };
   }
 

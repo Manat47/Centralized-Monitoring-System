@@ -7,10 +7,34 @@ export interface Project { projectId: string; name: string; role: ProjectRole; c
 export interface Member { userId: string; email: string; role: ProjectRole; createdAt: string }
 export interface ProjectToken { tokenId: string; name: string; prefix: string; createdAt: string; revokedAt: string | null; lastUsedAt: string | null }
 export interface CreatedToken { tokenId: string; name: string; prefix: string; token: string }
-export interface Usage { month: string; timezone: string; acceptedRecords: number; requestsPerMinute: number }
+export interface Usage { month: string; timezone: string; acceptedRecords: number; requestsPerMinute: number; rateLimitRpm: number }
 export interface Activity { activityId: string; actorUserId: string; action: string; resourceId: string | null; detail: Record<string, unknown>; occurredAt: string }
 export interface LogEvent { eventId: string; timestamp: string; source: string; event_type: string; message: string; tenant_id: string | null; status_code: number | null; duration_ms: number | null; metadata: Record<string, unknown> }
 export interface LogPage { items: LogEvent[]; nextOffset: number | null }
+export interface ActivityLogEvent {
+  eventId: string; externalEventId?: string; kind: "ACTIVITY";
+  timestamp: string; receivedAt: string; source: string; event_type: string;
+  message: string; user_id?: string; severity?: string;
+  client?: { ip?: string; user_agent?: string; location?: string; device_type?: string };
+  duration_ms?: number; tags?: string[]; metadata?: Record<string, string | number | boolean | null>;
+}
+export interface ActivityLogPage { items: ActivityLogEvent[]; nextOffset: number | null }
+export interface ActivityInsights {
+  totalLogins: number; activeDays: number;
+  latestClient: { ip: string | null; deviceType: string | null; timestamp: string } | null;
+  latestSession: { sessionId: string; userId: string | null; loginAt: string; logoutAt: string | null; activeDurationMs: number | null } | null;
+}
+export interface ActivityRule {
+  ruleId: string; name: string; eventType: string; conditionField: string;
+  conditionValue: string; groupBy: "client.ip" | "user_id"; threshold: number;
+  windowMinutes: number; enabled: boolean; createdAt: string;
+}
+export type ActivityRuleDraft = Pick<ActivityRule, "name" | "eventType" | "conditionField" | "conditionValue" | "groupBy" | "threshold" | "windowMinutes">;
+export interface ActivityFinding {
+  findingId: string; ruleId: string; ruleName: string; groupValue: string;
+  matchedCount: number; triggeredAt: string; windowStart: string; eventId: string;
+}
+export interface FindingPage { items: ActivityFinding[]; nextOffset: number | null }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await authenticatedFetch(`${API_BASE}${path}`, {
@@ -41,4 +65,10 @@ export const projectApi = {
   usage: (id: string) => request<Usage>(`${path(id)}/usage`),
   activity: (id: string) => request<Activity[]>(`${path(id)}/activity`),
   logs: (id: string, params: URLSearchParams) => request<LogPage>(`${path(id)}/logs?${params.toString()}`),
+  activityLogs: (id: string, params: URLSearchParams) => request<ActivityLogPage>(`${path(id)}/activity-logs?${params.toString()}`),
+  activityInsights: (id: string, params: URLSearchParams) => request<ActivityInsights>(`${path(id)}/activity-insights?${params.toString()}`),
+  activityRules: (id: string) => request<ActivityRule[]>(`${path(id)}/activity-rules`),
+  createActivityRule: (id: string, draft: ActivityRuleDraft) => request<ActivityRule>(`${path(id)}/activity-rules`, { method: "POST", body: JSON.stringify(draft) }),
+  setActivityRuleEnabled: (id: string, ruleId: string, enabled: boolean) => request<ActivityRule>(`${path(id)}/activity-rules/${ruleId}`, { method: "PATCH", body: JSON.stringify({ enabled }) }),
+  activityFindings: (id: string, params = new URLSearchParams()) => request<FindingPage>(`${path(id)}/activity-findings?${params.toString()}`),
 };

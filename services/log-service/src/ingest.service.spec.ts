@@ -69,6 +69,15 @@ describe('IngestService', () => {
     expect(db.recordAccepted).not.toHaveBeenCalled();
   });
 
+  it('returns acceptance after broker confirmation when the ledger needs a worker retry', async () => {
+    db.recordAccepted.mockRejectedValueOnce(new Error('database unavailable'));
+    await expect(service.ingest('project-1', event)).resolves.toEqual({
+      acceptedRecords: 1,
+      duplicate: false,
+    });
+    expect(infra.publishLogs).toHaveBeenCalledTimes(1);
+  });
+
   it('returns the prior result for a repeated idempotency key', async () => {
     const hash = createHash('sha256')
       .update(JSON.stringify([event]))
@@ -100,5 +109,30 @@ describe('IngestService', () => {
     ).rejects.toBeInstanceOf(UnauthorizedException);
     expect(db.query).not.toHaveBeenCalled();
     expect(security.recordRequest).toHaveBeenCalledWith(null);
+  });
+
+  it('counts a valid-token request and rejects the one above the RPM limit', async () => {
+    const security = {
+      tokenHash: jest.fn().mockReturnValue('hashed'),
+      redis: {
+        exists: jest.fn().mockResolvedValue(0),
+        get: jest
+          .fn()
+          .mockResolvedValue(
+            JSON.stringify({ project_id: 'project-1', token_id: 'token-1' }),
+          ),
+      },
+      rateLimitRpm: 600,
+      recordRequest: jest.fn().mockResolvedValue(601),
+    };
+    const secured = new IngestService(
+      db as unknown as DataStore,
+      security as unknown as LogInfrastructure,
+    );
+    await expect(
+      secured.authenticate('Bearer prj_live_abc'),
+    ).rejects.toMatchObject({ status: 429 });
+    expect(security.recordRequest).toHaveBeenCalledWith('project-1');
+    expect(infra.publishLogs).not.toHaveBeenCalled();
   });
 });
