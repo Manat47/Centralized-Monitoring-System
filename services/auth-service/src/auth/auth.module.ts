@@ -36,6 +36,7 @@ import { ValidateInvitationUseCase } from './application/use-cases/validate-invi
 import { AcceptInvitationUseCase } from './application/use-cases/accept-invitation.use-case';
 import { ResendUserInvitationUseCase } from './application/use-cases/resend-user-invitation.use-case';
 import { RevokeUserInvitationUseCase } from './application/use-cases/revoke-user-invitation.use-case';
+import { InternalUsersController } from './presentation/internal-users.controller';
 
 @Module({
   imports: [
@@ -97,7 +98,7 @@ import { RevokeUserInvitationUseCase } from './application/use-cases/revoke-user
     ]),
   ],
 
-  controllers: [AuthController, UsersController],
+  controllers: [AuthController, UsersController, InternalUsersController],
 
   providers: [
     CreateUserUseCase,

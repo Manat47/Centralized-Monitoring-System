@@ -11,6 +11,7 @@ import {
   HeartPulse,
   LayoutDashboard,
   Mail,
+  FolderKanban,
   ScrollText,
   Server,
   Users,
@@ -93,6 +94,11 @@ const navigationGroups: NavigationGroup[] = [
   {
     label: "OPERATIONS",
     items: [
+      {
+        href: "/projects",
+        label: "Projects",
+        icon: FolderKanban,
+      },
       {
         href: "/alerts",
         label: "Alerts",

@@ -43,6 +43,10 @@ async function bootstrap() {
 
   const securityReportServiceUrl =
     process.env.SECURITY_REPORT_SERVICE_URL ?? 'http://localhost:3006';
+  const logServiceUrl = process.env.LOG_SERVICE_URL ?? 'http://localhost:3007';
+  const internalServiceSecret = process.env.INTERNAL_SERVICE_SECRET;
+  if (!internalServiceSecret)
+    throw new Error('INTERNAL_SERVICE_SECRET is required');
 
   app.use(
     '/api/auth',
@@ -98,6 +102,16 @@ async function bootstrap() {
     createProxyMiddleware({
       target: `${securityReportServiceUrl}/audit-logs`,
       changeOrigin: true,
+    }),
+  );
+
+  app.use(
+    createProxyMiddleware({
+      target: logServiceUrl,
+      changeOrigin: true,
+      pathFilter: ['/api/projects', '/api/ingest/logs'],
+      pathRewrite: { '^/api': '' },
+      headers: { 'x-internal-service-secret': internalServiceSecret },
     }),
   );
 

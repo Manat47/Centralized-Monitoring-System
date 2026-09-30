@@ -10,6 +10,23 @@ The V1 dashboard is designed to answer two questions quickly:
 - What is currently unhealthy or requires attention?
 - Which asset, metric, health check, or alert should an operator inspect next?
 
+## Third-party application logs
+
+The dashboard's **Projects** page manages project membership, write-only
+`prj_live_` tokens, a rolling 60-second request count, monthly accepted records,
+and the project Log Explorer. External systems send single or batched events to
+`POST /api/ingest/logs`; the gateway routes them to `log-service`, which confirms
+RabbitMQ delivery before returning `202`. A worker stores events in a dedicated
+30-day InfluxDB bucket. Management actions also appear in Audit Logs; ingested
+events do not. See [log-service documentation](services/log-service/README.md)
+for the API contract and HTTPS deployment template.
+
+Before starting the new Compose services, add `LOG_DB_USER`,
+`LOG_DB_PASSWORD`, `LOG_DB_NAME`, `LOG_DB_PORT`, and a long random
+`INTERNAL_SERVICE_SECRET` to `infrastructure/.env`, using
+`infrastructure/.env.example` as a guide. The shared secret is injected into
+the gateway, auth service, and log service by Compose.
+
 ## Core Capabilities
 
 - **Operational dashboard** with fleet-wide status, issue counts, latest metrics,

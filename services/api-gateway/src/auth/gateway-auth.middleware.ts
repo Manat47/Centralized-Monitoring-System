@@ -19,6 +19,7 @@ const PUBLIC_ROUTES = new Set([
   '/api/auth/invitations/validate',
   '/api/auth/invitations/accept',
   '/api/metrics',
+  '/api/ingest/logs',
 ]);
 
 function extractAccessToken(request: Request): string | null {
@@ -66,6 +67,10 @@ export function createGatewayAuthMiddleware(
     }
 
     const path = request.originalUrl.split('?')[0];
+    delete request.headers['x-user-id'];
+    delete request.headers['x-user-email'];
+    delete request.headers['x-user-role'];
+    delete request.headers['x-internal-service-secret'];
 
     if (PUBLIC_ROUTES.has(path)) {
       next();
