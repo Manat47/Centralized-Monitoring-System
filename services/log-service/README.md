@@ -1,131 +1,125 @@
 # Log service
 
-This service owns Projects, memberships, write-only API tokens, ingestion, usage,
-and the project Log Explorer. Activity Logs and detection rules extend the same
-event pipeline. It uses PostgreSQL for configuration and accepted
-request accounting, Redis for token lookups and 60-second request counts,
-RabbitMQ for durable ingestion and management audit messages, and a dedicated
-InfluxDB `app_logs` bucket with 30-day retention.
+The service receives customer-reported JSON records, assigns a server envelope,
+and exposes one Log & Event Explorer per project. It also observes its own Log
+API requests. These are distinct sources of information: receiving a record
+named `auth.login` does not verify that a login happened in the customer's app.
 
-## Local setup
+## Storage and setup
 
-Set `DATABASE_URL`, `REDIS_URL`, `RABBITMQ_URL`, `INFLUXDB_URL`,
-`INFLUXDB_TOKEN`, `INFLUXDB_ORG`, `INFLUXDB_LOG_BUCKET`, `AUTH_SERVICE_URL`,
-`INTERNAL_SERVICE_SECRET`, and optionally `LOG_RATE_LIMIT_RPM` (default 600).
-The same secret must be configured in the API
-gateway and auth service. Run `npm install`, `npm run db:migrate`, then
-`npm run start:dev`. The Compose image runs the migration before service startup.
+- PostgreSQL stores projects, tokens, request receipts, complete record JSONB,
+  search columns, rules, and findings. New records use `log_event_records`.
+- RabbitMQ confirms durable queue admission before the API returns HTTP 202.
+  A worker inserts records into PostgreSQL; search visibility can lag behind 202.
+- Redis caches token lookups, enforces the shared 600 request per rolling minute
+  project limit, and buffers per-minute metric counters.
+- InfluxDB bucket `log_metrics` stores only aggregated per-minute request and
+  ingestion metrics. New raw logs are never written there.
 
-The service creates its InfluxDB log bucket on startup with a 30-day retention
-rule. The configured InfluxDB token must be permitted to create buckets.
+Configure `DATABASE_URL`, `REDIS_URL`, `RABBITMQ_URL`, `INFLUXDB_URL`,
+`INFLUXDB_TOKEN`, `INFLUXDB_ORG`, `INFLUXDB_LOG_METRICS_BUCKET` (default
+`log_metrics`), `AUTH_SERVICE_URL`, and `INTERNAL_SERVICE_SECRET`. The optional
+`LOG_RATE_LIMIT_RPM` defaults to 600. The Influx token needs permission to
+create the metrics bucket. Run `npm install`, `npm run db:migrate`, and
+`npm run start:dev`. Compose runs migrations on service startup.
 
-## Public ingestion
+**Existing data:** migration `003_generic_log_records.sql` adds the new schema.
+It does not erase the older Activity tables or raw Influx bucket. Historical
+records in those stores are not automatically copied into the new Explorer:
+the old Activity projection lacks the original customer payload, and the old
+Influx application series cannot reconstruct one. Review a historical data
+backfill separately before removing the legacy tables and bucket. No database
+migration or data backfill is run by editing this repository.
 
-`POST /api/ingest/logs` accepts one object, an array of objects, or an object
-with an `events` array. Send `Authorization: Bearer prj_live_...`; optionally
-send a unique `Idempotency-Key` for a retryable request. The key is scoped to
-the token's project for 24 hours. The API returns `202` after RabbitMQ confirms
-the persistent message. A repeat with the same key and payload returns `202`
-without counting or storing the records twice. A different payload with the
-same key returns `409`.
+## Send a record
 
-Application events require `source`, `event_type`, and `message`. Activity events
-can be marked with `kind: "activity"` or inferred from `auth.*` event types and
-the new fields; for activity, the server derives `source` and `message` when
-missing. The example below is accepted by the same endpoint:
+Create a project token in the dashboard. Use one token per sending system so
+each can be rotated independently. Tokens from the same project share records
+and the RPM limit. The secret is shown only at creation.
 
-```json
+```powershell
+$token = 'prj_live_REPLACE_ME'
+$body = @'
 {
-  "event_id": "evt_987654321",
-  "event_type": "auth.login",
-  "user_id": "usr_10293",
-  "severity": "info",
-  "client": { "ip": "203.0.113.195", "device_type": "Desktop" },
-  "metrics": { "duration_ms": 1420 },
-  "tags": ["auth", "web"],
-  "metadata": { "status": "success", "session_id": "sess_abc123" }
+  "source": "payment_gateway",
+  "event_type": "provider_timeout",
+  "message": "Payment provider timed out",
+  "severity": "WARN",
+  "status_code": 504,
+  "context": { "provider": "example", "attempt": 2 }
 }
+'@
+Invoke-RestMethod -Uri 'https://YOUR_HOST/api/ingest/logs' -Method Post -Headers @{ Authorization = "Bearer $token" } -ContentType 'application/json' -Body $body
 ```
 
-`event_id` becomes `externalEventId` for reference; the server assigns its own
-event ID. To calculate session duration, send a subsequent `auth.logout` with
-the same `metadata.session_id`. Until logout arrives, the latest session has
-no duration. `metrics.duration_ms` measures the event operation, not the session.
-Only a successful login with `metadata.status: "success"` opens a session and
-counts toward Total Logins and Active Days.
+Every record requires nonempty `source` and `event_type` strings. The customer
+chooses the event name. `message`, `severity` (`INFO`, `WARN`, `ERROR`,
+`CRITICAL`; lower case accepted), `timestamp`, `duration_ms`, `status_code`,
+`user_id`, `client.ip`, `client.location`, and `tags` are optional indexed or
+display fields. Other JSON fields may contain nested objects or arrays within
+the eight-level depth and 1 MB request limit. They are preserved in
+`rawPayload` and visible in the detail drawer, but cannot be searched or used
+for record rules in this version. A customer-supplied `project_id` stays in
+raw JSON and cannot override the project derived from the token.
 
-`timestamp` defaults
-to server time; it may be at most 30 days old or five minutes ahead. Optional
-fields include `tenant_id`, `status_code`, `duration_ms`, `client`, `metrics`,
-`tags`, and `metadata`. `client` supports IP, user agent, location and device;
-tags contain at most 10 distinct strings; metadata accepts up to 16 scalar or
-null values, without nested objects. The server derives `project_id` from the
-token and rejects it in input. The whole batch is rejected if one event is
-invalid. A request can contain at most 500 records and 1 MB of JSON.
+Send one object, an array, or `{ "events": [...] }` with 1–500 records. A bad
+record rejects the entire batch with its `events[index].field` in HTTP 400.
+Event timestamps may be at most 30 days old or five minutes ahead. When absent,
+the server uses receive time and marks `timeSource: "received"`. No source,
+message, login result, IP, or severity is inferred.
 
-Tokens are shown only when created. Store them in the third-party system's
-secret store. Revocation deletes the shared Redis cache entry; new requests
-must validate against the current token state. Token names and activity events
-never contain token secrets or ingested log contents.
+An optional `Idempotency-Key` protects retries of the exact same body for 24
+hours per project. Reusing it with different content returns 409; retrying the
+same accepted body returns 202 with `duplicate: true` and adds no records.
 
-## Dashboard endpoints
+### Common responses
 
-`/api/projects` is available only with a dashboard JWT through the gateway.
-Project membership is checked by this service for every project endpoint;
-global `ADMIN` does not bypass it. Owners manage members and tokens,
-maintainers manage tokens, and viewers read logs, usage, and activity.
-The existing global Audit Logs page remains admin-only and receives only
-project/member/token/rule management events. Each project also exposes its own
-management activity to members. Ingested log records never enter audit storage.
+| Status | Meaning |
+| --- | --- |
+| 202 | RabbitMQ durably accepted the batch; `acceptedRecords` reports its size. |
+| 400 | JSON or a required/standard field is invalid; the response names the failing index. |
+| 401 | Missing, invalid, or revoked project token. |
+| 409 | Idempotency key is already in progress or was used for another body. |
+| 413 | Body exceeds 1 MB. |
+| 429 | Project used more than its allowed requests in the last rolling 60 seconds. |
+| 503 | Ingestion dependency or queue unavailable; retry with the same idempotency key. |
 
-Usage shows requests made with a valid project token during the last rolling
-60 seconds, including rejected and retried requests, plus accepted records in
-the current Asia/Bangkok month. Invalid-token requests are counted separately
-at `/api/projects/invalid-rpm` for global admins. These numbers are displayed
-with a per-project limit of 600 requests per rolling 60 seconds by default.
-The excess request is counted and receives HTTP 429, including when it would
-otherwise be a retry or invalid payload. The monthly record total remains
-informational.
+After 202, open the project's Log & Event Explorer and refresh until the record
+appears. Its detail drawer shows the raw payload and a separate envelope with
+project, token ID/name, request ID, server event ID, receive time, and storage
+status. It never shows the token secret. Recent valid-token rejection reasons
+appear on the project page. Invalid-token requests have no attributable project
+and are shown only as a system-level rate to global admins.
 
-## Activity analysis and retention
+## Search and rules
 
-The worker writes full Activity events into the InfluxDB hot bucket and a
-project-scoped PostgreSQL search projection. High-cardinality user, IP and
-session values stay in fields, not Influx tags. PostgreSQL indexes support
-time, user, IP, event type and tag filters. Activity records, rule match rows,
-sessions and findings are removed after 30 days; InfluxDB enforces the same
-hot retention. The `receivedAt` field records when our API accepted the event,
-while `timestamp` records the time claimed by the client.
-The RabbitMQ worker processes one message at a time on this node to preserve
-window order. A failed write is retried through a durable two-second delay queue
-up to ten times; then the original payload is placed in the durable dead-letter
-queue for operator replay. Reprocessing uses the server event ID to avoid
-duplicate index rows and findings.
+`GET /api/projects/:id/logs` is member-only. Its default range is the last 24
+hours of **received time**. Filters include source, event type, severity, and
+the search syntax `source:payments`, `event_type:provider_timeout`,
+`severity:WARN`, `user_id:u123`, `tag:payments`, `ip:203.0.*`,
+`status_code >= 400`, `duration_ms < 1000`, or plain message words. Multiple
+terms use AND. An unindexed custom key returns `Unsupported search field`.
+The response includes current-range facets and a received-time histogram.
 
-Dashboard members can search `/api/projects/:id/activity-logs`, read
-`activity-insights`, `activity-rules`, and `activity-findings`. Only an OWNER
-can create, enable or disable detection rules. A rule compares an event type
-and one field value, groups by IP or user ID, and counts matches in its time
-window. Only events whose timestamp is within five minutes of receipt can
-match; a rule never scans historical events at creation or re-enabling. A group produces at
-most one finding in a window. Findings appear in the project dashboard; this
-release does not send notifications.
+Project owners can create two kinds of count rule:
 
-`src/log-events/domain/ports/activity-archive.port.ts` defines the seam for a
-future warm and cold tier. No data is copied beyond 30 days in this release.
-Before enabling archival, add a durable export checkpoint, object storage
-credentials, restore/read routing, retention policy, and an audited purge job.
-Capacity and the target of roughly two seconds for a 24-hour search at up to
-100,000 events per project per day require a load benchmark with production
-like data; the build and unit tests do not establish that latency.
+- `LOG_API_REQUESTS`: server-observed HTTP status or accepted/rejected result,
+  grouped by project or token ID. Every Log API request, including a rejected
+  one, can contribute after its response is sent.
+- `ACCEPTED_RECORDS`: customer-reported event type and supported field value,
+  grouped by project, token ID, IP, or user ID when present. Only records near
+  their receive time and received after the rule was enabled contribute.
 
-`GET /health/ready` checks PostgreSQL, Redis, InfluxDB and the presence of
-RabbitMQ channels. The API gateway includes Log Service in Platform Healthy.
+Rule preview and list show recent matching data or `Waiting for data`.
+Findings identify their data source, condition, group, count, and window. A
+group produces at most one finding per window. Members can read findings;
+only owners manage rules. No notification is sent in this release.
 
-## HTTPS preparation
+New records, request receipts, and findings are retained for 30 days. The
+worker retries failed processing through a durable retry queue and sends
+exhausted messages to a durable dead-letter queue. The future warm/cold storage
+port is in `src/log-events/domain/ports/activity-archive.port.ts`.
 
-The public API must sit behind HTTPS in production. The repository includes
-`infrastructure/nginx/https.example.conf` as a deployment template. Supply a
-domain and TLS certificate/key, mount the template as the Nginx config and the
-certificate files at its stated paths, and expose port 443. Deployment and
-certificate provisioning are outside this feature change.
+The 100,000 records per project per day and typical two-second 24-hour search
+are design targets. They still require measurement against representative data.
+`GET /health/ready` checks PostgreSQL, Redis, InfluxDB and RabbitMQ.

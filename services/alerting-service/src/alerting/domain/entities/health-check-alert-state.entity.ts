@@ -88,6 +88,7 @@ export class HealthCheckAlertState {
     input: RecordHealthCheckResultInput,
     failureThreshold: number,
     recoveryThreshold: number,
+    evaluatedAt: Date = new Date(),
   ): { previousState: HealthCheckEvaluationStatus; available: boolean } {
     const previousState = this.props.state;
     const available =
@@ -100,8 +101,18 @@ export class HealthCheckAlertState {
     this.props.lastStatusCode = input.statusCode;
     this.props.lastResponseTimeMs = input.responseTimeMs;
     this.props.lastError = input.error;
-    this.props.staleAlertedAt = null;
     this.props.updatedAt = input.occurredAt;
+
+    // A delayed result is still historical data. It cannot prove that checks
+    // have resumed, so keep an existing stale alert active.
+    if (
+      previousState === 'STALE' &&
+      evaluatedAt.getTime() - input.occurredAt.getTime() > this.staleAfterMs()
+    ) {
+      return { previousState, available };
+    }
+
+    this.props.staleAlertedAt = null;
 
     if (available) {
       this.props.consecutiveFailures = 0;
@@ -142,12 +153,10 @@ export class HealthCheckAlertState {
       return false;
     }
 
-    const staleAfterMs = Math.max(
-      this.props.checkIntervalSeconds * STALE_INTERVAL_MULTIPLIER * 1000,
-      MINIMUM_STALE_AFTER_MS,
-    );
-
-    if (now.getTime() - this.props.lastResultAt.getTime() <= staleAfterMs) {
+    if (
+      now.getTime() - this.props.lastResultAt.getTime() <=
+      this.staleAfterMs()
+    ) {
       return false;
     }
 
@@ -168,5 +177,12 @@ export class HealthCheckAlertState {
     this.props.consecutiveFailures = 0;
     this.props.consecutiveSuccesses = 0;
     this.props.staleAlertedAt = null;
+  }
+
+  private staleAfterMs(): number {
+    return Math.max(
+      this.props.checkIntervalSeconds * STALE_INTERVAL_MULTIPLIER * 1000,
+      MINIMUM_STALE_AFTER_MS,
+    );
   }
 }

@@ -16,17 +16,34 @@ export class IngestController {
 
   @Post('logs')
   @HttpCode(202)
-  ingest(
-    @Req() request: Request & { projectId?: string },
+  async ingest(
+    @Req()
+    request: Request & {
+      projectId?: string;
+      tokenId?: string;
+      requestId?: string;
+      acceptedRecords?: number;
+      rejectReason?: string;
+    },
     @Headers('idempotency-key') idempotencyKey: string | undefined,
     @Body() body: unknown,
     @Query() query: Record<string, unknown>,
   ) {
-    return this.ingestService.ingest(
-      request.projectId!,
-      body,
-      idempotencyKey,
-      query,
-    );
+    try {
+      const result = await this.ingestService.ingest(
+        request.projectId!,
+        body,
+        idempotencyKey,
+        query,
+        request.tokenId,
+        request.requestId,
+      );
+      request.acceptedRecords = result.duplicate ? 0 : result.acceptedRecords;
+      return result;
+    } catch (error) {
+      request.rejectReason =
+        error instanceof Error ? error.message : 'Ingestion unavailable';
+      throw error;
+    }
   }
 }

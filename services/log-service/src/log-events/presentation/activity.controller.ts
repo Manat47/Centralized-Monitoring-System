@@ -22,32 +22,6 @@ export class ActivityController {
     private readonly actor: GatewayActorService,
   ) {}
 
-  @Get('activity-logs')
-  logs(
-    @Headers() headers: HeadersInput,
-    @Param('projectId', ParseUUIDPipe) projectId: string,
-    @Query() filters: Record<string, unknown>,
-  ) {
-    return this.analysis.search(
-      projectId,
-      this.actor.fromHeaders(headers),
-      filters,
-    );
-  }
-
-  @Get('activity-insights')
-  insights(
-    @Headers() headers: HeadersInput,
-    @Param('projectId', ParseUUIDPipe) projectId: string,
-    @Query() filters: Record<string, unknown>,
-  ) {
-    return this.analysis.insights(
-      projectId,
-      this.actor.fromHeaders(headers),
-      filters,
-    );
-  }
-
   @Get('activity-rules')
   rules(
     @Headers() headers: HeadersInput,
@@ -63,6 +37,19 @@ export class ActivityController {
     @Body() draft: RuleDraft,
   ) {
     return this.analysis.createRule(
+      projectId,
+      this.actor.fromHeaders(headers),
+      draft,
+    );
+  }
+
+  @Post('activity-rules/preview')
+  preview(
+    @Headers() headers: HeadersInput,
+    @Param('projectId', ParseUUIDPipe) projectId: string,
+    @Body() draft: RuleDraft,
+  ) {
+    return this.analysis.preview(
       projectId,
       this.actor.fromHeaders(headers),
       draft,

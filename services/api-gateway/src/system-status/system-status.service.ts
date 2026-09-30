@@ -51,6 +51,10 @@ export class SystemStatusService {
       this.configService.get<string>('LOG_SERVICE_URL') ??
       'http://localhost:3007';
 
+    const webDashboardUrl =
+      this.configService.get<string>('WEB_DASHBOARD_URL') ??
+      'http://localhost:3010';
+
     const services = await Promise.all([
       this.checkService('Asset Service', `${assetServiceUrl}/health`),
       this.checkService(
@@ -64,6 +68,7 @@ export class SystemStatusService {
       ),
       this.checkService('Auth Service', `${authServiceUrl}/health/ready`),
       this.checkService('Log Service', `${logServiceUrl}/health/ready`),
+      this.checkService('Web Dashboard', `${webDashboardUrl}/health`),
     ]);
 
     return {

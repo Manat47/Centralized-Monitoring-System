@@ -1,7 +1,5 @@
 import type { StoredLog } from './log-event.entity';
 
-export type ActivityGroupBy = 'client.ip' | 'user_id';
-
 export interface ActivityRule {
   ruleId: string;
   projectId: string;
@@ -9,13 +7,16 @@ export interface ActivityRule {
   eventType: string;
   conditionField: string;
   conditionValue: string;
-  groupBy: ActivityGroupBy;
+  groupBy: 'project' | 'client.ip' | 'user_id' | 'token_id';
+  dataSource: 'ACCEPTED_RECORDS' | 'LOG_API_REQUESTS';
   threshold: number;
   windowMinutes: number;
   enabled: boolean;
   activatedAt: string;
   createdAt: string;
   updatedAt: string;
+  sampleCount?: number;
+  waitingForData?: boolean;
 }
 
 export interface RuleMatch {
@@ -23,18 +24,14 @@ export interface RuleMatch {
   groupValue: string;
 }
 
-export function conditionValue(
-  event: StoredLog,
-  field: string,
-): string | undefined {
+export function ruleValue(event: StoredLog, field: string): string | undefined {
+  if (field === 'source') return event.source;
+  if (field === 'event_type') return event.event_type;
   if (field === 'severity') return event.severity;
-  if (field === 'client.device_type') return event.client?.device_type;
-  if (field === 'client.ip') return event.client?.ip;
   if (field === 'user_id') return event.user_id;
-  if (field.startsWith('metadata.')) {
-    const value = event.metadata?.[field.slice('metadata.'.length)];
-    return value === null || value === undefined ? undefined : String(value);
-  }
+  if (field === 'client.ip') return event.client?.ip;
+  if (field === 'status_code') return event.status_code?.toString();
+  if (field === 'token_id') return event.tokenId;
   return undefined;
 }
 
@@ -44,13 +41,12 @@ export function matchActivityRule(
 ): RuleMatch | null {
   if (
     !rule.enabled ||
-    event.kind !== 'ACTIVITY' ||
-    rule.eventType !== event.event_type
+    rule.dataSource !== 'ACCEPTED_RECORDS' ||
+    rule.eventType !== event.event_type ||
+    ruleValue(event, rule.conditionField) !== rule.conditionValue
   )
     return null;
-  const value = conditionValue(event, rule.conditionField);
-  if (value !== rule.conditionValue) return null;
   const groupValue =
-    rule.groupBy === 'client.ip' ? event.client?.ip : event.user_id;
+    rule.groupBy === 'project' ? 'project' : ruleValue(event, rule.groupBy);
   return groupValue ? { rule, groupValue } : null;
 }

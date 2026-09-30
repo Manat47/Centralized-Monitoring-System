@@ -272,6 +272,35 @@ export class DrizzleAlertRepository implements AlertRepository {
     return this.toDomain(updated);
   }
 
+  async resolveIfActive(alert: Alert): Promise<Alert | null> {
+    const data = alert.toObject();
+    if (data.status !== 'RESOLVED') {
+      throw new Error('Expected a resolved alert');
+    }
+
+    const [updated] = await this.db
+      .update(alerts)
+      .set({
+        status: data.status,
+        actualValue: data.actualValue,
+        actualText: data.actualText,
+        context: data.context,
+        message: data.message,
+        resolvedAt: data.resolvedAt,
+        resolutionReason: data.resolutionReason,
+        updatedAt: data.updatedAt,
+      })
+      .where(
+        and(
+          eq(alerts.alertId, data.alertId),
+          inArray(alerts.status, ['TRIGGERED', 'ACKNOWLEDGED']),
+        ),
+      )
+      .returning();
+
+    return updated ? this.toDomain(updated) : null;
+  }
+
   async appendLifecycleEvent(event: AlertLifecycleEvent): Promise<void> {
     await this.db.insert(alertLifecycleEvents).values(event);
   }

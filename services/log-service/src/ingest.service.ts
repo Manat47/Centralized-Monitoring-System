@@ -72,11 +72,22 @@ export class IngestService {
       token_id: string;
     };
     const rpm = await this.infra.recordRequest(token.project_id);
-    if (rpm > this.infra.rateLimitRpm)
-      throw new HttpException(
+    if (rpm > this.infra.rateLimitRpm) {
+      await this.infra.recordRejection(
+        token.project_id,
+        429,
+        'Project request rate limit exceeded',
+      );
+      const exceeded = new HttpException(
         'Project request rate limit exceeded',
         HttpStatus.TOO_MANY_REQUESTS,
       );
+      Object.assign(exceeded, {
+        projectId: token.project_id,
+        tokenId: token.token_id,
+      });
+      throw exceeded;
+    }
     const firstUseInMinute = await this.infra.redis.set(
       `log:lastused:${token.token_id}`,
       '1',
@@ -90,7 +101,7 @@ export class IngestService {
         [token.token_id],
       );
     }
-    return token.project_id;
+    return { projectId: token.project_id, tokenId: token.token_id };
   }
 
   async ingest(
@@ -98,6 +109,38 @@ export class IngestService {
     body: unknown,
     idempotencyKey?: string,
     query: Record<string, unknown> = {},
+    tokenId = '',
+    requestId: string = randomUUID(),
+  ) {
+    try {
+      return await this.ingestValidated(
+        projectId,
+        body,
+        idempotencyKey,
+        query,
+        tokenId,
+        requestId,
+      );
+    } catch (error) {
+      const status = error instanceof HttpException ? error.getStatus() : 503;
+      const reason =
+        error instanceof HttpException
+          ? error.message
+          : 'Ingestion unavailable';
+      await this.infra
+        .recordRejection(projectId, status, reason)
+        .catch(() => undefined);
+      throw error;
+    }
+  }
+
+  private async ingestValidated(
+    projectId: string,
+    body: unknown,
+    idempotencyKey: string | undefined,
+    query: Record<string, unknown>,
+    tokenId: string,
+    requestId: string,
   ) {
     if (Object.keys(query).length)
       throw new BadRequestException('Query parameters are not accepted');
@@ -123,9 +166,14 @@ export class IngestService {
       (idempotencyKey.length > 128 || !/^[\x21-\x7e]+$/.test(idempotencyKey))
     )
       throw new BadRequestException('Invalid Idempotency-Key');
+    const receivedAt = new Date();
     const events = input.map((item, index) => {
       try {
-        return normalizeLogEvent(item, index);
+        return {
+          ...normalizeLogEvent(item, index, receivedAt),
+          requestId,
+          tokenId,
+        };
       } catch (error) {
         if (error instanceof LogInputError)
           throw new BadRequestException(error.message);
@@ -176,6 +224,8 @@ export class IngestService {
       await this.infra.publishLogs({
         batchId,
         projectId,
+        tokenId,
+        requestId,
         acceptedAt: acceptedAt.toISOString(),
         idempotencyKey,
         events,
@@ -201,6 +251,15 @@ export class IngestService {
       // RabbitMQ has already confirmed the durable batch. The worker retries
       // this ledger write using its unique batch ID.
       this.logger.warn(`Accepted batch ledger will retry: ${String(error)}`);
+    }
+    try {
+      await this.infra.recordAggregate(
+        projectId,
+        'accepted_records',
+        events.length,
+      );
+    } catch (error) {
+      this.logger.warn(`Could not update accepted metric: ${String(error)}`);
     }
     return { acceptedRecords: events.length, duplicate: false };
   }

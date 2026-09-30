@@ -1,63 +1,67 @@
 import { ProcessActivityEventUseCase } from './process-activity-event.use-case';
 import type { ActivityRepository } from '../../domain/repositories/activity.repository';
 import type { StoredLog } from '../../domain/entities/log-event.entity';
+import type { ActivityRule } from '../../domain/entities/activity-rule.entity';
 
-describe('ProcessActivityEventUseCase', () => {
-  const receivedAt = '2026-09-30T10:42:30Z';
+describe('record detection', () => {
   const event: StoredLog = {
     eventId: 'event-1',
-    kind: 'ACTIVITY',
-    receivedAt,
-    timestamp: receivedAt,
-    source: 'auth',
-    event_type: 'auth.login',
-    message: 'Login failed',
-    user_id: 'user-1',
+    requestId: 'request-1',
+    tokenId: 'token-1',
+    source: 'payment_gateway',
+    event_type: 'provider_timeout',
+    timestamp: '2026-09-30T10:42:30Z',
+    receivedAt: '2026-09-30T10:42:30Z',
+    timeSource: 'client',
+    severity: 'ERROR',
     client: { ip: '203.0.113.195' },
-    metadata: { status: 'failed' },
+    rawPayload: { source: 'payment_gateway', event_type: 'provider_timeout' },
   };
-  const rule = {
+  const rule: ActivityRule = {
     ruleId: 'rule-1',
     projectId: 'project-1',
-    name: 'Failed login',
-    eventType: 'auth.login',
-    conditionField: 'metadata.status',
-    conditionValue: 'failed',
-    groupBy: 'client.ip' as const,
+    name: 'Timeouts',
+    eventType: 'provider_timeout',
+    conditionField: 'severity',
+    conditionValue: 'ERROR',
+    groupBy: 'client.ip',
     threshold: 5,
     windowMinutes: 10,
     enabled: true,
     activatedAt: '2026-09-30T10:40:00Z',
     createdAt: '2026-09-30T10:40:00Z',
     updatedAt: '2026-09-30T10:40:00Z',
+    dataSource: 'ACCEPTED_RECORDS',
   };
-  const activeRules = jest.fn().mockResolvedValue([rule]);
   const process = jest.fn().mockResolvedValue(undefined);
-  const repository = { activeRules, process } as unknown as ActivityRepository;
-  const useCase = new ProcessActivityEventUseCase(repository);
+  const activeRules = jest.fn().mockResolvedValue([rule]);
+  const useCase = new ProcessActivityEventUseCase({
+    process,
+    activeRules,
+  } as unknown as ActivityRepository);
 
-  beforeEach(() => jest.clearAllMocks());
+  beforeEach(() => {
+    process.mockClear();
+    activeRules.mockClear();
+  });
 
-  it('passes a near-real-time match grouped by client IP', async () => {
+  it('matches a recent accepted record by an explicitly reported field', async () => {
     await useCase.execute('project-1', event);
     expect(process).toHaveBeenCalledWith('project-1', event, [
       { rule, groupValue: '203.0.113.195' },
     ]);
   });
 
-  it('indexes a historical event without producing a finding', async () => {
-    await useCase.execute('project-1', {
-      ...event,
-      timestamp: '2026-09-29T10:42:30Z',
-    });
-    expect(process).toHaveBeenCalledWith('project-1', expect.anything(), []);
+  it('stores old records without generating findings', async () => {
+    const old = { ...event, timestamp: '2026-09-29T10:42:30Z' };
+    await useCase.execute('project-1', old);
+    expect(activeRules).not.toHaveBeenCalled();
+    expect(process).toHaveBeenCalledWith('project-1', old, []);
   });
 
-  it('does not apply a rule created after the event was received', async () => {
-    activeRules.mockResolvedValueOnce([
-      { ...rule, activatedAt: '2026-09-30T10:43:00Z' },
-    ]);
-    await useCase.execute('project-1', event);
-    expect(process).toHaveBeenCalledWith('project-1', event, []);
+  it('does not match when a grouping field is absent', async () => {
+    const noIp = { ...event, client: undefined };
+    await useCase.execute('project-1', noIp);
+    expect(process).toHaveBeenCalledWith('project-1', noIp, []);
   });
 });

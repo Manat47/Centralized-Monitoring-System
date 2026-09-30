@@ -177,4 +177,20 @@ export class ProjectController {
     await this.projects.membership(projectId, this.actor(headers));
     return this.logs.list(projectId, filters);
   }
+
+  @Get(':projectId/logs/values')
+  async logValues(
+    @Headers() headers: Record<string, string | string[] | undefined>,
+    @Param('projectId', ParseUUIDPipe) projectId: string,
+    @Query() query: { field: string; q?: string; from?: string; to?: string },
+  ) {
+    await this.projects.membership(projectId, this.actor(headers));
+    return this.logs.values(
+      projectId,
+      query.field,
+      query.q ?? '',
+      query.from,
+      query.to,
+    );
+  }
 }

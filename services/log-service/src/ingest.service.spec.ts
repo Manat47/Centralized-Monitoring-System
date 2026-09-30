@@ -17,7 +17,12 @@ const event = {
 
 describe('IngestService', () => {
   let db: jest.Mocked<Pick<DataStore, 'recordAccepted' | 'query'>>;
-  let infra: jest.Mocked<Pick<LogInfrastructure, 'publishLogs'>>;
+  let infra: jest.Mocked<
+    Pick<
+      LogInfrastructure,
+      'publishLogs' | 'recordAggregate' | 'recordRejection'
+    >
+  >;
   let service: IngestService;
 
   beforeEach(() => {
@@ -25,7 +30,11 @@ describe('IngestService', () => {
       recordAccepted: jest.fn().mockResolvedValue(undefined),
       query: jest.fn(),
     };
-    infra = { publishLogs: jest.fn().mockResolvedValue(undefined) };
+    infra = {
+      publishLogs: jest.fn().mockResolvedValue(undefined),
+      recordAggregate: jest.fn().mockResolvedValue(undefined),
+      recordRejection: jest.fn().mockResolvedValue(undefined),
+    };
     service = new IngestService(
       db as unknown as DataStore,
       infra as unknown as LogInfrastructure,
@@ -34,7 +43,7 @@ describe('IngestService', () => {
 
   it('rejects an entire batch when one event is invalid', async () => {
     await expect(
-      service.ingest('project-1', [event, { ...event, project_id: 'other' }]),
+      service.ingest('project-1', [event, { event_type: 'other' }]),
     ).rejects.toBeInstanceOf(BadRequestException);
     expect(infra.publishLogs).not.toHaveBeenCalled();
     expect(db.recordAccepted).not.toHaveBeenCalled();
@@ -124,6 +133,7 @@ describe('IngestService', () => {
       },
       rateLimitRpm: 600,
       recordRequest: jest.fn().mockResolvedValue(601),
+      recordRejection: jest.fn().mockResolvedValue(undefined),
     };
     const secured = new IngestService(
       db as unknown as DataStore,

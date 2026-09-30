@@ -263,7 +263,19 @@ export class ProcessAlertEventUseCase {
       return null;
     }
 
-    if (before.state === 'STALE') {
+    const transition = state.recordResult(
+      {
+        statusCode: event.statusCode,
+        responseTimeMs: event.responseTimeMs,
+        error: event.error,
+        occurredAt,
+      },
+      HEALTH_FAILURE_THRESHOLD,
+      HEALTH_RECOVERY_THRESHOLD,
+    );
+    const after = state.toObject();
+
+    if (before.state === 'STALE' && after.state !== 'STALE') {
       const staleAlert = await this.alertRepository.findActiveByDedupKey(
         this.healthDedupKey(event.healthCheckTargetId, 'HEALTH_CHECK_STALE'),
       );
@@ -278,18 +290,6 @@ export class ProcessAlertEventUseCase {
         );
       }
     }
-
-    const transition = state.recordResult(
-      {
-        statusCode: event.statusCode,
-        responseTimeMs: event.responseTimeMs,
-        error: event.error,
-        occurredAt,
-      },
-      HEALTH_FAILURE_THRESHOLD,
-      HEALTH_RECOVERY_THRESHOLD,
-    );
-    const after = state.toObject();
 
     await this.healthStateRepository.save(state);
 
@@ -383,14 +383,17 @@ export class ProcessAlertEventUseCase {
     message: string,
     actualText?: string | null,
     context?: Record<string, unknown> | null,
-  ): Promise<Alert> {
+  ): Promise<Alert | null> {
     alert.resolve(actualValue, resolvedAt, reason, {
       actualText,
       message,
       context,
     });
 
-    const updatedAlert = await this.alertRepository.update(alert);
+    const updatedAlert = await this.alertRepository.resolveIfActive(alert);
+    if (!updatedAlert) {
+      return null;
+    }
     const data = updatedAlert.toObject();
 
     await this.alertRepository.appendLifecycleEvent({

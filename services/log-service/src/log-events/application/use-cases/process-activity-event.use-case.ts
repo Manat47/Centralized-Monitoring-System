@@ -4,6 +4,7 @@ import { matchActivityRule } from '../../domain/entities/activity-rule.entity';
 import {
   ACTIVITY_REPOSITORY,
   type ActivityRepository,
+  type RequestReceipt,
 } from '../../domain/repositories/activity.repository';
 
 @Injectable()
@@ -14,7 +15,6 @@ export class ProcessActivityEventUseCase {
   ) {}
 
   async execute(projectId: string, event: StoredLog): Promise<void> {
-    if (event.kind !== 'ACTIVITY') return;
     const nearReceipt =
       Math.abs(Date.parse(event.timestamp) - Date.parse(event.receivedAt)) <=
       5 * 60_000;
@@ -28,5 +28,9 @@ export class ProcessActivityEventUseCase {
       .map((rule) => matchActivityRule(rule, event))
       .filter((match) => match !== null);
     await this.repository.process(projectId, event, matches);
+  }
+
+  async executeRequest(receipt: RequestReceipt): Promise<void> {
+    await this.repository.processRequest(receipt);
   }
 }

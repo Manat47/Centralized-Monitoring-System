@@ -1,27 +1,21 @@
-export type LogMetadataValue = string | number | boolean | null;
-
-export interface LogClient {
-  ip?: string;
-  user_agent?: string;
-  location?: string;
-  device_type?: string;
-}
+export type JsonValue =
+  string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
 
 export interface StoredLog {
   eventId: string;
-  externalEventId?: string;
-  kind: 'APPLICATION' | 'ACTIVITY';
+  requestId: string;
+  tokenId: string;
   timestamp: string;
   receivedAt: string;
+  timeSource: 'client' | 'received';
   source: string;
   event_type: string;
-  message: string;
-  tenant_id?: string;
-  status_code?: number;
+  severity?: 'INFO' | 'WARN' | 'ERROR' | 'CRITICAL';
+  message?: string;
   duration_ms?: number;
+  status_code?: number;
   user_id?: string;
-  severity?: 'info' | 'warning' | 'error' | 'critical';
-  client?: LogClient;
+  client?: { ip?: string; location?: string; device_type?: string };
   tags?: string[];
-  metadata?: Record<string, LogMetadataValue>;
+  rawPayload: Record<string, JsonValue>;
 }

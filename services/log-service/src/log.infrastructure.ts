@@ -21,6 +21,8 @@ import { ProcessActivityEventUseCase } from './log-events/application/use-cases/
 export interface QueuedLogs {
   batchId: string;
   projectId: string;
+  tokenId: string;
+  requestId: string;
   acceptedAt: string;
   idempotencyKey?: string;
   events: StoredLog[];
@@ -42,6 +44,7 @@ export class LogInfrastructure implements OnModuleInit, OnModuleDestroy {
   private connection?: ChannelModel;
   private publisher?: ConfirmChannel;
   private consumer?: Channel;
+  private metricTimer?: ReturnType<typeof setInterval>;
 
   readonly rateLimitRpm = Number(process.env.LOG_RATE_LIMIT_RPM ?? 600);
 
@@ -58,7 +61,8 @@ export class LogInfrastructure implements OnModuleInit, OnModuleDestroy {
     const url = process.env.INFLUXDB_URL;
     const token = process.env.INFLUXDB_TOKEN;
     this.influxOrg = process.env.INFLUXDB_ORG ?? '';
-    this.influxBucket = process.env.INFLUXDB_LOG_BUCKET ?? 'app_logs';
+    this.influxBucket =
+      process.env.INFLUXDB_LOG_METRICS_BUCKET ?? 'log_metrics';
     if (!url || !token || !this.influxOrg)
       throw new Error('InfluxDB configuration is required');
     this.influx = new InfluxDB({ url, token });
@@ -67,6 +71,12 @@ export class LogInfrastructure implements OnModuleInit, OnModuleDestroy {
   async onModuleInit() {
     await this.redis.connect();
     await this.ensureBucket();
+    await this.flushMetrics(true);
+    this.metricTimer = setInterval(() => {
+      void this.flushMetrics().catch((error: unknown) =>
+        this.logger.warn(`Metric flush will retry: ${String(error)}`),
+      );
+    }, 15_000);
     if (!process.env.RABBITMQ_URL) throw new Error('RABBITMQ_URL is required');
     this.connection = await amqp.connect(process.env.RABBITMQ_URL);
     this.publisher = await this.connection.createConfirmChannel();
@@ -197,7 +207,7 @@ export class LogInfrastructure implements OnModuleInit, OnModuleDestroy {
   async recordRequest(projectId: string | null): Promise<number> {
     const key = projectId ? `log:rpm:${projectId}` : 'log:rpm:invalid';
     const now = Date.now();
-    return Number(
+    const rpm = Number(
       await this.redis.eval(
         `redis.call('ZADD', KEYS[1], ARGV[1], ARGV[2])
        redis.call('ZREMRANGEBYSCORE', KEYS[1], '-inf', ARGV[3])
@@ -210,6 +220,91 @@ export class LogInfrastructure implements OnModuleInit, OnModuleDestroy {
         now - 60_000,
       ),
     );
+    await this.recordAggregate(projectId, 'requests');
+    return rpm;
+  }
+
+  async recordAggregate(
+    projectId: string | null,
+    field: string,
+    amount = 1,
+  ): Promise<void> {
+    const minute = Math.floor(Date.now() / 60_000) * 60_000;
+    const key = `log:metric:${minute}:${projectId ?? 'invalid'}`;
+    await this.redis.hincrby(key, field, amount);
+    await this.redis.expire(key, 31 * 86400);
+  }
+
+  async recordRejection(
+    projectId: string,
+    status: number,
+    reason: string,
+  ): Promise<void> {
+    const key = `log:rejections:${projectId}`;
+    await this.redis.lpush(
+      key,
+      JSON.stringify({ at: new Date().toISOString(), status, reason }),
+    );
+    await this.redis.ltrim(key, 0, 19);
+    await this.redis.expire(key, 86400);
+  }
+
+  async recentRejections(
+    projectId: string,
+  ): Promise<{ at: string; status: number; reason: string }[]> {
+    const rows = await this.redis.lrange(`log:rejections:${projectId}`, 0, 19);
+    return rows.map(
+      (item) =>
+        JSON.parse(item) as { at: string; status: number; reason: string },
+    );
+  }
+
+  private async flushMetrics(all = false): Promise<void> {
+    const writer = this.influx.getWriteApi(
+      this.influxOrg,
+      this.influxBucket,
+      'ms',
+    );
+    let cursor = '0';
+    try {
+      do {
+        const minute = Math.floor(Date.now() / 60_000) * 60_000;
+        const patterns = all
+          ? ['log:metric:*']
+          : [`log:metric:${minute}:*`, `log:metric:${minute - 60_000}:*`];
+        const [next, keys] = await this.redis.scan(
+          cursor,
+          'MATCH',
+          patterns[0],
+          'COUNT',
+          200,
+        );
+        cursor = next;
+        const pending = all
+          ? keys
+          : [...keys, ...(await this.redis.keys(patterns[1]))];
+        for (const key of pending) {
+          const parts = /^log:metric:(\d+):(.+)$/.exec(key);
+          if (!parts) continue;
+          const fields = await this.redis.hgetall(key);
+          if (!Object.keys(fields).length) continue;
+          const point = new Point('log_ingestion_minute')
+            .tag('project_id', parts[2])
+            .timestamp(new Date(Number(parts[1])));
+          for (const [field, count] of Object.entries(fields))
+            point.intField(field, Number(count));
+          writer.writePoint(point);
+        }
+      } while (cursor !== '0');
+      await writer.close();
+    } catch (error) {
+      try {
+        await writer.close();
+      } catch {
+        /* keep Redis counters for retry */
+      }
+      throw error;
+    }
   }
 
   async getRpm(projectId: string): Promise<number> {
@@ -247,6 +342,7 @@ export class LogInfrastructure implements OnModuleInit, OnModuleDestroy {
         if (
           !payload.batchId ||
           !payload.projectId ||
+          !payload.requestId ||
           !payload.acceptedAt ||
           !Array.isArray(payload.events) ||
           !payload.events.length ||
@@ -256,7 +352,7 @@ export class LogInfrastructure implements OnModuleInit, OnModuleDestroy {
               !event.timestamp ||
               !event.source ||
               !event.event_type ||
-              !event.message,
+              !event.rawPayload,
           )
         )
           throw new Error('Invalid queued log payload');
@@ -268,52 +364,7 @@ export class LogInfrastructure implements OnModuleInit, OnModuleDestroy {
         this.consumer.ack(message);
         return;
       }
-      const writer = this.influx.getWriteApi(
-        this.influxOrg,
-        this.influxBucket,
-        'ns',
-      );
       for (const event of payload.events) {
-        if (!event.receivedAt) event.receivedAt = payload.acceptedAt;
-        if (!event.kind) event.kind = 'APPLICATION';
-        if (event.kind === 'ACTIVITY') {
-          const offset = parseInt(
-            event.eventId.replaceAll('-', '').slice(0, 8),
-            16,
-          );
-          const storageNs =
-            BigInt(Date.parse(event.receivedAt)) * 1_000_000n + BigInt(offset);
-          writer.writePoint(
-            new Point('activity_log')
-              .tag('project_id', payload.projectId)
-              .stringField('event_id', event.eventId)
-              .stringField('occurred_at', event.timestamp)
-              .stringField('received_at', event.receivedAt)
-              .stringField('payload', JSON.stringify(event))
-              .timestamp(storageNs.toString()),
-          );
-          continue;
-        }
-        const point = new Point('app_log')
-          .tag('project_id', payload.projectId)
-          .tag('event_id', event.eventId)
-          .tag('source', event.source)
-          .tag('event_type', event.event_type)
-          .stringField('message', event.message)
-          .timestamp(new Date(event.timestamp));
-        if (event.tenant_id) point.stringField('tenant_id', event.tenant_id);
-        if (event.status_code !== undefined)
-          point.intField('status_code', event.status_code);
-        if (event.duration_ms !== undefined)
-          point.floatField('duration_ms', event.duration_ms);
-        if (event.metadata)
-          point.stringField('metadata', JSON.stringify(event.metadata));
-        writer.writePoint(point);
-      }
-      await writer.close();
-      for (const event of payload.events) {
-        if (!event.receivedAt) event.receivedAt = payload.acceptedAt;
-        if (!event.kind) event.kind = 'APPLICATION';
         await this.processActivity.execute(payload.projectId, event);
       }
       await this.db.recordAccepted(
@@ -354,6 +405,8 @@ export class LogInfrastructure implements OnModuleInit, OnModuleDestroy {
   }
 
   async onModuleDestroy() {
+    if (this.metricTimer) clearInterval(this.metricTimer);
+    await this.flushMetrics().catch(() => undefined);
     await this.consumer?.close();
     await this.publisher?.close();
     await this.connection?.close();
