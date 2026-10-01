@@ -54,6 +54,8 @@ export interface AlertRepository {
 
   update(alert: Alert): Promise<Alert>;
 
+  resolveIfActive(alert: Alert): Promise<Alert | null>;
+
   appendLifecycleEvent(event: AlertLifecycleEvent): Promise<void>;
 
   findLifecycleEvents(alertId: string): Promise<AlertLifecycleEvent[]>;

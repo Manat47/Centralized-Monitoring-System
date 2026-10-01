@@ -27,6 +27,7 @@ async function bootstrap() {
         durable: true,
       },
       noAck: false,
+      prefetchCount: 1,
     },
   });
 

@@ -117,7 +117,8 @@ services:
       INFLUXDB_URL: http://influxdb:8086
       INFLUXDB_TOKEN: ${INFLUXDB_ADMIN_TOKEN}
       INFLUXDB_ORG: ${INFLUXDB_ORG}
-      INFLUXDB_LOG_BUCKET: app_logs
+      INFLUXDB_LOG_METRICS_BUCKET: log_metrics
+      LOG_RATE_LIMIT_RPM: 600
       AUTH_SERVICE_URL: http://auth-service:3004
       INTERNAL_SERVICE_SECRET: ${INTERNAL_SERVICE_SECRET}
     depends_on:
@@ -404,6 +405,7 @@ services:
       AUTH_SERVICE_URL: http://auth-service:3004
       SECURITY_REPORT_SERVICE_URL: http://security-report-service:3006
       LOG_SERVICE_URL: http://log-service:3007
+      WEB_DASHBOARD_URL: ${WEB_DASHBOARD_HEALTH_URL:-http://web-dashboard:3010}
       INTERNAL_SERVICE_SECRET: ${INTERNAL_SERVICE_SECRET}
     ports:
       - "3005:3005"

@@ -15,22 +15,14 @@ import type {
 import Redis from 'ioredis';
 import { createHash, randomUUID } from 'node:crypto';
 import { DataStore } from './data.store';
-
-export interface StoredLog {
-  eventId: string;
-  timestamp: string;
-  source: string;
-  event_type: string;
-  message: string;
-  tenant_id?: string;
-  status_code?: number;
-  duration_ms?: number;
-  metadata?: Record<string, string | number | boolean>;
-}
+import type { StoredLog } from './log-events/domain/entities/log-event.entity';
+import { ProcessActivityEventUseCase } from './log-events/application/use-cases/process-activity-event.use-case';
 
 export interface QueuedLogs {
   batchId: string;
   projectId: string;
+  tokenId: string;
+  requestId: string;
   acceptedAt: string;
   idempotencyKey?: string;
   events: StoredLog[];
@@ -38,6 +30,7 @@ export interface QueuedLogs {
 
 const LOG_QUEUE = 'app_logs_queue';
 const DEAD_LETTER_QUEUE = 'app_logs_dead_letter';
+const RETRY_QUEUE = 'app_logs_retry';
 const LOG_EXCHANGE = 'app_logs';
 const LOG_ROUTING_KEY = 'logs.events';
 
@@ -51,8 +44,16 @@ export class LogInfrastructure implements OnModuleInit, OnModuleDestroy {
   private connection?: ChannelModel;
   private publisher?: ConfirmChannel;
   private consumer?: Channel;
+  private metricTimer?: ReturnType<typeof setInterval>;
 
-  constructor(private readonly db: DataStore) {
+  readonly rateLimitRpm = Number(process.env.LOG_RATE_LIMIT_RPM ?? 600);
+
+  constructor(
+    private readonly db: DataStore,
+    private readonly processActivity: ProcessActivityEventUseCase,
+  ) {
+    if (!Number.isInteger(this.rateLimitRpm) || this.rateLimitRpm < 1)
+      throw new Error('LOG_RATE_LIMIT_RPM must be a positive integer');
     this.redis = new Redis(process.env.REDIS_URL ?? 'redis://localhost:6379', {
       lazyConnect: true,
       maxRetriesPerRequest: 1,
@@ -60,7 +61,8 @@ export class LogInfrastructure implements OnModuleInit, OnModuleDestroy {
     const url = process.env.INFLUXDB_URL;
     const token = process.env.INFLUXDB_TOKEN;
     this.influxOrg = process.env.INFLUXDB_ORG ?? '';
-    this.influxBucket = process.env.INFLUXDB_LOG_BUCKET ?? 'app_logs';
+    this.influxBucket =
+      process.env.INFLUXDB_LOG_METRICS_BUCKET ?? 'log_metrics';
     if (!url || !token || !this.influxOrg)
       throw new Error('InfluxDB configuration is required');
     this.influx = new InfluxDB({ url, token });
@@ -69,6 +71,12 @@ export class LogInfrastructure implements OnModuleInit, OnModuleDestroy {
   async onModuleInit() {
     await this.redis.connect();
     await this.ensureBucket();
+    await this.flushMetrics(true);
+    this.metricTimer = setInterval(() => {
+      void this.flushMetrics().catch((error: unknown) =>
+        this.logger.warn(`Metric flush will retry: ${String(error)}`),
+      );
+    }, 15_000);
     if (!process.env.RABBITMQ_URL) throw new Error('RABBITMQ_URL is required');
     this.connection = await amqp.connect(process.env.RABBITMQ_URL);
     this.publisher = await this.connection.createConfirmChannel();
@@ -77,13 +85,22 @@ export class LogInfrastructure implements OnModuleInit, OnModuleDestroy {
     });
     await this.publisher.assertQueue(LOG_QUEUE, { durable: true });
     await this.publisher.assertQueue(DEAD_LETTER_QUEUE, { durable: true });
+    await this.publisher.assertQueue(RETRY_QUEUE, {
+      durable: true,
+      arguments: {
+        'x-message-ttl': 2000,
+        'x-dead-letter-exchange': LOG_EXCHANGE,
+        'x-dead-letter-routing-key': LOG_ROUTING_KEY,
+      },
+    });
     await this.publisher.bindQueue(LOG_QUEUE, LOG_EXCHANGE, LOG_ROUTING_KEY);
     await this.publisher.assertQueue(
       process.env.RABBITMQ_AUDIT_QUEUE ?? 'audit_events',
       { durable: true },
     );
     this.consumer = await this.connection.createChannel();
-    await this.consumer.prefetch(5);
+    // One worker preserves receive order for rolling detection windows on this node.
+    await this.consumer.prefetch(1);
     await this.consumer.consume(
       LOG_QUEUE,
       (message) => {
@@ -145,6 +162,7 @@ export class LogInfrastructure implements OnModuleInit, OnModuleDestroy {
     exchange: string,
     routingKey: string,
     payload: unknown,
+    headers?: Record<string, unknown>,
   ) {
     const channel = this.publisher;
     if (!channel) throw new Error('RabbitMQ is unavailable');
@@ -152,8 +170,10 @@ export class LogInfrastructure implements OnModuleInit, OnModuleDestroy {
       channel.publish(
         exchange,
         routingKey,
-        Buffer.from(JSON.stringify(payload)),
-        { persistent: true, contentType: 'application/json' },
+        Buffer.isBuffer(payload)
+          ? payload
+          : Buffer.from(JSON.stringify(payload)),
+        { persistent: true, contentType: 'application/json', headers },
         (error) =>
           error
             ? reject(error instanceof Error ? error : new Error(String(error)))
@@ -184,14 +204,107 @@ export class LogInfrastructure implements OnModuleInit, OnModuleDestroy {
     );
   }
 
-  async recordRequest(projectId: string | null) {
+  async recordRequest(projectId: string | null): Promise<number> {
     const key = projectId ? `log:rpm:${projectId}` : 'log:rpm:invalid';
     const now = Date.now();
-    const pipeline = this.redis.multi();
-    pipeline.zadd(key, now, `${now}:${randomUUID()}`);
-    pipeline.zremrangebyscore(key, 0, now - 60_000);
-    pipeline.expire(key, 120);
-    await pipeline.exec();
+    const rpm = Number(
+      await this.redis.eval(
+        `redis.call('ZADD', KEYS[1], ARGV[1], ARGV[2])
+       redis.call('ZREMRANGEBYSCORE', KEYS[1], '-inf', ARGV[3])
+       redis.call('EXPIRE', KEYS[1], 120)
+       return redis.call('ZCARD', KEYS[1])`,
+        1,
+        key,
+        now,
+        `${now}:${randomUUID()}`,
+        now - 60_000,
+      ),
+    );
+    await this.recordAggregate(projectId, 'requests');
+    return rpm;
+  }
+
+  async recordAggregate(
+    projectId: string | null,
+    field: string,
+    amount = 1,
+  ): Promise<void> {
+    const minute = Math.floor(Date.now() / 60_000) * 60_000;
+    const key = `log:metric:${minute}:${projectId ?? 'invalid'}`;
+    await this.redis.hincrby(key, field, amount);
+    await this.redis.expire(key, 31 * 86400);
+  }
+
+  async recordRejection(
+    projectId: string,
+    status: number,
+    reason: string,
+  ): Promise<void> {
+    const key = `log:rejections:${projectId}`;
+    await this.redis.lpush(
+      key,
+      JSON.stringify({ at: new Date().toISOString(), status, reason }),
+    );
+    await this.redis.ltrim(key, 0, 19);
+    await this.redis.expire(key, 86400);
+  }
+
+  async recentRejections(
+    projectId: string,
+  ): Promise<{ at: string; status: number; reason: string }[]> {
+    const rows = await this.redis.lrange(`log:rejections:${projectId}`, 0, 19);
+    return rows.map(
+      (item) =>
+        JSON.parse(item) as { at: string; status: number; reason: string },
+    );
+  }
+
+  private async flushMetrics(all = false): Promise<void> {
+    const writer = this.influx.getWriteApi(
+      this.influxOrg,
+      this.influxBucket,
+      'ms',
+    );
+    let cursor = '0';
+    try {
+      do {
+        const minute = Math.floor(Date.now() / 60_000) * 60_000;
+        const patterns = all
+          ? ['log:metric:*']
+          : [`log:metric:${minute}:*`, `log:metric:${minute - 60_000}:*`];
+        const [next, keys] = await this.redis.scan(
+          cursor,
+          'MATCH',
+          patterns[0],
+          'COUNT',
+          200,
+        );
+        cursor = next;
+        const pending = all
+          ? keys
+          : [...keys, ...(await this.redis.keys(patterns[1]))];
+        for (const key of pending) {
+          const parts = /^log:metric:(\d+):(.+)$/.exec(key);
+          if (!parts) continue;
+          const fields = await this.redis.hgetall(key);
+          if (!Object.keys(fields).length) continue;
+          const point = new Point('log_ingestion_minute')
+            .tag('project_id', parts[2])
+            .timestamp(new Date(Number(parts[1])));
+          for (const [field, count] of Object.entries(fields))
+            point.intField(field, Number(count));
+          writer.writePoint(point);
+        }
+      } while (cursor !== '0');
+      await writer.close();
+    } catch (error) {
+      try {
+        await writer.close();
+      } catch {
+        /* keep Redis counters for retry */
+      }
+      throw error;
+    }
   }
 
   async getRpm(projectId: string): Promise<number> {
@@ -207,6 +320,19 @@ export class LogInfrastructure implements OnModuleInit, OnModuleDestroy {
     return this.redis.zcard(key);
   }
 
+  async ready(): Promise<boolean> {
+    if (!this.publisher || !this.consumer) return false;
+    const [db, redis, influx] = await Promise.all([
+      this.db.query('SELECT 1'),
+      this.redis.ping(),
+      fetch(`${process.env.INFLUXDB_URL}/health`, {
+        signal: AbortSignal.timeout(3000),
+      }),
+      this.publisher.checkQueue(LOG_QUEUE),
+    ]);
+    return Boolean(db.rowCount) && redis === 'PONG' && influx.ok;
+  }
+
   private async consume(message: ConsumeMessage | null) {
     if (!message || !this.consumer) return;
     try {
@@ -216,6 +342,7 @@ export class LogInfrastructure implements OnModuleInit, OnModuleDestroy {
         if (
           !payload.batchId ||
           !payload.projectId ||
+          !payload.requestId ||
           !payload.acceptedAt ||
           !Array.isArray(payload.events) ||
           !payload.events.length ||
@@ -225,7 +352,7 @@ export class LogInfrastructure implements OnModuleInit, OnModuleDestroy {
               !event.timestamp ||
               !event.source ||
               !event.event_type ||
-              !event.message,
+              !event.rawPayload,
           )
         )
           throw new Error('Invalid queued log payload');
@@ -237,29 +364,9 @@ export class LogInfrastructure implements OnModuleInit, OnModuleDestroy {
         this.consumer.ack(message);
         return;
       }
-      const writer = this.influx.getWriteApi(
-        this.influxOrg,
-        this.influxBucket,
-        'ms',
-      );
       for (const event of payload.events) {
-        const point = new Point('app_log')
-          .tag('project_id', payload.projectId)
-          .tag('event_id', event.eventId)
-          .tag('source', event.source)
-          .tag('event_type', event.event_type)
-          .stringField('message', event.message)
-          .timestamp(new Date(event.timestamp));
-        if (event.tenant_id) point.stringField('tenant_id', event.tenant_id);
-        if (event.status_code !== undefined)
-          point.intField('status_code', event.status_code);
-        if (event.duration_ms !== undefined)
-          point.floatField('duration_ms', event.duration_ms);
-        if (event.metadata)
-          point.stringField('metadata', JSON.stringify(event.metadata));
-        writer.writePoint(point);
+        await this.processActivity.execute(payload.projectId, event);
       }
-      await writer.close();
       await this.db.recordAccepted(
         payload.batchId,
         payload.projectId,
@@ -270,8 +377,26 @@ export class LogInfrastructure implements OnModuleInit, OnModuleDestroy {
       this.consumer.ack(message);
     } catch (error) {
       this.logger.error('Failed to persist queued logs; retrying', error);
-      await new Promise((resolve) => setTimeout(resolve, 2000));
-      this.consumer?.nack(message, false, true);
+      const priorAttempts = Number(message.properties.headers?.retryCount ?? 0);
+      try {
+        if (priorAttempts >= 10) {
+          await this.confirmPublish('', DEAD_LETTER_QUEUE, {
+            reason: String(error),
+            raw: message.content.toString('base64'),
+          });
+        } else {
+          await this.confirmPublish('', RETRY_QUEUE, message.content, {
+            retryCount: priorAttempts + 1,
+          });
+        }
+        this.consumer?.ack(message);
+      } catch (publishError) {
+        this.logger.error(
+          'Could not publish retry or dead-letter message',
+          publishError,
+        );
+        this.consumer?.nack(message, false, true);
+      }
     }
   }
 
@@ -280,6 +405,8 @@ export class LogInfrastructure implements OnModuleInit, OnModuleDestroy {
   }
 
   async onModuleDestroy() {
+    if (this.metricTimer) clearInterval(this.metricTimer);
+    await this.flushMetrics().catch(() => undefined);
     await this.consumer?.close();
     await this.publisher?.close();
     await this.connection?.close();

@@ -381,11 +381,38 @@ export class ProjectService implements OnModuleInit, OnModuleDestroy {
       'SELECT accepted_records FROM log_monthly_usage WHERE project_id=$1 AND month_start=$2',
       [projectId, month],
     );
+    const requests = await this.db.query<{
+      total: string;
+      accepted: string;
+      rejected: string;
+      records: string;
+    }>(
+      `SELECT count(*)::text AS total,
+          count(*) FILTER (WHERE http_status=202)::text AS accepted,
+          count(*) FILTER (WHERE http_status<>202)::text AS rejected,
+          coalesce(sum(accepted_records),0)::text AS records
+          FROM log_ingest_requests WHERE project_id=$1 AND received_at >= now() - interval '24 hours'`,
+      [projectId],
+    );
+    const stored = await this.db.query<{ count: string }>(
+      `SELECT count(*)::text AS count FROM log_event_records
+         WHERE project_id=$1 AND received_at >= now() - interval '24 hours'`,
+      [projectId],
+    );
     return {
       month,
       timezone: 'Asia/Bangkok',
       acceptedRecords: Number(result.rows[0]?.accepted_records ?? 0),
       requestsPerMinute: await this.infra.getRpm(projectId),
+      rateLimitRpm: this.infra.rateLimitRpm,
+      recentRejections: await this.infra.recentRejections(projectId),
+      last24h: {
+        requests: Number(requests.rows[0]?.total ?? 0),
+        acceptedRequests: Number(requests.rows[0]?.accepted ?? 0),
+        rejectedRequests: Number(requests.rows[0]?.rejected ?? 0),
+        acceptedRecords: Number(requests.rows[0]?.records ?? 0),
+        storedRecords: Number(stored.rows[0]?.count ?? 0),
+      },
     };
   }
 
