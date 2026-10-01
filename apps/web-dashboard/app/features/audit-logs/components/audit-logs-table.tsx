@@ -77,6 +77,12 @@ const auditActions: AuditAction[] = [
   "REPORT_GENERATED",
   "NOTIFICATION_RECIPIENTS_UPDATED",
   "NOTIFICATION_TEST_SENT",
+  "PROJECT_CREATED",
+  "PROJECT_MEMBER_ADDED",
+  "PROJECT_MEMBER_ROLE_CHANGED",
+  "PROJECT_MEMBER_REMOVED",
+  "PROJECT_TOKEN_CREATED",
+  "PROJECT_TOKEN_REVOKED",
 ];
 
 const resourceTypes: AuditResourceType[] = [
@@ -88,6 +94,9 @@ const resourceTypes: AuditResourceType[] = [
   "ALERT",
   "REPORT",
   "NOTIFICATION_SETTINGS",
+  "PROJECT",
+  "PROJECT_MEMBER",
+  "PROJECT_TOKEN",
 ];
 
 function formatDate(value: string): string {
@@ -152,6 +161,13 @@ function getResourceHref(log: AuditLog): string | null {
   if (!log.resourceId) return null;
 
   switch (log.resourceType) {
+    case "PROJECT":
+      return `/projects/${log.resourceId}`;
+    case "PROJECT_MEMBER":
+    case "PROJECT_TOKEN":
+      return typeof log.metadata?.projectId === "string"
+        ? `/projects/${log.metadata.projectId}`
+        : null;
     case "ASSET":
       return `/assets/${log.resourceId}`;
     case "HEALTH_CHECK_TARGET":

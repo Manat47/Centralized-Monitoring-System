@@ -8,6 +8,7 @@ const PUBLIC_ROUTES = new Set([
   'POST /api/auth/logout',
   'POST /api/auth/invitations/validate',
   'POST /api/auth/invitations/accept',
+  'POST /api/ingest/logs',
   '/api/metrics',
 ]);
 
@@ -37,6 +38,9 @@ function isPublicRoute(method: string, path: string): boolean {
 }
 
 function isSharedRoute(method: string, path: string): boolean {
+  if (path === '/api/projects' || path.startsWith('/api/projects/')) {
+    return true;
+  }
   if (method === 'GET' && path === '/api/auth/me') {
     return true;
   }

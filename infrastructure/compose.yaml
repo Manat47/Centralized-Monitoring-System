@@ -73,6 +73,65 @@ services:
       timeout: 5s
       retries: 10
 
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  log-db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${LOG_DB_USER}
+      POSTGRES_PASSWORD: ${LOG_DB_PASSWORD}
+      POSTGRES_DB: ${LOG_DB_NAME}
+    ports:
+      - "${LOG_DB_PORT}:5432"
+    volumes:
+      - log_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${LOG_DB_USER} -d ${LOG_DB_NAME}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  log-service:
+    build:
+      context: ../services/log-service
+      dockerfile: Dockerfile
+    image: centralized-monitoring/log-service:dev
+    restart: unless-stopped
+    environment:
+      PORT: 3007
+      DATABASE_URL: postgresql://${LOG_DB_USER}:${LOG_DB_PASSWORD}@log-db:5432/${LOG_DB_NAME}
+      REDIS_URL: redis://redis:6379
+      RABBITMQ_URL: amqp://${RABBITMQ_USER}:${RABBITMQ_PASSWORD}@rabbitmq:5672
+      RABBITMQ_AUDIT_QUEUE: audit_events
+      INFLUXDB_URL: http://influxdb:8086
+      INFLUXDB_TOKEN: ${INFLUXDB_ADMIN_TOKEN}
+      INFLUXDB_ORG: ${INFLUXDB_ORG}
+      INFLUXDB_LOG_BUCKET: app_logs
+      AUTH_SERVICE_URL: http://auth-service:3004
+      INTERNAL_SERVICE_SECRET: ${INTERNAL_SERVICE_SECRET}
+    depends_on:
+      log-db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      influxdb:
+        condition: service_started
+      auth-service:
+        condition: service_started
+
   nginx:
     image: nginx:latest
     restart: unless-stopped
@@ -218,6 +277,7 @@ services:
       RABBITMQ_URL: amqp://${RABBITMQ_USER}:${RABBITMQ_PASSWORD}@rabbitmq:5672
       RABBITMQ_AUDIT_QUEUE: audit_events
       RABBITMQ_NOTIFICATION_QUEUE: notification_events
+      INTERNAL_SERVICE_SECRET: ${INTERNAL_SERVICE_SECRET}
     ports:
       - "3004:3004"
     depends_on:
@@ -343,6 +403,8 @@ services:
       NOTIFICATION_SERVICE_URL: http://notification-service:3003
       AUTH_SERVICE_URL: http://auth-service:3004
       SECURITY_REPORT_SERVICE_URL: http://security-report-service:3006
+      LOG_SERVICE_URL: http://log-service:3007
+      INTERNAL_SERVICE_SECRET: ${INTERNAL_SERVICE_SECRET}
     ports:
       - "3005:3005"
     depends_on:
@@ -357,6 +419,8 @@ services:
       auth-service:
         condition: service_started
       security-report-service:
+        condition: service_started
+      log-service:
         condition: service_started
 
   web-dashboard:
@@ -388,3 +452,5 @@ volumes:
   security_report_db_data:
   notification_db_data:
   report_storage:
+  log_db_data:
+  redis_data:

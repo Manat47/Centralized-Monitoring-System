@@ -10,7 +10,10 @@ export type AuditResourceType =
   | "HEALTH_CHECK_TARGET"
   | "REPORT"
   | "NOTIFICATION_SETTINGS"
-  | "ALERT";
+  | "ALERT"
+  | "PROJECT"
+  | "PROJECT_MEMBER"
+  | "PROJECT_TOKEN";
 
 export type AuditAction =
   | "USER_CREATED"
@@ -45,7 +48,13 @@ export type AuditAction =
   | "ALERT_CLOSED"
   | "REPORT_GENERATED"
   | "NOTIFICATION_RECIPIENTS_UPDATED"
-  | "NOTIFICATION_TEST_SENT";
+  | "NOTIFICATION_TEST_SENT"
+  | "PROJECT_CREATED"
+  | "PROJECT_MEMBER_ADDED"
+  | "PROJECT_MEMBER_ROLE_CHANGED"
+  | "PROJECT_MEMBER_REMOVED"
+  | "PROJECT_TOKEN_CREATED"
+  | "PROJECT_TOKEN_REVOKED";
 
 export interface AuditLog {
   auditLogId: string;
