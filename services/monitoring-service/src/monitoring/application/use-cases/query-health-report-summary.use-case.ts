@@ -1,7 +1,16 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  Inject,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 
 import { QueryHealthCheckHistoryUseCase } from './query-health-check-history.use-case';
 import type { HealthCheckHistoryPoint } from '../../domain/ports/health-check-query.port';
+import {
+  HEALTH_CHECK_TARGET_REPOSITORY,
+  type HealthCheckTargetRepository,
+} from '../../domain/repositories/health-check-target.repository';
 
 export interface QueryHealthReportSummaryInput {
   healthCheckTargetId: string;
@@ -34,6 +43,8 @@ export interface HealthReportSummary {
 export class QueryHealthReportSummaryUseCase {
   constructor(
     private readonly queryHealthCheckHistoryUseCase: QueryHealthCheckHistoryUseCase,
+    @Inject(HEALTH_CHECK_TARGET_REPOSITORY)
+    private readonly healthCheckTargetRepository: HealthCheckTargetRepository,
   ) {}
 
   async execute(
@@ -43,6 +54,14 @@ export class QueryHealthReportSummaryUseCase {
       throw new BadRequestException('Start time must be before end time');
     }
 
+    const target = await this.healthCheckTargetRepository.findById(
+      input.healthCheckTargetId,
+    );
+    if (!target) {
+      throw new NotFoundException('Health check target not found');
+    }
+    const expectedStatus = target.toObject().expectedStatus;
+
     const points = await this.queryHealthCheckHistoryUseCase.execute({
       healthCheckTargetId: input.healthCheckTargetId,
       start: input.start,
@@ -50,17 +69,11 @@ export class QueryHealthReportSummaryUseCase {
     });
 
     const successfulPoints = points.filter(
-      (point) =>
-        point.statusCode !== null &&
-        point.statusCode >= 200 &&
-        point.statusCode < 300,
+      (point) => point.statusCode === expectedStatus,
     );
 
     const failedPoints = points.filter(
-      (point) =>
-        point.statusCode === null ||
-        point.statusCode < 200 ||
-        point.statusCode >= 300,
+      (point) => point.statusCode !== expectedStatus,
     );
 
     const failedHttpPoints = failedPoints.filter(

@@ -2,7 +2,6 @@ import { randomUUID } from 'node:crypto';
 
 import { Alert } from '../../domain/entities/alert.entity';
 import { HealthCheckAlertState } from '../../domain/entities/health-check-alert-state.entity';
-import type { NotificationEventPublisher } from '../../domain/port/notification-event-publisher.port';
 import type { AlertRepository } from '../../domain/repositories/alert.repository';
 import type { HealthCheckAlertStateRepository } from '../../domain/repositories/health-check-alert-state.repository';
 import { ProcessAlertEventUseCase } from './process-alert-event.use-case';
@@ -10,11 +9,12 @@ import { ProcessAlertEventUseCase } from './process-alert-event.use-case';
 describe('ProcessAlertEventUseCase', () => {
   let alertRepository: jest.Mocked<AlertRepository>;
   let healthStateRepository: jest.Mocked<HealthCheckAlertStateRepository>;
-  let notificationEventPublisher: jest.Mocked<NotificationEventPublisher>;
   let useCase: ProcessAlertEventUseCase;
 
   beforeEach(() => {
     alertRepository = {
+      createWithNotification: jest.fn(),
+      resolveWithNotification: jest.fn(),
       create: jest.fn(),
       findActiveByRuleId: jest.fn(),
       findActiveByDedupKey: jest.fn(),
@@ -33,19 +33,19 @@ describe('ProcessAlertEventUseCase', () => {
     healthStateRepository = {
       findByTargetId: jest.fn(),
       findStaleCandidates: jest.fn(),
+      markStaleIfCurrent: jest.fn(),
+      disableByAssetId: jest.fn(),
       save: jest.fn(),
     };
-    notificationEventPublisher = { publish: jest.fn() };
     useCase = new ProcessAlertEventUseCase(
       alertRepository,
       healthStateRepository,
-      notificationEventPublisher,
     );
   });
 
   it('creates a triggered metric alert and lifecycle event', async () => {
     alertRepository.findActiveByDedupKey.mockResolvedValue(null);
-    alertRepository.create.mockImplementation((alert) =>
+    alertRepository.createWithNotification.mockImplementation((alert) =>
       Promise.resolve(alert),
     );
 
@@ -63,13 +63,11 @@ describe('ProcessAlertEventUseCase', () => {
     });
 
     expect(result?.toObject().status).toBe('TRIGGERED');
-    expect(alertRepository.create.mock.calls).toHaveLength(1);
-    expect(alertRepository.appendLifecycleEvent.mock.calls).toContainEqual([
+    expect(alertRepository.createWithNotification).toHaveBeenCalledWith(
+      expect.any(Alert),
       expect.objectContaining({ eventType: 'TRIGGERED' }),
-    ]);
-    expect(notificationEventPublisher.publish.mock.calls).toContainEqual([
       expect.objectContaining({ eventType: 'ALERT_TRIGGERED' }),
-    ]);
+    );
   });
 
   it('does not create a duplicate active metric alert', async () => {
@@ -100,7 +98,7 @@ describe('ProcessAlertEventUseCase', () => {
     });
 
     expect(result).toBe(existingAlert);
-    expect(alertRepository.create.mock.calls).toHaveLength(0);
+    expect(alertRepository.createWithNotification.mock.calls).toHaveLength(0);
   });
 
   it('resolves an active metric alert', async () => {
@@ -116,7 +114,7 @@ describe('ProcessAlertEventUseCase', () => {
       triggeredAt: new Date('2026-07-14T10:00:00.000Z'),
     });
     alertRepository.findActiveByDedupKey.mockResolvedValue(existingAlert);
-    alertRepository.resolveIfActive.mockImplementation((alert) =>
+    alertRepository.resolveWithNotification.mockImplementation((alert) =>
       Promise.resolve(alert),
     );
 
@@ -134,9 +132,11 @@ describe('ProcessAlertEventUseCase', () => {
     });
 
     expect(result?.toObject().status).toBe('RESOLVED');
-    expect(alertRepository.appendLifecycleEvent.mock.calls).toContainEqual([
+    expect(alertRepository.resolveWithNotification).toHaveBeenCalledWith(
+      expect.any(Alert),
       expect.objectContaining({ eventType: 'RESOLVED' }),
-    ]);
+      expect.objectContaining({ eventType: 'ALERT_RESOLVED' }),
+    );
   });
 
   it('does not publish a duplicate resolution when another worker resolved the alert first', async () => {
@@ -152,7 +152,7 @@ describe('ProcessAlertEventUseCase', () => {
       triggeredAt: new Date('2026-07-14T10:00:00.000Z'),
     });
     alertRepository.findActiveByDedupKey.mockResolvedValue(existingAlert);
-    alertRepository.resolveIfActive.mockResolvedValue(null);
+    alertRepository.resolveWithNotification.mockResolvedValue(null);
 
     const result = await useCase.execute({
       eventId: randomUUID(),
@@ -168,8 +168,7 @@ describe('ProcessAlertEventUseCase', () => {
     });
 
     expect(result).toBeNull();
-    expect(alertRepository.appendLifecycleEvent).not.toHaveBeenCalled();
-    expect(notificationEventPublisher.publish).not.toHaveBeenCalled();
+    expect(alertRepository.resolveWithNotification).toHaveBeenCalledTimes(1);
   });
 
   it('resolves an active metric alert when its rule is disabled', async () => {
@@ -185,7 +184,7 @@ describe('ProcessAlertEventUseCase', () => {
       triggeredAt: new Date('2026-07-14T10:00:00.000Z'),
     });
     alertRepository.findActiveByDedupKey.mockResolvedValue(existingAlert);
-    alertRepository.resolveIfActive.mockImplementation((alert) =>
+    alertRepository.resolveWithNotification.mockImplementation((alert) =>
       Promise.resolve(alert),
     );
 
@@ -232,7 +231,7 @@ describe('ProcessAlertEventUseCase', () => {
       metricAlert,
       healthAlert,
     ]);
-    alertRepository.resolveIfActive.mockImplementation((alert) =>
+    alertRepository.resolveWithNotification.mockImplementation((alert) =>
       Promise.resolve(alert),
     );
 
@@ -252,7 +251,7 @@ describe('ProcessAlertEventUseCase', () => {
       resolutionReason: 'MONITORING_TARGET_ARCHIVED',
     });
     expect(healthAlert.toObject().status).toBe('TRIGGERED');
-    expect(alertRepository.resolveIfActive.mock.calls).toHaveLength(1);
+    expect(alertRepository.resolveWithNotification.mock.calls).toHaveLength(1);
   });
 
   it('ignores a duplicate event id', async () => {
@@ -284,7 +283,7 @@ describe('ProcessAlertEventUseCase', () => {
       persistedState = state;
       return Promise.resolve(state);
     });
-    alertRepository.create.mockImplementation((alert) =>
+    alertRepository.createWithNotification.mockImplementation((alert) =>
       Promise.resolve(alert),
     );
     alertRepository.findActiveByDedupKey.mockResolvedValue(null);
@@ -317,6 +316,63 @@ describe('ProcessAlertEventUseCase', () => {
       status: 'TRIGGERED',
       actualText: 'HTTP 500',
     });
+  });
+
+  it('uses heartbeat for freshness and opens or resolves only on transition events', async () => {
+    let persistedState: HealthCheckAlertState | null = null;
+    healthStateRepository.findByTargetId.mockImplementation(() =>
+      Promise.resolve(persistedState),
+    );
+    healthStateRepository.save.mockImplementation((state) => {
+      persistedState = state;
+      return Promise.resolve(state);
+    });
+    alertRepository.findActiveByDedupKey.mockResolvedValue(null);
+    alertRepository.createWithNotification.mockImplementation((alert) =>
+      Promise.resolve(alert),
+    );
+    alertRepository.resolveWithNotification.mockImplementation((alert) =>
+      Promise.resolve(alert),
+    );
+    const base = {
+      healthCheckTargetId: randomUUID(),
+      assetId: randomUUID(),
+      url: 'https://example.com/health',
+      checkIntervalSeconds: 30,
+      statusCode: 500,
+      responseTimeMs: 42,
+      error: null,
+    };
+    await useCase.execute({
+      ...base,
+      eventId: randomUUID(),
+      eventType: 'HEALTH_CHECK_RESULT_RECORDED',
+      heartbeatOnly: true,
+      alertActive: false,
+      occurredAt: '2026-10-01T10:00:00Z',
+    });
+    expect(alertRepository.createWithNotification).not.toHaveBeenCalled();
+
+    const opened = await useCase.execute({
+      ...base,
+      eventId: randomUUID(),
+      eventType: 'HEALTH_CHECK_FAILED',
+      alertActive: true,
+      occurredAt: '2026-10-01T10:01:00Z',
+    });
+    expect(opened?.toObject().alertType).toBe('ENDPOINT_UNAVAILABLE');
+    alertRepository.findActiveByDedupKey.mockResolvedValue(opened!);
+
+    await useCase.execute({
+      ...base,
+      eventId: randomUUID(),
+      eventType: 'HEALTH_CHECK_RECOVERED',
+      statusCode: 200,
+      alertActive: false,
+      occurredAt: '2026-10-01T10:01:30Z',
+    });
+    expect(opened?.toObject().status).toBe('RESOLVED');
+    expect(alertRepository.createWithNotification).toHaveBeenCalledTimes(1);
   });
 
   it('keeps a stale alert active when a delayed result is still outside the grace period', async () => {
@@ -358,7 +414,7 @@ describe('ProcessAlertEventUseCase', () => {
         Promise.resolve(saved),
       );
       alertRepository.findActiveByDedupKey.mockResolvedValue(staleAlert);
-      alertRepository.resolveIfActive.mockImplementation((alert) =>
+      alertRepository.resolveWithNotification.mockImplementation((alert) =>
         Promise.resolve(alert),
       );
 
@@ -377,7 +433,9 @@ describe('ProcessAlertEventUseCase', () => {
 
       expect(state.toObject().state).toBe('STALE');
       expect(staleAlert.toObject().status).toBe('TRIGGERED');
-      expect(alertRepository.resolveIfActive.mock.calls).toHaveLength(0);
+      expect(alertRepository.resolveWithNotification.mock.calls).toHaveLength(
+        0,
+      );
 
       jest.setSystemTime(new Date('2026-09-30T10:03:20.000Z'));
       await useCase.execute({
@@ -395,7 +453,9 @@ describe('ProcessAlertEventUseCase', () => {
 
       expect(state.toObject().state).toBe('HEALTHY');
       expect(staleAlert.toObject().status).toBe('RESOLVED');
-      expect(alertRepository.resolveIfActive.mock.calls).toHaveLength(1);
+      expect(alertRepository.resolveWithNotification.mock.calls).toHaveLength(
+        1,
+      );
     } finally {
       jest.useRealTimers();
     }

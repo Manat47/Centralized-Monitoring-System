@@ -3,6 +3,9 @@ import {
   Controller,
   Headers,
   HttpCode,
+  Get,
+  Param,
+  ParseUUIDPipe,
   Post,
   Query,
   Req,
@@ -13,6 +16,14 @@ import { IngestService } from './ingest.service';
 @Controller('ingest')
 export class IngestController {
   constructor(private readonly ingestService: IngestService) {}
+
+  @Get('logs/receipts/:batchId')
+  receipt(
+    @Headers('authorization') authorization: string | undefined,
+    @Param('batchId', ParseUUIDPipe) batchId: string,
+  ) {
+    return this.ingestService.batchStatus(authorization, batchId);
+  }
 
   @Post('logs')
   @HttpCode(202)

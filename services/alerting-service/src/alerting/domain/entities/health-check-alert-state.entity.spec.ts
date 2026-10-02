@@ -121,8 +121,8 @@ describe('HealthCheckAlertState', () => {
       2,
     );
 
-    expect(state.markStale(new Date('2026-08-24T10:01:59Z'))).toBe(false);
-    expect(state.markStale(new Date('2026-08-24T10:02:01Z'))).toBe(true);
+    expect(state.markStale(new Date('2026-08-24T10:01:00Z'))).toBe(false);
+    expect(state.markStale(new Date('2026-08-24T10:01:01Z'))).toBe(true);
     expect(state.toObject().state).toBe('STALE');
   });
 
@@ -144,8 +144,8 @@ describe('HealthCheckAlertState', () => {
       2,
     );
 
-    expect(state.markStale(new Date('2026-08-24T10:03:00Z'))).toBe(false);
-    expect(state.markStale(new Date('2026-08-24T10:03:01Z'))).toBe(true);
+    expect(state.markStale(new Date('2026-08-24T10:04:30Z'))).toBe(false);
+    expect(state.markStale(new Date('2026-08-24T10:04:31Z'))).toBe(true);
   });
 
   it('does not mark paused or archived targets stale', () => {
@@ -171,5 +171,47 @@ describe('HealthCheckAlertState', () => {
 
     expect(state.markStale(new Date('2026-08-24T10:05:00Z'))).toBe(false);
     expect(state.toObject().state).toBe('UNKNOWN');
+  });
+
+  it('starts a new stale grace period when a target is enabled again', () => {
+    const state = createState();
+    state.recordResult(
+      {
+        statusCode: 200,
+        responseTimeMs: 50,
+        error: null,
+        occurredAt: new Date('2026-08-24T10:00:00Z'),
+      },
+      2,
+      2,
+    );
+    state.configure({
+      assetId: 'asset-1',
+      url: 'https://example.com/health',
+      checkIntervalSeconds: 15,
+      enabled: false,
+      archived: false,
+      occurredAt: new Date('2026-08-24T10:00:10Z'),
+    });
+    state.configure({
+      assetId: 'asset-1',
+      url: 'https://example.com/health',
+      checkIntervalSeconds: 15,
+      enabled: true,
+      archived: false,
+      occurredAt: new Date('2026-08-24T10:05:00Z'),
+    });
+    expect(state.markStale(new Date('2026-08-24T10:05:59Z'))).toBe(false);
+    state.recordHeartbeat(
+      {
+        statusCode: 200,
+        responseTimeMs: 50,
+        error: null,
+        occurredAt: new Date('2026-08-24T10:05:10Z'),
+      },
+      false,
+    );
+    expect(state.markStale(new Date('2026-08-24T10:06:10Z'))).toBe(false);
+    expect(state.markStale(new Date('2026-08-24T10:06:11Z'))).toBe(true);
   });
 });

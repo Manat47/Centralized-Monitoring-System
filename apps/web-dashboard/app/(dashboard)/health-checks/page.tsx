@@ -7,7 +7,7 @@ export default function HealthChecksPage() {
       <div className="flex flex-col items-start justify-between gap-4 sm:flex-row">
         <div>
           <h1 className="text-2xl font-semibold">Health Checks</h1>
-          <p className="mt-1 text-sm text-muted-foreground">HTTP endpoint availability monitoring for application assets.</p>
+          <p className="mt-1 text-sm text-muted-foreground">Monitor HTTP endpoints with or without a linked application asset.</p>
         </div>
         <CreateHealthCheckDialog />
       </div>

@@ -405,6 +405,8 @@ services:
       AUTH_SERVICE_URL: http://auth-service:3004
       SECURITY_REPORT_SERVICE_URL: http://security-report-service:3006
       LOG_SERVICE_URL: http://log-service:3007
+      REDIS_URL: redis://redis:6379
+      LOG_RATE_LIMIT_RPM: 600
       WEB_DASHBOARD_URL: ${WEB_DASHBOARD_HEALTH_URL:-http://web-dashboard:3010}
       INTERNAL_SERVICE_SECRET: ${INTERNAL_SERVICE_SECRET}
     ports:

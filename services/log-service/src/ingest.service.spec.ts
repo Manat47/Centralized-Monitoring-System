@@ -16,7 +16,9 @@ const event = {
 };
 
 describe('IngestService', () => {
-  let db: jest.Mocked<Pick<DataStore, 'recordAccepted' | 'query'>>;
+  let db: jest.Mocked<
+    Pick<DataStore, 'recordAccepted' | 'query' | 'batchStatus'>
+  >;
   let infra: jest.Mocked<
     Pick<
       LogInfrastructure,
@@ -29,6 +31,7 @@ describe('IngestService', () => {
     db = {
       recordAccepted: jest.fn().mockResolvedValue(undefined),
       query: jest.fn(),
+      batchStatus: jest.fn(),
     };
     infra = {
       publishLogs: jest.fn().mockResolvedValue(undefined),
@@ -49,6 +52,18 @@ describe('IngestService', () => {
     expect(db.recordAccepted).not.toHaveBeenCalled();
   });
 
+  it('accepts a single record with a custom events field', async () => {
+    const record = { ...event, events: [{ custom: true }] };
+    await expect(service.ingest('project-1', record)).resolves.toMatchObject({
+      acceptedRecords: 1,
+    });
+    expect(infra.publishLogs).toHaveBeenCalledWith(
+      expect.objectContaining({
+        events: [expect.objectContaining({ rawPayload: record })],
+      }),
+    );
+  });
+
   it('derives the project from authentication and records acceptance after broker confirmation', async () => {
     const order: string[] = [];
     infra.publishLogs.mockImplementation(() => {
@@ -60,7 +75,8 @@ describe('IngestService', () => {
       return Promise.resolve();
     });
     const result = await service.ingest('server-project', event);
-    expect(result).toEqual({ acceptedRecords: 1, duplicate: false });
+    expect(result).toMatchObject({ acceptedRecords: 1, duplicate: false });
+    expect(typeof result.batchId).toBe('string');
     expect(infra.publishLogs).toHaveBeenCalledWith(
       expect.objectContaining({
         projectId: 'server-project',
@@ -80,10 +96,9 @@ describe('IngestService', () => {
 
   it('returns acceptance after broker confirmation when the ledger needs a worker retry', async () => {
     db.recordAccepted.mockRejectedValueOnce(new Error('database unavailable'));
-    await expect(service.ingest('project-1', event)).resolves.toEqual({
-      acceptedRecords: 1,
-      duplicate: false,
-    });
+    const result = await service.ingest('project-1', event);
+    expect(result).toMatchObject({ acceptedRecords: 1, duplicate: false });
+    expect(typeof result.batchId).toBe('string');
     expect(infra.publishLogs).toHaveBeenCalledTimes(1);
   });
 
@@ -95,12 +110,40 @@ describe('IngestService', () => {
       .mockResolvedValueOnce({ rowCount: 1 } as never)
       .mockResolvedValueOnce({ rowCount: 0 } as never)
       .mockResolvedValueOnce({
-        rows: [{ status: 'ACCEPTED', payload_hash: hash, accepted_count: 1 }],
+        rows: [
+          {
+            status: 'ACCEPTED',
+            payload_hash: hash,
+            accepted_count: 1,
+            batch_id: 'prior-batch',
+          },
+        ],
       } as never);
     await expect(
       service.ingest('project-1', event, 'retry-1'),
-    ).resolves.toEqual({ acceptedRecords: 1, duplicate: true });
+    ).resolves.toEqual({
+      acceptedRecords: 1,
+      duplicate: true,
+      batchId: 'prior-batch',
+    });
     expect(infra.publishLogs).not.toHaveBeenCalled();
+  });
+
+  it('reads a batch only within the project derived from the token', async () => {
+    jest
+      .spyOn(service, 'authenticate')
+      .mockResolvedValue({ projectId: 'project-1', tokenId: 'token-1' });
+    db.batchStatus.mockResolvedValue({
+      batchId: 'batch-1',
+      requestId: 'request-1',
+      acceptedAt: new Date(),
+      acceptedRecords: 1,
+      status: 'STORED',
+      processedAt: new Date(),
+      failureReason: null,
+    });
+    await service.batchStatus('Bearer prj_live_test', 'batch-1');
+    expect(db.batchStatus).toHaveBeenCalledWith('project-1', 'batch-1');
   });
 
   it('rejects a revoked token before consulting the token cache or database', async () => {

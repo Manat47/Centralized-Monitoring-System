@@ -7,10 +7,6 @@ import {
 } from '../../domain/entities/alert.entity';
 import { HealthCheckAlertState } from '../../domain/entities/health-check-alert-state.entity';
 import {
-  NOTIFICATION_EVENT_PUBLISHER,
-  type NotificationEventPublisher,
-} from '../../domain/port/notification-event-publisher.port';
-import {
   ALERT_REPOSITORY,
   type AlertRepository,
 } from '../../domain/repositories/alert.repository';
@@ -38,8 +34,6 @@ export class ProcessAlertEventUseCase {
     private readonly alertRepository: AlertRepository,
     @Inject(HEALTH_CHECK_ALERT_STATE_REPOSITORY)
     private readonly healthStateRepository: HealthCheckAlertStateRepository,
-    @Inject(NOTIFICATION_EVENT_PUBLISHER)
-    private readonly notificationEventPublisher: NotificationEventPublisher,
   ) {}
 
   async execute(event: AlertEvent): Promise<Alert | null> {
@@ -81,7 +75,7 @@ export class ProcessAlertEventUseCase {
 
   private async processMetricExceeded(
     event: MetricThresholdExceededEvent,
-  ): Promise<Alert> {
+  ): Promise<Alert | null> {
     const dedupKey = `METRIC_RULE:${event.ruleId}:METRIC_THRESHOLD`;
     const existingAlert =
       await this.alertRepository.findActiveByDedupKey(dedupKey);
@@ -263,16 +257,34 @@ export class ProcessAlertEventUseCase {
       return null;
     }
 
-    const transition = state.recordResult(
-      {
-        statusCode: event.statusCode,
-        responseTimeMs: event.responseTimeMs,
-        error: event.error,
-        occurredAt,
-      },
-      HEALTH_FAILURE_THRESHOLD,
-      HEALTH_RECOVERY_THRESHOLD,
-    );
+    state.updateCheckInterval(event.checkIntervalSeconds);
+
+    const resultInput = {
+      statusCode: event.statusCode,
+      responseTimeMs: event.responseTimeMs,
+      error: event.error,
+      occurredAt,
+      ...(event.available !== undefined
+        ? { availableOverride: event.available }
+        : {}),
+      ...(event.eventType === 'HEALTH_CHECK_FAILED'
+        ? { availableOverride: false }
+        : {}),
+      ...(event.eventType === 'HEALTH_CHECK_RECOVERED'
+        ? { availableOverride: true }
+        : {}),
+    };
+    const transition = event.heartbeatOnly
+      ? state.recordHeartbeat(resultInput, event.alertActive ?? false)
+      : state.recordResult(
+          resultInput,
+          event.eventType === 'HEALTH_CHECK_RESULT_RECORDED'
+            ? HEALTH_FAILURE_THRESHOLD
+            : 1,
+          event.eventType === 'HEALTH_CHECK_RESULT_RECORDED'
+            ? HEALTH_RECOVERY_THRESHOLD
+            : 1,
+        );
     const after = state.toObject();
 
     if (before.state === 'STALE' && after.state !== 'STALE') {
@@ -344,35 +356,33 @@ export class ProcessAlertEventUseCase {
     return null;
   }
 
-  async createAlert(alert: Alert): Promise<Alert> {
-    const createdAlert = await this.alertRepository.create(alert);
-    const data = createdAlert.toObject();
-
-    await this.alertRepository.appendLifecycleEvent({
-      lifecycleEventId: randomUUID(),
-      alertId: data.alertId,
-      eventType: 'TRIGGERED',
-      actorUserId: null,
-      reason: data.message,
-      context: data.context,
-      occurredAt: data.triggeredAt,
-    });
-
-    await this.notificationEventPublisher.publish({
-      eventType: 'ALERT_TRIGGERED',
-      alertId: data.alertId,
-      sourceType: data.sourceType,
-      sourceId: data.sourceId,
-      alertType: data.alertType,
-      ruleId: data.ruleId,
-      assetId: data.assetId,
-      metricType: data.metricType,
-      severity: data.severity,
-      message: data.message,
-      occurredAt: data.triggeredAt.toISOString(),
-    });
-
-    return createdAlert;
+  async createAlert(alert: Alert): Promise<Alert | null> {
+    const data = alert.toObject();
+    return this.alertRepository.createWithNotification(
+      alert,
+      {
+        lifecycleEventId: randomUUID(),
+        alertId: data.alertId,
+        eventType: 'TRIGGERED',
+        actorUserId: null,
+        reason: data.message,
+        context: data.context,
+        occurredAt: data.triggeredAt,
+      },
+      {
+        eventType: 'ALERT_TRIGGERED',
+        alertId: data.alertId,
+        sourceType: data.sourceType,
+        sourceId: data.sourceId,
+        alertType: data.alertType,
+        ruleId: data.ruleId,
+        assetId: data.assetId,
+        metricType: data.metricType,
+        severity: data.severity,
+        message: data.message,
+        occurredAt: data.triggeredAt.toISOString(),
+      },
+    );
   }
 
   async resolveAlert(
@@ -390,38 +400,34 @@ export class ProcessAlertEventUseCase {
       context,
     });
 
-    const updatedAlert = await this.alertRepository.resolveIfActive(alert);
-    if (!updatedAlert) {
-      return null;
-    }
-    const data = updatedAlert.toObject();
+    const data = alert.toObject();
 
-    await this.alertRepository.appendLifecycleEvent({
-      lifecycleEventId: randomUUID(),
-      alertId: data.alertId,
-      eventType: 'RESOLVED',
-      actorUserId: null,
-      reason,
-      context: data.context,
-      occurredAt: resolvedAt,
-    });
-
-    await this.notificationEventPublisher.publish({
-      eventType: 'ALERT_RESOLVED',
-      alertId: data.alertId,
-      sourceType: data.sourceType,
-      sourceId: data.sourceId,
-      alertType: data.alertType,
-      ruleId: data.ruleId,
-      assetId: data.assetId,
-      metricType: data.metricType,
-      severity: data.severity,
-      message,
-      occurredAt: resolvedAt.toISOString(),
-      resolutionReason: reason,
-    });
-
-    return updatedAlert;
+    return this.alertRepository.resolveWithNotification(
+      alert,
+      {
+        lifecycleEventId: randomUUID(),
+        alertId: data.alertId,
+        eventType: 'RESOLVED',
+        actorUserId: null,
+        reason,
+        context: data.context,
+        occurredAt: resolvedAt,
+      },
+      {
+        eventType: 'ALERT_RESOLVED',
+        alertId: data.alertId,
+        sourceType: data.sourceType,
+        sourceId: data.sourceId,
+        alertType: data.alertType,
+        ruleId: data.ruleId,
+        assetId: data.assetId,
+        metricType: data.metricType,
+        severity: data.severity,
+        message,
+        occurredAt: resolvedAt.toISOString(),
+        resolutionReason: reason,
+      },
+    );
   }
 
   private async resolveActiveHealthAlerts(

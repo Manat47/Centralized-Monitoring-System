@@ -54,6 +54,7 @@ export class BuildReportSummaryUseCase {
       (target) => target.archivedAt === null,
     );
 
+    const limit = this.createLimiter(4);
     const assetSummaries = await Promise.all(
       assets.map(async (asset) => {
         const targets = activeHealthTargets.filter(
@@ -61,20 +62,24 @@ export class BuildReportSummaryUseCase {
         );
 
         const [metrics, health] = await Promise.all([
-          this.monitoringReportReader.queryMetricsSummary({
-            assetId: asset.assetId,
-            start: input.periodStart,
-            end: input.periodEnd,
-          }),
+          limit(() =>
+            this.monitoringReportReader.queryMetricsSummary({
+              assetId: asset.assetId,
+              start: input.periodStart,
+              end: input.periodEnd,
+            }),
+          ),
 
           Promise.all(
             targets.map(async (target) => ({
               target,
-              summary: await this.monitoringReportReader.queryHealthSummary({
-                healthCheckTargetId: target.healthCheckTargetId,
-                start: input.periodStart,
-                end: input.periodEnd,
-              }),
+              summary: await limit(() =>
+                this.monitoringReportReader.queryHealthSummary({
+                  healthCheckTargetId: target.healthCheckTargetId,
+                  start: input.periodStart,
+                  end: input.periodEnd,
+                }),
+              ),
             })),
           ),
         ]);
@@ -120,6 +125,24 @@ export class BuildReportSummaryUseCase {
         scope: 'SYSTEM_WIDE',
         summary: audit,
       },
+    };
+  }
+
+  private createLimiter(maxConcurrent: number) {
+    let active = 0;
+    const waiting: Array<() => void> = [];
+
+    return async <T>(work: () => Promise<T>): Promise<T> => {
+      if (active >= maxConcurrent) {
+        await new Promise<void>((resolve) => waiting.push(resolve));
+      }
+      active += 1;
+      try {
+        return await work();
+      } finally {
+        active -= 1;
+        waiting.shift()?.();
+      }
     };
   }
 

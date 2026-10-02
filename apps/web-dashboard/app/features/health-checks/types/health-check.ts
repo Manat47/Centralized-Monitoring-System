@@ -1,6 +1,8 @@
 export interface HealthCheckTarget {
   healthCheckTargetId: string;
-  assetId: string;
+  assetId: string | null;
+  name: string;
+  expectedStatus: number;
   url: string;
   checkIntervalSeconds: number;
   enabled: boolean;
@@ -21,7 +23,9 @@ export interface LatestHealthCheck {
 export type HealthCheckHistoryPoint = LatestHealthCheck;
 
 export interface CreateHealthCheckTargetInput {
-  assetId: string;
+  assetId?: string;
+  name: string;
+  expectedStatus: number;
   url: string;
   checkIntervalSeconds: number;
 }

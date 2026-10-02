@@ -31,6 +31,12 @@ function getUserRole(request: Request): UserRole | null {
 }
 
 function isPublicRoute(method: string, path: string): boolean {
+  if (
+    method === 'GET' &&
+    /^\/api\/ingest\/logs\/receipts\/[0-9a-f-]+$/i.test(path)
+  ) {
+    return true;
+  }
   if (method === 'GET' && path === '/api/metrics') {
     return true;
   }

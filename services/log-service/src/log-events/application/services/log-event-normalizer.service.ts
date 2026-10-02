@@ -61,8 +61,13 @@ export function normalizeLogEvent(
   const path = `events[${index}]`;
   if (!object(value)) throw new LogInputError(`${path} must be an object`);
   checkDepth(value, path);
-  const source = text(value.source, `${path}.source`, 100, true)!;
-  const eventType = text(value.event_type, `${path}.event_type`, 100, true)!;
+  const source = text(value.source, `${path}.source`, 100, true)!.trim();
+  const eventType = text(
+    value.event_type,
+    `${path}.event_type`,
+    100,
+    true,
+  )!.trim();
   const message = text(value.message, `${path}.message`, 4000);
   const userId = text(value.user_id, `${path}.user_id`, 128);
   const reportedSeverity = text(

@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+
 import {
   AlertTriangle,
   CircleAlert,
@@ -57,6 +59,7 @@ export function DashboardSummaryCards() {
   const cards = [
     {
       title: "Total Assets",
+      href: "/infrastructure?view=inventory&status=ALL",
       value: data.assets.total,
       description: `${data.assets.inactive} inactive`,
       icon: Server,
@@ -65,6 +68,7 @@ export function DashboardSummaryCards() {
     },
     {
       title: "OK",
+      href: "/infrastructure?view=inventory&overall=OK",
       value: data.assets.ok,
       description: "Signals operating normally",
       icon: CircleCheck,
@@ -73,6 +77,7 @@ export function DashboardSummaryCards() {
     },
     {
       title: "Warning",
+      href: "/infrastructure?view=inventory&overall=WARNING",
       value: data.assets.warning,
       description: "Investigation recommended",
       icon: AlertTriangle,
@@ -81,6 +86,7 @@ export function DashboardSummaryCards() {
     },
     {
       title: "Critical",
+      href: "/infrastructure?view=inventory&overall=CRITICAL",
       value: data.assets.critical,
       description: "Immediate attention required",
       icon: CircleAlert,
@@ -89,6 +95,7 @@ export function DashboardSummaryCards() {
     },
     {
       title: "No Data",
+      href: "/infrastructure?view=inventory&overall=NO_DATA,NOT_MONITORED",
       value: noSignal,
       description: `${data.assets.notMonitored} not monitored`,
       icon: CircleDashed,
@@ -103,10 +110,8 @@ export function DashboardSummaryCards() {
         const Icon = card.icon;
 
         return (
-          <Card
-            key={card.title}
-            className="border-slate-200 bg-white shadow-none"
-          >
+          <Link key={card.title} href={card.href} className="block rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500" aria-label={`View ${card.title} assets`}>
+          <Card className="border-slate-200 bg-white shadow-none transition-colors hover:border-blue-300">
             <CardContent className="p-4">
               <div className="flex items-start justify-between gap-3">
                 <p className="text-xs font-medium text-slate-500">
@@ -135,6 +140,7 @@ export function DashboardSummaryCards() {
               </p>
             </CardContent>
           </Card>
+          </Link>
         );
       })}
     </div>

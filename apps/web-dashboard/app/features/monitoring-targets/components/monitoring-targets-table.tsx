@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { Menu as MenuPrimitive } from "@base-ui/react/menu";
 import {
   Archive,
@@ -38,6 +38,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   Table,
   TableBody,
@@ -327,6 +328,10 @@ export function MonitoringTargetsTable() {
     <>
       <Card className="overflow-hidden border-slate-200 shadow-none">
         <CardContent className="p-0">
+          <div className="border-b border-slate-200 px-4 py-3">
+            <h2 className="text-sm font-semibold text-slate-900">Monitoring Targets &amp; Collection Status</h2>
+            <p className="mt-1 text-xs text-slate-500">Search and filters below apply only to monitoring targets.</p>
+          </div>
           <div className="flex flex-wrap items-center gap-3 border-b border-slate-200 p-4">
             <Input
               value={search}
@@ -535,13 +540,7 @@ export function MonitoringTargetsTable() {
                       : "Collection failed";
 
                   return (
-                    <Fragment key={target.targetId}>
-                      <TableRow
-                        className={cn(
-                          "transition-colors duration-150",
-                          target.lastError && "border-b-0",
-                        )}
-                      >
+                      <TableRow key={target.targetId} className="transition-colors duration-150">
                         <TableCell className="pl-4">
                           <div>
                             <p className="font-medium text-slate-900">
@@ -585,14 +584,19 @@ export function MonitoringTargetsTable() {
                         </TableCell>
                         <TableCell>{target.scrapeIntervalSeconds}s</TableCell>
                         <TableCell>
-                          <Badge
-                            variant="outline"
-                            className={getVerificationClass(
-                              target.verificationStatus,
+                          <div className="flex items-center gap-1.5">
+                            <Badge variant="outline" className={getVerificationClass(target.verificationStatus)}>
+                              {formatVerification(target.verificationStatus)}
+                            </Badge>
+                            {target.lastError && (
+                              <Tooltip>
+                                <TooltipTrigger render={<button type="button" aria-label={`${errorLabel} for ${asset?.name ?? "monitoring target"}`} className="inline-flex items-center rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500" />}>
+                                  <Badge variant="outline" className="gap-1 border-rose-200 bg-rose-50 text-rose-700"><CircleAlert className="size-3" />Error</Badge>
+                                </TooltipTrigger>
+                                <TooltipContent side="top" className="max-h-64 max-w-sm overflow-y-auto break-words font-normal">{errorLabel}: {target.lastError}</TooltipContent>
+                              </Tooltip>
                             )}
-                          >
-                            {formatVerification(target.verificationStatus)}
-                          </Badge>
+                          </div>
                         </TableCell>
                         <TableCell>
                           <Badge
@@ -715,27 +719,6 @@ export function MonitoringTargetsTable() {
                           </AdminOnly>
                         </TableCell>
                       </TableRow>
-
-                      {target.lastError && (
-                        <TableRow className="border-rose-100 bg-rose-50/70 hover:bg-rose-50/70">
-                          <TableCell
-                            colSpan={10}
-                            className="px-4 py-3 text-xs text-rose-700"
-                          >
-                            <span className="inline-flex items-center gap-2">
-                              <CircleAlert className="size-4 shrink-0" />
-                              <strong>
-                                {asset?.name ?? "Unknown asset"} · {errorLabel}:
-                              </strong>
-
-                              <span className="break-all font-mono">
-                                {target.lastError}
-                              </span>
-                            </span>
-                          </TableCell>
-                        </TableRow>
-                      )}
-                    </Fragment>
                   );
                 })
               )}

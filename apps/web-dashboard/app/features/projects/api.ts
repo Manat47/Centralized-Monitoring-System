@@ -19,6 +19,7 @@ export interface LogEvent {
 export interface FacetValue { value: string; count: number }
 export interface LogPage {
   items: LogEvent[]; nextOffset: number | null; total: number;
+  bucketSeconds: number;
   facets: { eventTypes: FacetValue[]; statusCodes: FacetValue[]; ips: FacetValue[]; locations: FacetValue[]; sources: FacetValue[] };
   histogram: { bucket: string; severity: string; count: number }[];
   filters: { field: string; operator: string; value: string }[]; from: string; to: string;

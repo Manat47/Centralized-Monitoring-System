@@ -58,12 +58,17 @@ function StatusBadge({ status }: { status: ReportStatus }) {
     return <Badge variant="destructive">Failed</Badge>;
   }
 
-  if (status === "GENERATING") {
+  if (status === "PENDING" || status === "GENERATING") {
     return (
-      <Badge variant="secondary" className="gap-1.5">
-        <LoaderCircle className="size-3 animate-spin" />
-        Generating
-      </Badge>
+      <div className="space-y-1">
+        <Badge variant="secondary" className="gap-1.5">
+          <LoaderCircle className="size-3 animate-spin" />
+          {status === "PENDING" ? "Pending" : "Generating"}
+        </Badge>
+        <div className="h-1 w-20 overflow-hidden rounded bg-slate-200" aria-label="Report generation in progress">
+          <div className="h-full w-2/3 animate-pulse rounded bg-blue-500" />
+        </div>
+      </div>
     );
   }
 
@@ -180,6 +185,7 @@ export function ReportsTable() {
                 className="duration-150"
               >
                 <SelectItem value="ALL">All statuses</SelectItem>
+                <SelectItem value="PENDING">Pending</SelectItem>
                 <SelectItem value="GENERATING">Generating</SelectItem>
                 <SelectItem value="COMPLETED">Completed</SelectItem>
                 <SelectItem value="FAILED">Failed</SelectItem>

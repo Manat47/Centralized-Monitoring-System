@@ -16,7 +16,7 @@ export class MonthlyReportScheduler {
     const { periodStart, periodEnd } = this.getPreviousMonthPeriod();
 
     this.logger.log(
-      `Generating monthly report: ${periodStart.toISOString()} - ${periodEnd.toISOString()}`,
+      `Queueing monthly report: ${periodStart.toISOString()} - ${periodEnd.toISOString()}`,
     );
 
     try {
@@ -31,7 +31,7 @@ export class MonthlyReportScheduler {
         generatedBy: null,
       });
 
-      this.logger.log(`Monthly report generated: ${report.reportId}`);
+      this.logger.log(`Monthly report queued: ${report.reportId}`);
     } catch (error) {
       console.dir(error, {
         depth: null,

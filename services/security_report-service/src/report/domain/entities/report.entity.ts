@@ -1,6 +1,6 @@
 export type ReportType = 'ON_DEMAND' | 'MONTHLY';
 
-export type ReportStatus = 'GENERATING' | 'COMPLETED' | 'FAILED';
+export type ReportStatus = 'PENDING' | 'GENERATING' | 'COMPLETED' | 'FAILED';
 
 export interface ReportProps {
   reportId: string;
@@ -15,6 +15,7 @@ export interface ReportProps {
 
   // monthly report อาจไม่มี user เป็นคนกด
   generatedBy: string | null;
+  generatedByRole: 'ADMIN' | 'OPERATOR' | null;
 
   generatedByEmail: string | null;
 
@@ -44,6 +45,7 @@ export interface CreateReportProps {
   periodEnd: Date;
 
   generatedBy?: string | null;
+  generatedByRole?: 'ADMIN' | 'OPERATOR' | null;
 
   generatedByEmail?: string | null;
 }
@@ -65,9 +67,10 @@ export class Report {
       periodStart: input.periodStart,
       periodEnd: input.periodEnd,
       generatedBy: input.generatedBy ?? null,
+      generatedByRole: input.generatedByRole ?? null,
       generatedByEmail: input.generatedByEmail ?? null,
 
-      status: 'GENERATING',
+      status: 'PENDING',
 
       summary: null,
       pdfPath: null,

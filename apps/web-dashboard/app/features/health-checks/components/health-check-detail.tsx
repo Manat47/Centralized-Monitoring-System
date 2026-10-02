@@ -68,7 +68,7 @@ export function HealthCheckDetail() {
     refetchInterval: 15_000,
   });
 
-  if (targetsQuery.isLoading || assetsQuery.isLoading)
+  if (targetsQuery.isLoading)
     return <HealthCheckDetailSkeleton />;
   if (!target) return <Message text="Health check not found." destructive />;
 
@@ -107,14 +107,14 @@ export function HealthCheckDetail() {
     <section className="space-y-6">
       <div>
         <p className="text-xs text-slate-500">Health Checks / {target.url}</p>
-        <h1 className="mt-2 text-2xl font-semibold">
-          {asset?.name ?? "Application"} — health check
-        </h1>
+        <h1 className="mt-2 text-2xl font-semibold">{target.name}</h1>
+        <p className="text-sm text-slate-500">{asset?.name ?? (target.assetId ? "Unknown asset" : "Standalone health check")}</p>
       </div>
 
       <Card className="border-slate-200 shadow-none">
         <CardContent className="grid gap-5 p-5 sm:grid-cols-2 lg:grid-cols-5">
           <Info label="URL" value={target.url} mono />
+          <Info label="Expected HTTP" value={String(target.expectedStatus)} />
           <Info label="State" value={runtime.replaceAll("_", " ")} />
           <Info label="Availability" value={result} />
           <Info
@@ -238,10 +238,7 @@ export function HealthCheckDetail() {
                 .reverse()
                 .slice(0, 100)
                 .map((point) => {
-                  const success =
-                    point.statusCode !== null &&
-                    point.statusCode >= 200 &&
-                    point.statusCode < 300;
+                  const success = point.statusCode === target.expectedStatus;
                   return (
                     <TableRow
                       key={point.timestamp}

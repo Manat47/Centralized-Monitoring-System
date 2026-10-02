@@ -7,7 +7,12 @@ import {
 } from '../../domain/entities/report.entity';
 
 const REPORT_TYPES: ReportType[] = ['ON_DEMAND', 'MONTHLY'];
-const REPORT_STATUSES: ReportStatus[] = ['GENERATING', 'COMPLETED', 'FAILED'];
+const REPORT_STATUSES: ReportStatus[] = [
+  'PENDING',
+  'GENERATING',
+  'COMPLETED',
+  'FAILED',
+];
 
 export class ListReportsQueryDto {
   @IsOptional()

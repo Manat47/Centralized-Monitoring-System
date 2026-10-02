@@ -38,6 +38,7 @@ export class DataStore implements OnModuleDestroy {
     acceptedAt: string,
     count: number,
     idempotencyKey?: string,
+    requestId?: string,
   ) {
     const month =
       new Date(new Date(acceptedAt).getTime() + 7 * 3600_000)
@@ -46,9 +47,10 @@ export class DataStore implements OnModuleDestroy {
     await this.transaction(async (client) => {
       const inserted = await client.query(
         `INSERT INTO log_accepted_batches
-        (batch_id,project_id,accepted_at,accepted_count) VALUES ($1,$2,$3,$4)
+        (batch_id,project_id,accepted_at,accepted_count,request_id,processing_status)
+        VALUES ($1,$2,$3,$4,$5,'QUEUED')
         ON CONFLICT DO NOTHING RETURNING batch_id`,
-        [batchId, projectId, acceptedAt, count],
+        [batchId, projectId, acceptedAt, count, requestId ?? null],
       );
       if (inserted.rowCount) {
         await client.query(
@@ -61,10 +63,54 @@ export class DataStore implements OnModuleDestroy {
       if (idempotencyKey)
         await client.query(
           `UPDATE log_idempotency
-        SET status='ACCEPTED',accepted_count=$3 WHERE project_id=$1 AND idempotency_key=$2`,
-          [projectId, idempotencyKey, count],
+        SET status='ACCEPTED',accepted_count=$3,batch_id=$4 WHERE project_id=$1 AND idempotency_key=$2`,
+          [projectId, idempotencyKey, count, batchId],
         );
     });
+  }
+
+  async markBatchStored(batchId: string): Promise<void> {
+    await this.query(
+      `UPDATE log_accepted_batches SET processing_status='STORED',processed_at=now(),failure_reason=NULL
+       WHERE batch_id=$1 AND processing_status <> 'STORED'`,
+      [batchId],
+    );
+  }
+
+  async markBatchFailed(batchId: string, reason: string): Promise<void> {
+    await this.query(
+      `UPDATE log_accepted_batches SET processing_status='FAILED',processed_at=now(),failure_reason=$2
+       WHERE batch_id=$1 AND processing_status <> 'STORED'`,
+      [batchId, reason.slice(0, 500)],
+    );
+  }
+
+  async batchStatus(projectId: string, batchId: string) {
+    const rows = await this.query<{
+      batch_id: string;
+      request_id: string | null;
+      accepted_at: Date;
+      accepted_count: number;
+      processing_status: string;
+      processed_at: Date | null;
+      failure_reason: string | null;
+    }>(
+      `SELECT batch_id,request_id,accepted_at,accepted_count,processing_status,processed_at,failure_reason
+       FROM log_accepted_batches WHERE project_id=$1 AND batch_id=$2`,
+      [projectId, batchId],
+    );
+    const row = rows.rows[0];
+    return (
+      row && {
+        batchId: row.batch_id,
+        requestId: row.request_id,
+        acceptedAt: row.accepted_at,
+        acceptedRecords: row.accepted_count,
+        status: row.processing_status,
+        processedAt: row.processed_at,
+        failureReason: row.failure_reason,
+      }
+    );
   }
 
   async onModuleDestroy() {

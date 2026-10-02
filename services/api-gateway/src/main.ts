@@ -2,9 +2,13 @@ import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { NestFactory } from '@nestjs/core';
 import { createProxyMiddleware } from 'http-proxy-middleware';
+import Redis from 'ioredis';
 
 import { AppModule } from './app.module';
-import { createGatewayAuthMiddleware } from './auth/gateway-auth.middleware';
+import {
+  createGatewayAuthMiddleware,
+  createGatewayIngestRateLimit,
+} from './auth/gateway-auth.middleware';
 import { gatewayAuthorizationMiddleware } from './auth/gateway-authorization.middleware';
 import { HttpMetricsMiddleware } from './metrics/http-metrics.middleware';
 
@@ -21,6 +25,21 @@ async function bootstrap() {
   });
 
   app.use('/api', httpMetricsMiddleware.use.bind(httpMetricsMiddleware));
+
+  const rateLimitRedis = new Redis(
+    process.env.REDIS_URL ?? 'redis://localhost:6379',
+    {
+      lazyConnect: true,
+      maxRetriesPerRequest: 1,
+    },
+  );
+  app.use(
+    '/api',
+    createGatewayIngestRateLimit(
+      rateLimitRedis,
+      Number(process.env.LOG_RATE_LIMIT_RPM ?? 600),
+    ),
+  );
 
   app.use('/api', createGatewayAuthMiddleware(jwtService, configService));
 
@@ -109,7 +128,8 @@ async function bootstrap() {
     createProxyMiddleware({
       target: logServiceUrl,
       changeOrigin: true,
-      pathFilter: ['/api/projects', '/api/ingest/logs'],
+      pathFilter: (path) =>
+        path.startsWith('/api/projects') || path.startsWith('/api/ingest/logs'),
       pathRewrite: { '^/api': '' },
       headers: { 'x-internal-service-secret': internalServiceSecret },
     }),

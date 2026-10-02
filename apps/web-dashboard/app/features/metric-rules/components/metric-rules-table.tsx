@@ -119,7 +119,7 @@ function evaluationStyle(rule: MetricRule) {
   return "border-slate-200 bg-slate-100 text-slate-600";
 }
 
-export function MetricRulesTable() {
+export function MetricRulesTable({ selectedRuleId }: { selectedRuleId?: string }) {
   const [search, setSearch] = useState("");
   const [metric, setMetric] = useState<"ALL" | MetricRuleType>("ALL");
   const [severity, setSeverity] = useState<"ALL" | MetricRuleSeverity>("ALL");
@@ -127,7 +127,8 @@ export function MetricRulesTable() {
     "CURRENT" | "ARCHIVED" | "ALL"
   >("CURRENT");
   const [evaluation, setEvaluation] = useState("ALL");
-  const [editingRule, setEditingRule] = useState<MetricRule | null>(null);
+  const [manualEditingRule, setEditingRule] = useState<MetricRule | null>(null);
+  const [dismissedRuleId, setDismissedRuleId] = useState<string | null>(null);
   const [archiveTarget, setArchiveTarget] = useState<MetricRule | null>(null);
   const rulesQuery = useMetricRules(true);
   const assetsQuery = useAssets();
@@ -135,6 +136,9 @@ export function MetricRulesTable() {
   const disableMutation = useDisableMetricRule();
   const archiveMutation = useArchiveMetricRule();
   const rules = useMemo(() => rulesQuery.data ?? [], [rulesQuery.data]);
+  const editingRule = manualEditingRule ?? (selectedRuleId !== dismissedRuleId
+    ? rules.find((item) => item.ruleId === selectedRuleId) ?? null
+    : null);
   const assetById = useMemo(
     () =>
       new Map((assetsQuery.data ?? []).map((asset) => [asset.assetId, asset])),
@@ -547,7 +551,10 @@ export function MetricRulesTable() {
       <EditMetricRuleDialog
         key={editingRule?.ruleId ?? "closed"}
         rule={editingRule}
-        onClose={() => setEditingRule(null)}
+        onClose={() => {
+          setEditingRule(null);
+          setDismissedRuleId(selectedRuleId ?? null);
+        }}
       />
     </>
   );

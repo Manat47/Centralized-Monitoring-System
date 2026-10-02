@@ -3,6 +3,8 @@ import {
   Controller,
   Get,
   Headers,
+  HttpCode,
+  HttpStatus,
   Param,
   ParseUUIDPipe,
   NotFoundException,
@@ -70,6 +72,7 @@ export class ReportController {
   }
 
   @Post('generate')
+  @HttpCode(HttpStatus.ACCEPTED)
   async generate(
     @Body() dto: GenerateReportDto,
     @Headers('x-user-id') generatedBy: string,

@@ -27,12 +27,31 @@ export class EvaluateStaleHealthChecksUseCase {
     let triggered = 0;
 
     for (const state of candidates) {
-      if (!state.markStale(now)) {
+      const current = await this.stateRepository.findByTargetId(
+        state.toObject().healthCheckTargetId,
+      );
+      if (
+        !current ||
+        !current.toObject().enabled ||
+        current.toObject().archived
+      ) {
         continue;
       }
 
-      const data = state.toObject();
-      await this.stateRepository.save(state);
+      // Newly created targets get at least one minute before stale evaluation.
+      // Re-enabled targets restart the clock from their first fresh result.
+      if (now.getTime() - current.toObject().createdAt.getTime() < 60_000) {
+        continue;
+      }
+
+      if (!current.markStale(now)) {
+        continue;
+      }
+
+      const data = current.toObject();
+      if (!(await this.stateRepository.markStaleIfCurrent(current))) {
+        continue;
+      }
 
       const activeAlerts = await this.alertRepository.findActiveBySource(
         'HEALTH_CHECK',
@@ -67,8 +86,9 @@ export class EvaluateStaleHealthChecksUseCase {
         triggeredAt: now,
       });
 
-      await this.processAlertEventUseCase.createAlert(staleAlert);
-      triggered += 1;
+      if (await this.processAlertEventUseCase.createAlert(staleAlert)) {
+        triggered += 1;
+      }
     }
 
     return triggered;

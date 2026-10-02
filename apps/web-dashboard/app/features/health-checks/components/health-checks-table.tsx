@@ -63,6 +63,7 @@ import {
   hasOriginMismatch,
   type HealthResultStatus,
 } from "./health-check-status";
+import { CreateHealthCheckDialog } from "./create-health-check-dialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -140,7 +141,7 @@ export function HealthChecksTable() {
   const filteredTargets = useMemo(() => {
     const query = search.trim().toLowerCase();
     return targets.filter((target) => {
-      const asset = assetById.get(target.assetId);
+      const asset = target.assetId ? assetById.get(target.assetId) : undefined;
       const result = getHealthResultStatus(target);
       const matchesArchive =
         archiveFilter === "ALL" ||
@@ -151,10 +152,14 @@ export function HealthChecksTable() {
         matchesArchive &&
         (resultFilter === "ALL" || result === resultFilter) &&
         (!query ||
+          target.name.toLowerCase().includes(query) ||
           asset?.name.toLowerCase().includes(query) ||
           target.url.toLowerCase().includes(query))
       );
-    });
+    }).sort((a, b) =>
+      a.name.localeCompare(b.name, undefined, { sensitivity: "base", numeric: true }) ||
+      a.healthCheckTargetId.localeCompare(b.healthCheckTargetId),
+    );
   }, [archiveFilter, assetById, resultFilter, search, targets]);
   const actionError =
     pauseMutation.error ??
@@ -162,11 +167,11 @@ export function HealthChecksTable() {
     archiveMutation.error ??
     checkNowMutation.error;
 
-  if (targetsQuery.isLoading || assetsQuery.isLoading) {
+  if (targetsQuery.isLoading) {
     return <HealthChecksSkeleton />;
   }
 
-  if (targetsQuery.isError || assetsQuery.isError) {
+  if (targetsQuery.isError) {
     return (
       <Card>
         <CardContent className="py-12 text-center text-sm text-rose-600">
@@ -184,7 +189,7 @@ export function HealthChecksTable() {
             <Input
               value={search}
               onChange={(event) => setSearch(event.target.value)}
-              placeholder="Search application or URL"
+              placeholder="Search name, asset or URL"
               className="w-full sm:w-64"
             />
             <Select
@@ -276,7 +281,7 @@ export function HealthChecksTable() {
           <Table className="min-w-[980px]">
             <TableHeader>
               <TableRow>
-                <TableHead className="pl-4">Application</TableHead>
+                <TableHead className="pl-4">Name / asset</TableHead>
                 <TableHead>URL</TableHead>
                 <TableHead>State</TableHead>
                 <TableHead>Latest status</TableHead>
@@ -299,12 +304,15 @@ export function HealthChecksTable() {
                     colSpan={8}
                     className="h-28 text-center text-slate-500"
                   >
-                    No health checks match the current view.
+                    <div className="flex flex-col items-center gap-3">
+                      <span>{targets.length === 0 ? "No health checks yet." : "No health checks match the current view."}</span>
+                      {targets.length === 0 && <CreateHealthCheckDialog buttonLabel="Create your first health check" />}
+                    </div>
                   </TableCell>
                 </TableRow>
               ) : (
                 filteredTargets.map((target) => {
-                  const asset = assetById.get(target.assetId);
+                  const asset = target.assetId ? assetById.get(target.assetId) : undefined;
                   const result = getHealthResultStatus(target);
                   const runtime = getHealthRuntimeState(target, asset);
                   const mismatch = hasOriginMismatch(
@@ -329,7 +337,8 @@ export function HealthChecksTable() {
                         )}
                       >
                         <TableCell className="pl-4 font-medium text-slate-900">
-                          {asset?.name ?? "Unknown application"}
+                          <span className="block">{target.name}</span>
+                          <span className="block text-xs font-normal text-slate-500">{asset?.name ?? (target.assetId ? "Unknown asset" : "Standalone")}</span>
                         </TableCell>
                         <TableCell>
                           <div className="flex max-w-md items-center gap-2">
@@ -400,7 +409,7 @@ export function HealthChecksTable() {
                                       label="Check now"
                                       disabled={
                                         !actionable ||
-                                        asset?.status !== "ACTIVATE"
+                                        (target.assetId !== null && asset?.status !== "ACTIVATE")
                                       }
                                       onClick={() =>
                                         checkNowMutation.mutate(
@@ -586,7 +595,7 @@ function EditIntervalDialog({
   target: HealthCheckTarget | null;
   onClose: () => void;
 }) {
-  const [interval, setInterval] = useState(target?.checkIntervalSeconds ?? 15);
+  const [interval, setInterval] = useState(target?.checkIntervalSeconds ?? 30);
   const mutation = useUpdateHealthCheckTarget();
 
   function handleOpenChange(open: boolean) {
@@ -623,7 +632,7 @@ function EditIntervalDialog({
             <Input
               id="edit-health-interval"
               type="number"
-              min={5}
+              min={30}
               value={interval}
               onChange={(event) => setInterval(Number(event.target.value))}
             />

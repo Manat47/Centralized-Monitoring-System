@@ -7,9 +7,26 @@ import {
 } from './health-check-target.entity';
 
 describe('HealthCheckTarget', () => {
+  it('creates a standalone running target without an asset', () => {
+    const target = HealthCheckTarget.create('target-standalone', {
+      name: 'Provider availability',
+      expectedStatus: 204,
+      url: 'https://example.com/health',
+    });
+
+    expect(target.toObject()).toMatchObject({
+      assetId: null,
+      name: 'Provider availability',
+      expectedStatus: 204,
+      enabled: true,
+      url: 'https://example.com/health',
+    });
+  });
+
   it('creates a running target with a canonical URL', () => {
     const target = HealthCheckTarget.create('target-1', {
       assetId: 'asset-1',
+      expectedStatus: 200,
       url: ' HTTPS://Example.COM:443/health#status ',
     });
 
@@ -17,11 +34,21 @@ describe('HealthCheckTarget', () => {
       healthCheckTargetId: 'target-1',
       assetId: 'asset-1',
       url: 'https://example.com/health',
-      checkIntervalSeconds: 15,
+      checkIntervalSeconds: 30,
       enabled: true,
       archivedAt: null,
       lastCheckedAt: null,
     });
+  });
+
+  it('rejects an invalid expected HTTP status', () => {
+    expect(() =>
+      HealthCheckTarget.create('target-1', {
+        name: 'Invalid',
+        url: 'https://example.com/health',
+        expectedStatus: 700,
+      }),
+    ).toThrow('Expected HTTP status must be between 100 and 599');
   });
 
   it('preserves path case and query string while removing fragments', () => {
@@ -50,9 +77,9 @@ describe('HealthCheckTarget', () => {
       HealthCheckTarget.create('target-2', {
         assetId: 'asset-1',
         url: 'https://example.com/health',
-        checkIntervalSeconds: 4,
+        checkIntervalSeconds: 29,
       }),
-    ).toThrow('Check interval must be at least 5 seconds');
+    ).toThrow('Check interval must be at least 30 seconds');
   });
 
   it('updates only the interval and preserves identity and URL', () => {

@@ -1,0 +1,62 @@
+export type TimeSelection = "15m" | "1h" | "24h" | "7d" | string;
+
+export function splitQueryWords(input: string): string[] {
+  return input.trim().match(/(?:[^\s"]+|"[^"]*")+/g) ?? [];
+}
+
+export function parseQuery(input: string): { params: URLSearchParams } {
+  const params = new URLSearchParams();
+  const words = splitQueryWords(input);
+  const search: string[] = [];
+  for (let index = 0; index < words.length; index++) {
+    const word = words[index];
+    const excluded = word === "NOT";
+    const token = excluded ? words[++index] : word;
+    if (!token) throw new Error("Add a field after NOT.");
+    const field = /^(source|event_type|severity):(.+)$/i.exec(token);
+    if (field) {
+      const key = field[1].toLowerCase();
+      const value = field[2].startsWith('"') && field[2].endsWith('"') ? field[2].slice(1, -1) : field[2];
+      if (key === "severity" && !["INFO", "WARN", "ERROR", "CRITICAL"].includes(value.toUpperCase())) throw new Error("Severity must be INFO, WARN, ERROR, or CRITICAL.");
+      if (excluded) params.append(`exclude_${key}`, key === "severity" ? value.toUpperCase() : value);
+      else params.set(key, key === "severity" ? value.toUpperCase() : value);
+      continue;
+    }
+    if (/^payload\.[A-Za-z_][A-Za-z_0-9]*:.+$/i.test(token)) {
+      search.push(`${excluded ? "NOT " : ""}${token}`);
+      continue;
+    }
+    if (/^(ip|user_id|location|tag|message):.+$/i.test(token)) {
+      if (excluded) throw new Error("NOT supports source, event_type, severity, or payload fields.");
+      search.push(token);
+      continue;
+    }
+    if (excluded) throw new Error("NOT supports source, event_type, severity, or payload fields.");
+    const comparison = /^(status_code|duration_ms)(>=|<=|=|>|<)(\d+(?:\.\d+)?)$/i.exec(token);
+    if (comparison) {
+      search.push(`${comparison[1].toLowerCase()}${comparison[2]}${comparison[3]}`);
+      continue;
+    }
+    if (/^(status_code|duration_ms)$/i.test(token) && /^(>=|<=|=|>|<)$/.test(words[index + 1] ?? "") && /^\d+(?:\.\d+)?$/.test(words[index + 2] ?? "")) {
+      search.push(`${token.toLowerCase()}${words[index + 1]}${words[index + 2]}`);
+      index += 2;
+      continue;
+    }
+    if (/^status_code:\d{3}$/i.test(token)) {
+      search.push(`status_code=${token.slice(12)}`);
+      continue;
+    }
+    if (token.includes(":")) throw new Error(`Unsupported filter: ${token}`);
+    search.push(token);
+  }
+  if (search.length) params.set("search", search.join(" "));
+  return { params };
+}
+
+export function timeBounds(time: TimeSelection, now = Date.now()): { from: string; to?: string } {
+  const durations: Record<string, number> = { "15m": 15, "1h": 60, "24h": 1440, "7d": 10080 };
+  if (time in durations) return { from: new Date(now - durations[time] * 60_000).toISOString() };
+  const [from, to] = time.split(",");
+  if (!from || !to || !Number.isFinite(Date.parse(from)) || !Number.isFinite(Date.parse(to)) || Date.parse(from) >= Date.parse(to)) throw new Error("Invalid time range in URL.");
+  return { from, to };
+}

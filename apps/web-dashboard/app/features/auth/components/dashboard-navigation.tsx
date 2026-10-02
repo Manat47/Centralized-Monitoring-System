@@ -1,11 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useId, useState } from "react";
 import {
   Bell,
   BookOpen,
-  Crosshair,
   FileText,
   Gauge,
   HeartPulse,
@@ -25,6 +25,7 @@ import {
 } from "@/components/ui/tooltip";
 
 import { useAuth } from "./auth-provider";
+import { projectApi, type Project } from "@/app/features/projects/api";
 
 type UserRole = "ADMIN" | "OPERATOR";
 
@@ -50,7 +51,7 @@ interface DashboardNavigationProps {
 
 const navigationGroups: NavigationGroup[] = [
   {
-    label: "OVERVIEW",
+    label: "SYSTEM OVERVIEW",
     items: [
       {
         href: "/dashboard",
@@ -66,47 +67,58 @@ const navigationGroups: NavigationGroup[] = [
   },
 
   {
-    label: "MONITORING",
+    label: "LOG & EVENTS",
     items: [
       {
-        href: "/assets",
-        label: "Assets",
-        icon: Server,
+        href: "/explorer",
+        label: "Log Explorer",
+        icon: FileText,
       },
       {
-        href: "/monitoring-targets",
-        label: "Monitoring Targets",
-        icon: Crosshair,
+        href: "/explorer/rules",
+        label: "Rules & Findings",
+        icon: Bell,
       },
+      {
+        href: "/projects",
+        label: "Log Projects",
+        icon: FolderKanban,
+      },
+    ],
+  },
+
+  {
+    label: "INFRASTRUCTURE & UPTIME",
+    items: [
       {
         href: "/health-checks",
         label: "Health Checks",
         icon: HeartPulse,
       },
       {
+        href: "/infrastructure",
+        label: "Infrastructure",
+        icon: Server,
+      },
+      {
         href: "/metric-rules",
         label: "Metric Rules",
         icon: Gauge,
-      },
-    ],
-  },
-
-  {
-    label: "OPERATIONS",
-    items: [
-      {
-        href: "/projects",
-        label: "Projects",
-        icon: FolderKanban,
       },
       {
         href: "/alerts",
         label: "Alerts",
         icon: Bell,
       },
+    ],
+  },
+
+  {
+    label: "GOVERNANCE & SETTINGS",
+    items: [
       {
-        href: "/audit-logs",
-        label: "Audit Logs",
+        href: "/system-audit",
+        label: "System Audit Trail",
         icon: ScrollText,
       },
       {
@@ -114,12 +126,6 @@ const navigationGroups: NavigationGroup[] = [
         label: "Reports",
         icon: FileText,
       },
-    ],
-  },
-
-  {
-    label: "ADMINISTRATION",
-    items: [
       {
         href: "/users",
         label: "Users",
@@ -141,7 +147,39 @@ export function DashboardNavigation({
   onNavigate,
 }: DashboardNavigationProps) {
   const pathname = usePathname();
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const projectSelectId = useId();
   const { user } = useAuth();
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [savedProjectId, setSavedProjectId] = useState("");
+  const fromPath = pathname.match(/^\/projects\/([^/]+)/)?.[1];
+  const requestedProjectId = fromPath ?? searchParams.get("projectId") ?? savedProjectId;
+  const selectedProjectId = projects.some((item) => item.projectId === requestedProjectId) ? requestedProjectId : "";
+
+  useEffect(() => {
+    if (!user) return;
+    let active = true;
+    projectApi.list().then((items) => {
+      if (!active) return;
+      setProjects(items);
+      setSavedProjectId(window.localStorage.getItem("selected-log-project") ?? "");
+    }).catch(() => undefined);
+    return () => { active = false; };
+  }, [user]);
+
+  function selectProject(id: string) {
+    setSavedProjectId(id);
+    if (id) window.localStorage.setItem("selected-log-project", id);
+    else window.localStorage.removeItem("selected-log-project");
+    const params = new URLSearchParams(searchParams.toString());
+    if (id) params.set("projectId", id);
+    else params.delete("projectId");
+    const projectPath = pathname.match(/^\/projects\/[^/]+(\/.*)?$/);
+    const nextPath = projectPath && id ? `/projects/${encodeURIComponent(id)}${projectPath[1] ?? ""}` : pathname;
+    router.replace(`${nextPath}${params.size ? `?${params.toString()}` : ""}`, { scroll: false });
+    onNavigate?.();
+  }
 
   return (
     <nav
@@ -175,13 +213,28 @@ export function DashboardNavigation({
                 </p>
               )}
 
+              {group.label === "LOG & EVENTS" && (collapsed ? (
+                <Link href="/projects" aria-label="Choose log project" className="mb-2 flex h-9 items-center justify-center text-slate-300 hover:text-white"><FolderKanban className="size-4" /></Link>
+              ) : (
+                <div className="mb-2 px-2">
+                  <label htmlFor={projectSelectId} className="mb-1 block text-[10px] font-semibold tracking-[0.14em] text-slate-500">PROJECT</label>
+                  <select id={projectSelectId} aria-label="Select log project" value={selectedProjectId} onChange={(event) => selectProject(event.target.value)} className="h-9 w-full rounded-md border border-slate-700 bg-slate-900 px-2 text-sm text-slate-100">
+                    <option value="">Choose project</option>
+                    {projects.map((project) => <option key={project.projectId} value={project.projectId}>{project.name}</option>)}
+                  </select>
+                </div>
+              ))}
+
               <div className="space-y-1">
                 {visibleItems.map((item) => {
                   const Icon = item.icon;
 
                   const isActive =
                     pathname === item.href ||
-                    pathname.startsWith(`${item.href}/`);
+                    (item.href !== "/explorer" && pathname.startsWith(`${item.href}/`)) ||
+                    (item.href === "/infrastructure" &&
+                      (pathname.startsWith("/assets/") ||
+                        pathname.startsWith("/monitoring-targets/")));
 
                   if (item.disabled) {
                     return (
@@ -201,7 +254,7 @@ export function DashboardNavigation({
                   const navigationLink = (
                     <Link
                       key={item.href}
-                      href={item.href}
+                      href={item.href.startsWith("/explorer") && selectedProjectId ? `${item.href}?projectId=${encodeURIComponent(selectedProjectId)}` : item.href}
                       aria-label={collapsed ? item.label : undefined}
                       onClick={onNavigate}
                       className={cn(

@@ -134,15 +134,23 @@ export const healthCheckTargets = pgTable(
       .defaultRandom()
       .primaryKey(),
 
-    assetId: uuid('asset_id').notNull(),
+    assetId: text('asset_id'),
+
+    name: varchar('name', { length: 120 }).default('Health check').notNull(),
+    expectedStatus: integer('expected_status').default(200).notNull(),
 
     url: varchar('url', { length: 2048 }).notNull(),
 
     checkIntervalSeconds: integer('check_interval_seconds')
-      .default(15)
+      .default(30)
       .notNull(),
 
     enabled: boolean('enabled').default(true).notNull(),
+
+    consecutiveFailures: integer('consecutive_failures').default(0).notNull(),
+    consecutiveSuccesses: integer('consecutive_successes').default(0).notNull(),
+    alertActive: boolean('alert_active').default(false).notNull(),
+    lastHeartbeatAt: timestamp('last_heartbeat_at', { withTimezone: true }),
 
     archivedAt: timestamp('archived_at', {
       withTimezone: true,

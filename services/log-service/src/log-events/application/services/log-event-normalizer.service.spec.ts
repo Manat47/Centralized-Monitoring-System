@@ -32,6 +32,14 @@ describe('generic log contract', () => {
     expect(event).not.toHaveProperty('message');
   });
 
+  it('trims indexed source and event type without changing the original payload', () => {
+    const raw = { source: '  payments  ', event_type: '  charge.failed  ' };
+    const record = normalizeLogEvent(raw, 0, now);
+    expect(record.source).toBe('payments');
+    expect(record.event_type).toBe('charge.failed');
+    expect(record.rawPayload).toEqual(raw);
+  });
+
   it('accepts legacy lowercase warning severity as WARN', () => {
     expect(
       normalizeLogEvent(

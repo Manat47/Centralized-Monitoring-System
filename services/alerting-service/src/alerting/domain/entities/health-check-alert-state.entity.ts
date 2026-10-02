@@ -25,10 +25,11 @@ export interface RecordHealthCheckResultInput {
   responseTimeMs: number;
   error: string | null;
   occurredAt: Date;
+  availableOverride?: boolean;
 }
 
-const MINIMUM_STALE_AFTER_MS = 120_000;
-const STALE_INTERVAL_MULTIPLIER = 2;
+const MINIMUM_STALE_AFTER_MS = 60_000;
+const STALE_INTERVAL_MULTIPLIER = 3;
 
 export class HealthCheckAlertState {
   private constructor(private readonly props: HealthCheckAlertStateProps) {}
@@ -64,6 +65,10 @@ export class HealthCheckAlertState {
     return new HealthCheckAlertState(props);
   }
 
+  updateCheckInterval(checkIntervalSeconds: number): void {
+    this.props.checkIntervalSeconds = checkIntervalSeconds;
+  }
+
   configure(input: {
     assetId: string;
     url: string;
@@ -72,12 +77,19 @@ export class HealthCheckAlertState {
     archived: boolean;
     occurredAt: Date;
   }): void {
+    const justEnabled = !this.props.enabled && input.enabled && !input.archived;
     this.props.assetId = input.assetId;
     this.props.url = input.url;
     this.props.checkIntervalSeconds = input.checkIntervalSeconds;
     this.props.enabled = input.enabled;
     this.props.archived = input.archived;
     this.props.updatedAt = input.occurredAt;
+
+    if (justEnabled) {
+      // The first fresh result starts the stale clock after a restart.
+      this.props.lastResultAt = null;
+      this.reset('UNKNOWN');
+    }
 
     if (!input.enabled || input.archived) {
       this.reset('UNKNOWN');
@@ -92,10 +104,11 @@ export class HealthCheckAlertState {
   ): { previousState: HealthCheckEvaluationStatus; available: boolean } {
     const previousState = this.props.state;
     const available =
-      input.error === null &&
-      input.statusCode !== null &&
-      input.statusCode >= 200 &&
-      input.statusCode < 300;
+      input.availableOverride ??
+      (input.error === null &&
+        input.statusCode !== null &&
+        input.statusCode >= 200 &&
+        input.statusCode < 300);
 
     this.props.lastResultAt = input.occurredAt;
     this.props.lastStatusCode = input.statusCode;
@@ -137,6 +150,40 @@ export class HealthCheckAlertState {
             : 'FAILING';
     }
 
+    return { previousState, available };
+  }
+
+  recordHeartbeat(
+    input: RecordHealthCheckResultInput,
+    alertActive: boolean,
+    evaluatedAt: Date = new Date(),
+  ): { previousState: HealthCheckEvaluationStatus; available: boolean } {
+    const previousState = this.props.state;
+    const available =
+      input.availableOverride ??
+      (input.error === null &&
+        input.statusCode !== null &&
+        input.statusCode >= 200 &&
+        input.statusCode < 300);
+    this.props.lastResultAt = input.occurredAt;
+    this.props.lastStatusCode = input.statusCode;
+    this.props.lastResponseTimeMs = input.responseTimeMs;
+    this.props.lastError = input.error;
+    this.props.updatedAt = input.occurredAt;
+
+    if (
+      previousState === 'STALE' &&
+      evaluatedAt.getTime() - input.occurredAt.getTime() > this.staleAfterMs()
+    ) {
+      return { previousState, available };
+    }
+
+    this.props.staleAlertedAt = null;
+    this.props.state = alertActive
+      ? 'ALERTED'
+      : available
+        ? 'HEALTHY'
+        : 'FAILING';
     return { previousState, available };
   }
 

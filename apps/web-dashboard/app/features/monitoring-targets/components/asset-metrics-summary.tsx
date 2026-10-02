@@ -26,8 +26,9 @@ const TIME_RANGES = [
   { label: "Last 24 hours", value: "1440" },
 ] as const;
 
-export function AssetMetricsSummary() {
+export function AssetMetricsSummary({ assetId: selectedAssetId }: { assetId?: string } = {}) {
   const params = useParams<{ assetId: string }>();
+  const assetId = selectedAssetId ?? params.assetId;
   const [rangeMinutes, setRangeMinutes] = useState("60");
   const metricRulesQuery = useMetricRules();
 
@@ -35,7 +36,7 @@ export function AssetMetricsSummary() {
     (metricRulesQuery.data ?? [])
       .filter(
         (rule) =>
-          rule.assetId === params.assetId &&
+          rule.assetId === assetId &&
           rule.metricType === metricType &&
           rule.enabled,
       )
@@ -77,24 +78,24 @@ export function AssetMetricsSummary() {
       </div>
 
       <CpuUsageChart
-        assetId={params.assetId}
+        assetId={assetId}
         rangeMinutes={selectedRange}
         thresholds={getThresholds("CPU_USAGE")}
       />
 
       <MemoryUsageChart
-        assetId={params.assetId}
+        assetId={assetId}
         rangeMinutes={selectedRange}
         thresholds={getThresholds("MEMORY_USAGE")}
       />
 
       <DiskUsageChart
-        assetId={params.assetId}
+        assetId={assetId}
         rangeMinutes={selectedRange}
         thresholds={getThresholds("DISK_USAGE")}
       />
 
-      <NetworkRateChart assetId={params.assetId} rangeMinutes={selectedRange} />
+      <NetworkRateChart assetId={assetId} rangeMinutes={selectedRange} />
     </section>
   );
 }

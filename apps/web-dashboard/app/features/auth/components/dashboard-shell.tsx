@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import {
+  Suspense,
   useEffect,
   useState,
   useSyncExternalStore,
@@ -120,7 +121,7 @@ export function DashboardShell({ children }: DashboardShellProps) {
             <Brand collapsed={collapsed} />
           </div>
 
-          <DashboardNavigation collapsed={collapsed} />
+          <Suspense fallback={null}><DashboardNavigation collapsed={collapsed} /></Suspense>
 
           <div
             className={cn(
@@ -205,7 +206,7 @@ export function DashboardShell({ children }: DashboardShellProps) {
                 </Button>
               </div>
 
-              <DashboardNavigation onNavigate={() => setMobileOpen(false)} />
+              <Suspense fallback={null}><DashboardNavigation onNavigate={() => setMobileOpen(false)} /></Suspense>
 
               <div className="flex h-14 shrink-0 items-center border-t border-slate-800 px-4">
                 <p className="text-[11px] text-slate-500">

@@ -3,6 +3,7 @@ import {
   ConflictException,
   Injectable,
   Logger,
+  NotFoundException,
   ServiceUnavailableException,
   HttpException,
   HttpStatus,
@@ -144,20 +145,16 @@ export class IngestService {
   ) {
     if (Object.keys(query).length)
       throw new BadRequestException('Query parameters are not accepted');
-    if (
-      body &&
+    const envelope =
+      body !== null &&
       typeof body === 'object' &&
       !Array.isArray(body) &&
-      'events' in body &&
-      Object.keys(body).some((key) => key !== 'events')
-    )
-      throw new BadRequestException(
-        'Only events is allowed in a batch envelope',
-      );
+      Object.keys(body).length === 1 &&
+      Array.isArray((body as Record<string, unknown>).events);
     const input = Array.isArray(body)
       ? body
-      : body && typeof body === 'object' && 'events' in body
-        ? body.events
+      : envelope
+        ? (body as { events: unknown[] }).events
         : [body];
     if (!Array.isArray(input) || input.length < 1 || input.length > 500)
       throw new BadRequestException('Request must contain 1–500 events');
@@ -200,8 +197,9 @@ export class IngestService {
           status: string;
           payload_hash: string;
           accepted_count: number;
+          batch_id: string | null;
         }>(
-          'SELECT status,payload_hash,accepted_count FROM log_idempotency WHERE project_id=$1 AND idempotency_key=$2',
+          'SELECT status,payload_hash,accepted_count,batch_id FROM log_idempotency WHERE project_id=$1 AND idempotency_key=$2',
           [projectId, idempotencyKey],
         );
         if (existing.rows[0]?.payload_hash !== payloadHash)
@@ -212,6 +210,7 @@ export class IngestService {
           return {
             acceptedRecords: existing.rows[0].accepted_count,
             duplicate: true,
+            batchId: existing.rows[0].batch_id,
           };
         throw new ConflictException(
           'Request with this Idempotency-Key is in progress',
@@ -246,6 +245,7 @@ export class IngestService {
         acceptedAt.toISOString(),
         events.length,
         idempotencyKey,
+        requestId,
       );
     } catch (error) {
       // RabbitMQ has already confirmed the durable batch. The worker retries
@@ -261,6 +261,13 @@ export class IngestService {
     } catch (error) {
       this.logger.warn(`Could not update accepted metric: ${String(error)}`);
     }
-    return { acceptedRecords: events.length, duplicate: false };
+    return { acceptedRecords: events.length, duplicate: false, batchId };
+  }
+
+  async batchStatus(authorization: string | undefined, batchId: string) {
+    const { projectId } = await this.authenticate(authorization);
+    const status = await this.db.batchStatus(projectId, batchId);
+    if (!status) throw new NotFoundException('Batch not found');
+    return status;
   }
 }

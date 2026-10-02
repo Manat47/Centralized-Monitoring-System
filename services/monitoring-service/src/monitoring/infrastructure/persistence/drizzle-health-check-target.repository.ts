@@ -25,11 +25,17 @@ export class DrizzleHealthCheckTargetRepository implements HealthCheckTargetRepo
       .values({
         healthCheckTargetId: data.healthCheckTargetId,
         assetId: data.assetId,
+        name: data.name,
+        expectedStatus: data.expectedStatus,
         url: data.url,
         checkIntervalSeconds: data.checkIntervalSeconds,
         enabled: data.enabled,
         archivedAt: data.archivedAt,
         lastCheckedAt: data.lastCheckedAt,
+        consecutiveFailures: data.consecutiveFailures,
+        consecutiveSuccesses: data.consecutiveSuccesses,
+        alertActive: data.alertActive,
+        lastHeartbeatAt: data.lastHeartbeatAt,
         createdAt: data.createdAt,
         updatedAt: data.updatedAt,
       })
@@ -106,11 +112,17 @@ export class DrizzleHealthCheckTargetRepository implements HealthCheckTargetRepo
     const [row] = await this.db
       .update(schema.healthCheckTargets)
       .set({
+        name: data.name,
+        expectedStatus: data.expectedStatus,
         url: data.url,
         checkIntervalSeconds: data.checkIntervalSeconds,
         enabled: data.enabled,
         archivedAt: data.archivedAt,
         lastCheckedAt: data.lastCheckedAt,
+        consecutiveFailures: data.consecutiveFailures,
+        consecutiveSuccesses: data.consecutiveSuccesses,
+        alertActive: data.alertActive,
+        lastHeartbeatAt: data.lastHeartbeatAt,
         updatedAt: data.updatedAt,
       })
       .where(
@@ -128,11 +140,17 @@ export class DrizzleHealthCheckTargetRepository implements HealthCheckTargetRepo
     return HealthCheckTarget.restore({
       healthCheckTargetId: row.healthCheckTargetId,
       assetId: row.assetId,
+      name: row.name,
+      expectedStatus: row.expectedStatus,
       url: row.url,
       checkIntervalSeconds: row.checkIntervalSeconds,
       enabled: row.enabled,
       archivedAt: row.archivedAt,
       lastCheckedAt: row.lastCheckedAt,
+      consecutiveFailures: row.consecutiveFailures,
+      consecutiveSuccesses: row.consecutiveSuccesses,
+      alertActive: row.alertActive,
+      lastHeartbeatAt: row.lastHeartbeatAt,
       createdAt: row.createdAt,
       updatedAt: row.updatedAt,
     });

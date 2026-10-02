@@ -1,4 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
+import { randomUUID } from 'node:crypto';
 import {
   and,
   count,
@@ -20,6 +21,7 @@ import {
   type AlertResolutionReason,
 } from '../../domain/entities/alert.entity';
 import type { AlertLifecycleEvent } from '../../domain/entities/alert-lifecycle-event';
+import type { NotificationEvent } from '../../domain/port/notification-event-publisher.port';
 import {
   type AlertRepository,
   type FindAlertsFilters,
@@ -30,6 +32,8 @@ import { DRIZZLE_DB } from '../../../database/database.provider';
 import {
   alertLifecycleEvents,
   alerts,
+  healthCheckAlertStates,
+  notificationOutbox,
   processedAlertEvents,
   type AlertLifecycleEventRow,
   type AlertRow,
@@ -42,6 +46,79 @@ export class DrizzleAlertRepository implements AlertRepository {
     @Inject(DRIZZLE_DB)
     private readonly db: NodePgDatabase<typeof schema>,
   ) {}
+
+  async createWithNotification(
+    alert: Alert,
+    lifecycleEvent: AlertLifecycleEvent,
+    notification: NotificationEvent,
+  ): Promise<Alert | null> {
+    return this.db.transaction(async (tx) => {
+      const data = alert.toObject();
+      if (data.sourceType === 'HEALTH_CHECK') {
+        const [state] = await tx
+          .select({
+            enabled: healthCheckAlertStates.enabled,
+            archived: healthCheckAlertStates.archived,
+          })
+          .from(healthCheckAlertStates)
+          .where(eq(healthCheckAlertStates.healthCheckTargetId, data.sourceId))
+          .limit(1)
+          .for('update');
+        if (!state?.enabled || state.archived) return null;
+      }
+      const [created] = await tx.insert(alerts).values(data).returning();
+      await tx.insert(alertLifecycleEvents).values(lifecycleEvent);
+      await tx.insert(notificationOutbox).values({
+        eventId: randomUUID(),
+        payload: notification,
+      });
+      return this.toDomain(created);
+    });
+  }
+
+  async resolveWithNotification(
+    alert: Alert,
+    lifecycleEvent: AlertLifecycleEvent,
+    notification: NotificationEvent,
+  ): Promise<Alert | null> {
+    const data = alert.toObject();
+    if (data.status !== 'RESOLVED') {
+      throw new Error('Expected a resolved alert');
+    }
+
+    return this.db.transaction(async (tx) => {
+      const [updated] = await tx
+        .update(alerts)
+        .set({
+          status: data.status,
+          actualValue: data.actualValue,
+          actualText: data.actualText,
+          context: data.context,
+          message: data.message,
+          resolvedAt: data.resolvedAt,
+          resolutionReason: data.resolutionReason,
+          updatedAt: data.updatedAt,
+        })
+        .where(
+          and(
+            eq(alerts.alertId, data.alertId),
+            inArray(alerts.status, ['TRIGGERED', 'ACKNOWLEDGED']),
+          ),
+        )
+        .returning();
+
+      if (!updated) {
+        return null;
+      }
+
+      await tx.insert(alertLifecycleEvents).values(lifecycleEvent);
+      await tx.insert(notificationOutbox).values({
+        eventId: randomUUID(),
+        payload: notification,
+      });
+      return this.toDomain(updated);
+    });
+  }
 
   async create(alert: Alert): Promise<Alert> {
     const data = alert.toObject();
