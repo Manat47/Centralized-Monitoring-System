@@ -38,6 +38,12 @@ export class EvaluateStaleHealthChecksUseCase {
         continue;
       }
 
+      // Newly created targets get at least one minute before stale evaluation.
+      // Re-enabled targets restart the clock from their first fresh result.
+      if (now.getTime() - current.toObject().createdAt.getTime() < 60_000) {
+        continue;
+      }
+
       if (!current.markStale(now)) {
         continue;
       }

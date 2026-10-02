@@ -148,6 +148,7 @@ export const healthCheckTargets = pgTable(
     enabled: boolean('enabled').default(true).notNull(),
 
     consecutiveFailures: integer('consecutive_failures').default(0).notNull(),
+    consecutiveSuccesses: integer('consecutive_successes').default(0).notNull(),
     alertActive: boolean('alert_active').default(false).notNull(),
     lastHeartbeatAt: timestamp('last_heartbeat_at', { withTimezone: true }),
 

@@ -1,0 +1,1 @@
+ALTER TABLE "health_check_targets" ADD COLUMN "consecutive_successes" integer DEFAULT 0 NOT NULL;

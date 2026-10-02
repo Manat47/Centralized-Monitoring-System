@@ -72,13 +72,13 @@ describe('CheckHealthTargetUseCase', () => {
     expect(alertPublisher.publish.mock.calls).toHaveLength(0);
   });
 
-  it('publishes one failure after three failed checks and one recovery after success', async () => {
+  it('publishes one failure after three failed checks and one recovery after two successes', async () => {
     assetReader.findById.mockResolvedValue({
       assetId: 'asset-1',
       status: 'ACTIVATE',
       assetType: 'APPLICATION',
     } as Awaited<ReturnType<AssetReader['findById']>>);
-    const times = [0, 30, 60, 90, 120].map(
+    const times = [0, 30, 60, 90, 120, 150].map(
       (seconds) => new Date(Date.UTC(2026, 9, 1, 0, 0, seconds)),
     );
     for (let index = 0; index < times.length; index += 1) {
@@ -89,17 +89,42 @@ describe('CheckHealthTargetUseCase', () => {
         error: null,
       });
       await useCase.execute('target-1');
+      if (index === 4) {
+        expect(target.toObject()).toMatchObject({
+          consecutiveFailures: 0,
+          consecutiveSuccesses: 1,
+          alertActive: true,
+        });
+        expect(
+          alertPublisher.publish.mock.calls.map(([event]) => event.eventType),
+        ).not.toContain('HEALTH_CHECK_RECOVERED');
+      }
     }
     expect(
-      alertPublisher.publish.mock.calls.map(([event]) => event.eventType),
-    ).toEqual([
-      'HEALTH_CHECK_RESULT_RECORDED',
-      'HEALTH_CHECK_FAILED',
-      'HEALTH_CHECK_RECOVERED',
-    ]);
+      alertPublisher.publish.mock.calls
+        .map(([event]) => event.eventType)
+        .filter((type) => type !== 'HEALTH_CHECK_RESULT_RECORDED'),
+    ).toEqual(['HEALTH_CHECK_FAILED', 'HEALTH_CHECK_RECOVERED']);
     expect(target.toObject()).toMatchObject({
       consecutiveFailures: 0,
+      consecutiveSuccesses: 2,
       alertActive: false,
     });
+  });
+
+  it('restarts the recovery count when a check fails between successes', () => {
+    const at = (seconds: number) =>
+      new Date(Date.UTC(2026, 9, 1, 0, 0, seconds));
+    expect(target.recordScheduledResult(false, at(0))).not.toBe('FAILED');
+    expect(target.recordScheduledResult(false, at(30))).not.toBe('FAILED');
+    expect(target.recordScheduledResult(false, at(60))).toBe('FAILED');
+    expect(target.recordScheduledResult(true, at(90))).not.toBe('RECOVERED');
+    expect(target.recordScheduledResult(false, at(120))).not.toBe('RECOVERED');
+    expect(target.toObject()).toMatchObject({
+      consecutiveSuccesses: 0,
+      alertActive: true,
+    });
+    expect(target.recordScheduledResult(true, at(150))).not.toBe('RECOVERED');
+    expect(target.recordScheduledResult(true, at(180))).toBe('RECOVERED');
   });
 });

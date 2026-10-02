@@ -8,6 +8,9 @@ export interface LogFilters {
   source?: string;
   event_type?: string;
   severity?: string;
+  exclude_source?: string | string[];
+  exclude_event_type?: string | string[];
+  exclude_severity?: string | string[];
   offset?: string;
   limit?: string;
 }
@@ -136,6 +139,9 @@ export class LogQueryService {
           'source',
           'event_type',
           'severity',
+          'exclude_source',
+          'exclude_event_type',
+          'exclude_severity',
           'offset',
           'limit',
         ].includes(key)
@@ -173,6 +179,22 @@ export class LogQueryService {
     ])
       if (value && value.length > 200)
         throw new BadRequestException('Filter is too long');
+    for (const field of [
+      filters.exclude_source,
+      filters.exclude_event_type,
+      filters.exclude_severity,
+    ]) {
+      const exclusions =
+        field === undefined ? [] : Array.isArray(field) ? field : [field];
+      if (
+        exclusions.length > 20 ||
+        exclusions.some(
+          (value) =>
+            typeof value !== 'string' || !value.trim() || value.length > 200,
+        )
+      )
+        throw new BadRequestException('Invalid exclusion filter');
+    }
 
     const values: unknown[] = [
       projectId,
@@ -203,6 +225,32 @@ export class LogQueryService {
           ? 'e.severity IS NULL'
           : `e.severity=${add(filters.severity.toUpperCase())}`,
       );
+    }
+    for (const [field, column] of [
+      [filters.exclude_source, 'source'],
+      [filters.exclude_event_type, 'event_type'],
+      [filters.exclude_severity, 'severity'],
+    ] as const) {
+      const exclusions =
+        field === undefined ? [] : Array.isArray(field) ? field : [field];
+      for (const value of exclusions) {
+        if (column === 'severity') {
+          const severity = value.toUpperCase();
+          if (
+            !['INFO', 'WARN', 'ERROR', 'CRITICAL', 'UNSPECIFIED'].includes(
+              severity,
+            )
+          )
+            throw new BadRequestException('Invalid severity exclusion');
+          clauses.push(
+            severity === 'UNSPECIFIED'
+              ? 'e.severity IS NOT NULL'
+              : `(e.severity IS NULL OR e.severity<>${add(severity)})`,
+          );
+        } else {
+          clauses.push(`lower(e.${column})<>lower(${add(value)})`);
+        }
+      }
     }
     const terms = parseLogSearch(filters.search ?? '');
     for (const term of terms) {

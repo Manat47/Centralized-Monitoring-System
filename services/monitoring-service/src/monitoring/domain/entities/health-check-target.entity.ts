@@ -9,6 +9,7 @@ export interface HealthCheckTargetProps {
   archivedAt: Date | null;
   lastCheckedAt: Date | null;
   consecutiveFailures: number;
+  consecutiveSuccesses: number;
   alertActive: boolean;
   lastHeartbeatAt: Date | null;
   createdAt: Date;
@@ -83,6 +84,7 @@ export class HealthCheckTarget {
       archivedAt: null,
       lastCheckedAt: null,
       consecutiveFailures: 0,
+      consecutiveSuccesses: 0,
       alertActive: false,
       lastHeartbeatAt: null,
       createdAt: now,
@@ -148,12 +150,14 @@ export class HealthCheckTarget {
     this.markChecked(checkedAt);
     if (available) {
       this.props.consecutiveFailures = 0;
-      if (this.props.alertActive) {
+      this.props.consecutiveSuccesses += 1;
+      if (this.props.alertActive && this.props.consecutiveSuccesses >= 2) {
         this.props.alertActive = false;
         this.props.lastHeartbeatAt = checkedAt;
         return 'RECOVERED';
       }
     } else {
+      this.props.consecutiveSuccesses = 0;
       this.props.consecutiveFailures += 1;
       if (!this.props.alertActive && this.props.consecutiveFailures >= 3) {
         this.props.alertActive = true;
@@ -177,6 +181,7 @@ export class HealthCheckTarget {
 
   private resetAlertState(): void {
     this.props.consecutiveFailures = 0;
+    this.props.consecutiveSuccesses = 0;
     this.props.alertActive = false;
     this.props.lastHeartbeatAt = null;
   }

@@ -7,7 +7,7 @@ import { projectApi, type LogEvent, type LogPage, type Project } from "@/app/fea
 import { EventHistogram } from "./components/event-histogram";
 import { LogStreamTable } from "./components/log-stream-table";
 import { QueryConsole } from "./components/query-console";
-import { matchesExclusions, parseQuery, timeBounds } from "./query";
+import { parseQuery, timeBounds } from "./query";
 
 const message = (cause: unknown) => cause instanceof Error ? cause.message : "Could not load records";
 
@@ -29,7 +29,7 @@ export function ExplorerPage() {
 
   const parsed = useMemo(() => {
     try { return { ...parseQuery(query), bounds: timeBounds(time), error: "" }; }
-    catch (cause) { return { params: new URLSearchParams(), exclusions: [], bounds: null, error: message(cause) }; }
+    catch (cause) { return { params: new URLSearchParams(), bounds: null, error: message(cause) }; }
   }, [query, time]);
   const viewKey = `${projectId}\n${time}\n${query}`;
   const visiblePage = loadedKey === viewKey ? page : null;
@@ -99,12 +99,11 @@ export function ExplorerPage() {
     finally { setLoading(false); }
   }
 
-  const visible = (visiblePage ? records : []).filter((record) => matchesExclusions(record, parsed.exclusions));
+  const visible = visiblePage ? records : [];
   return <section className="space-y-4">
     <header className="flex flex-wrap items-end justify-between gap-2"><div><p className="text-xs font-semibold uppercase tracking-widest text-blue-700">Log & Events</p><h1 className="mt-1 text-2xl font-semibold text-slate-950">Log & Event Explorer</h1><p className="text-sm text-slate-500">Search customer-reported records by received time.</p></div><Link href={`/explorer/rules${projectId ? `?projectId=${encodeURIComponent(projectId)}` : ""}`} className="rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 hover:bg-slate-50">Rules & Findings</Link></header>
     <QueryConsole key={query} projects={projects} projectId={projectId} time={time} query={query} autoRefresh={autoRefresh} loading={loading} onProject={selectProject} onTime={(next) => updateUrl({ time: next })} onQuery={(next) => updateUrl({ q: next })} onRefresh={() => setRefreshCount((count) => count + 1)} onAutoRefresh={setAutoRefresh} />
-    {parsed.exclusions.length > 0 && <p className="text-xs text-amber-700">Exclude filters apply to the loaded rows only; the histogram and server match count show all matching records.</p>}
     {(projectError || parsed.error || error) && <p role="alert" className="rounded-md border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700">{projectError || parsed.error || error}</p>}
-    {projects.length === 0 && !projectError ? <p className="rounded-xl border border-slate-200 bg-white p-8 text-center text-sm text-slate-500">Choose or create a log project to explore records.</p> : <><EventHistogram page={visiblePage} onZoom={(from, to) => updateUrl({ time: `${from},${to}` })} /><LogStreamTable page={visiblePage} records={visible} loading={loading} excluded={parsed.exclusions.length > 0} onMore={() => void loadMore()} onFilter={addFilter} /></>}
+    {projects.length === 0 && !projectError ? <p className="rounded-xl border border-slate-200 bg-white p-8 text-center text-sm text-slate-500">Choose or create a log project to explore records.</p> : <><EventHistogram page={visiblePage} onZoom={(from, to) => updateUrl({ time: `${from},${to}` })} /><LogStreamTable page={visiblePage} records={visible} loading={loading} onMore={() => void loadMore()} onFilter={addFilter} /></>}
   </section>;
 }
