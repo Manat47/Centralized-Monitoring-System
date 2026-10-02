@@ -156,7 +156,10 @@ export function HealthChecksTable() {
           asset?.name.toLowerCase().includes(query) ||
           target.url.toLowerCase().includes(query))
       );
-    });
+    }).sort((a, b) =>
+      a.name.localeCompare(b.name, undefined, { sensitivity: "base", numeric: true }) ||
+      a.healthCheckTargetId.localeCompare(b.healthCheckTargetId),
+    );
   }, [archiveFilter, assetById, resultFilter, search, targets]);
   const actionError =
     pauseMutation.error ??
