@@ -5,6 +5,7 @@ import { AlertTriangle, LoaderCircle, Plus } from "lucide-react";
 
 import { AdminOnly } from "@/app/features/auth/components/admin-only";
 import { useAssets } from "@/app/features/assets/api/use-assets";
+import type { Asset } from "@/app/features/assets/types/asset";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -27,6 +28,27 @@ import {
 
 import { useCreateHealthCheckTarget } from "../api/use-health-check-actions";
 import { hasOriginMismatch } from "./health-check-status";
+
+function suggestedHealthUrl(asset: Asset | undefined): string | null {
+  if (!asset) return null;
+  const endpoint = asset.endpoint?.trim();
+  if (endpoint) {
+    try {
+      const url = new URL(endpoint);
+      if (url.protocol === "http:" || url.protocol === "https:") return url.toString();
+    } catch {
+      // Fall back to the asset address when its endpoint is not a URL.
+    }
+  }
+  const address = asset.ipAddress?.trim() || asset.hostname?.trim();
+  if (!address) return null;
+  try {
+    const host = address.includes(":") && !address.startsWith("[") ? `[${address}]` : address;
+    return new URL(`http://${host}/`).toString();
+  } catch {
+    return null;
+  }
+}
 
 export function CreateHealthCheckDialog({ buttonLabel = "New Health Check" }: { buttonLabel?: string }) {
   const [open, setOpen] = useState(false);
@@ -122,7 +144,8 @@ export function CreateHealthCheckDialog({ buttonLabel = "New Health Check" }: { 
                     (item) => item.assetId === nextId,
                   );
                   setAssetId(nextId);
-                  if (asset?.endpoint && !url) setUrl(asset.endpoint);
+                  const suggestedUrl = suggestedHealthUrl(asset);
+                  if (suggestedUrl) setUrl(suggestedUrl);
                 }}
               >
                 <SelectTrigger className="h-10 w-full">
