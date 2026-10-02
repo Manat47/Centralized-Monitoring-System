@@ -31,10 +31,13 @@ export class InfluxHealthCheckStorage implements HealthCheckStorage {
 
   async writeResult(input: StoreHealthCheckResultInput): Promise<void> {
     const point = new Point('health_check')
-      .tag('assetId', input.assetId)
       .tag('healthCheckTargetId', input.healthCheckTargetId)
       .intField('responseTimeMs', input.result.responseTimeMs)
       .timestamp(input.result.checkedAt);
+
+    if (input.assetId !== null) {
+      point.tag('assetId', input.assetId);
+    }
 
     if (input.result.statusCode !== null) {
       point.intField('statusCode', input.result.statusCode);

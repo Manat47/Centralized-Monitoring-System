@@ -83,20 +83,23 @@ export class CheckHealthTargetUseCase {
       throw new BadRequestException('Archived health check cannot be run');
     }
 
-    const asset = await this.assetReader.findById(data.assetId);
+    const resourceName = data.name;
+    if (data.assetId !== null) {
+      const asset = await this.assetReader.findById(data.assetId);
 
-    if (!asset) {
-      throw new NotFoundException(`Asset with ID ${data.assetId} not found`);
-    }
+      if (!asset) {
+        throw new NotFoundException(`Asset with ID ${data.assetId} not found`);
+      }
 
-    if (asset.status !== 'ACTIVATE') {
-      throw new AssetNotOperationalException(asset.assetId, asset.status);
-    }
+      if (asset.status !== 'ACTIVATE') {
+        throw new AssetNotOperationalException(asset.assetId, asset.status);
+      }
 
-    if (asset.assetType !== 'APPLICATION') {
-      throw new BadRequestException(
-        'Health checks can only run for application assets',
-      );
+      if (asset.assetType !== 'APPLICATION') {
+        throw new BadRequestException(
+          'Health checks can only run for application assets',
+        );
+      }
     }
 
     const result = await this.healthChecker.check(data.url);
@@ -111,7 +114,7 @@ export class CheckHealthTargetUseCase {
 
     await this.healthCheckTargetRepository.update(target);
 
-    if (!input) {
+    if (!input && data.assetId !== null) {
       await this.alertEventPublisher.publish({
         eventId: randomUUID(),
         eventType: 'HEALTH_CHECK_RESULT_RECORDED',
@@ -134,17 +137,14 @@ export class CheckHealthTargetUseCase {
         action: 'HEALTH_CHECK_TARGET_CHECKED',
         resourceType: 'HEALTH_CHECK_TARGET',
         resourceId: healthCheckTargetId,
-        resourceName: `${asset.name} health check`,
+        resourceName,
         result: 'SUCCESS',
         metadata: {
           assetId: data.assetId,
           url: getAuditSafeHealthCheckUrl(data.url),
           statusCode: result.statusCode,
           responseTimeMs: result.responseTimeMs,
-          available:
-            result.statusCode !== null &&
-            result.statusCode >= 200 &&
-            result.statusCode < 300,
+          available: result.statusCode === data.expectedStatus,
           error: result.error,
         },
         occurredAt: new Date(),

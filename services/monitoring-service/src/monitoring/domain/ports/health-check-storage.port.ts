@@ -2,7 +2,7 @@ import type { HealthCheckResult } from './health-checker.port';
 
 export interface StoreHealthCheckResultInput {
   healthCheckTargetId: string;
-  assetId: string;
+  assetId: string | null;
   result: HealthCheckResult;
 }
 

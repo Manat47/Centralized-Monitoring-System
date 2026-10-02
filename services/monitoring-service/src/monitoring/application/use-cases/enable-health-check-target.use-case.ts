@@ -71,22 +71,27 @@ export class EnableHealthCheckTargetUseCase {
       throw new BadRequestException('Archived health check cannot be resumed');
     }
 
-    const asset = await this.assetReader.findById(data.assetId);
+    let resourceName = getAuditSafeHealthCheckUrl(data.url);
+    if (data.assetId !== null) {
+      const asset = await this.assetReader.findById(data.assetId);
 
-    if (!asset) {
-      throw new NotFoundException(`Asset with ID ${data.assetId} not found`);
-    }
+      if (!asset) {
+        throw new NotFoundException(`Asset with ID ${data.assetId} not found`);
+      }
 
-    if (asset.status === 'DEACTIVATE') {
-      throw new BadRequestException(
-        'Health check cannot be configured for a deactivated asset',
-      );
-    }
+      if (asset.status === 'DEACTIVATE') {
+        throw new BadRequestException(
+          'Health check cannot be configured for a deactivated asset',
+        );
+      }
 
-    if (asset.assetType !== 'APPLICATION') {
-      throw new BadRequestException(
-        'Health checks can only run for application assets',
-      );
+      if (asset.assetType !== 'APPLICATION') {
+        throw new BadRequestException(
+          'Health checks can only run for application assets',
+        );
+      }
+
+      resourceName = `${asset.name} health check`;
     }
 
     target.enable();
@@ -102,7 +107,7 @@ export class EnableHealthCheckTargetUseCase {
 
       resourceType: 'HEALTH_CHECK_TARGET',
       resourceId: healthCheckTargetId,
-      resourceName: `${asset.name} health check`,
+      resourceName,
 
       result: 'SUCCESS',
       metadata: {
@@ -115,16 +120,18 @@ export class EnableHealthCheckTargetUseCase {
     });
 
     const updatedData = updatedTarget.toObject();
-    await this.alertEventPublisher.publish({
-      eventId: randomUUID(),
-      eventType: 'HEALTH_CHECK_TARGET_STATE_CHANGED',
-      healthCheckTargetId,
-      assetId: updatedData.assetId,
-      url: updatedData.url,
-      checkIntervalSeconds: updatedData.checkIntervalSeconds,
-      state: 'RUNNING',
-      occurredAt: updatedData.updatedAt,
-    });
+    if (updatedData.assetId !== null) {
+      await this.alertEventPublisher.publish({
+        eventId: randomUUID(),
+        eventType: 'HEALTH_CHECK_TARGET_STATE_CHANGED',
+        healthCheckTargetId,
+        assetId: updatedData.assetId,
+        url: updatedData.url,
+        checkIntervalSeconds: updatedData.checkIntervalSeconds,
+        state: 'RUNNING',
+        occurredAt: updatedData.updatedAt,
+      });
+    }
 
     return updatedTarget;
   }

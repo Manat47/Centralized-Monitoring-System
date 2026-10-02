@@ -17,6 +17,7 @@ import {
 import {
   ASSET_READER,
   type AssetReader,
+  type AssetSnapshot,
 } from '../../domain/ports/asset-reader.port';
 
 import {
@@ -34,7 +35,9 @@ import {
 } from '../../domain/ports/alert-event-publisher.port';
 
 export interface CreateHealthCheckTargetInput {
-  assetId: string;
+  assetId?: string | null;
+  name?: string;
+  expectedStatus?: number;
   url: string;
   checkIntervalSeconds?: number;
 
@@ -62,40 +65,45 @@ export class CreateHealthCheckTargetUseCase {
   async execute(
     input: CreateHealthCheckTargetInput,
   ): Promise<HealthCheckTarget> {
-    const asset = await this.assetReader.findById(input.assetId);
-
-    if (!asset) {
-      throw new NotFoundException(`Asset with ID ${input.assetId} not found`);
-    }
-
-    if (asset.status === 'DEACTIVATE') {
-      throw new BadRequestException(
-        'Deactivated asset cannot be configured for health checks',
-      );
-    }
-
-    if (asset.assetType !== 'APPLICATION') {
-      throw new BadRequestException(
-        'Health checks can only be configured for application assets',
-      );
-    }
-
     const normalizedUrl = normalizeHealthCheckUrl(input.url);
+    let asset: AssetSnapshot | null = null;
 
-    const existingTarget =
-      await this.healthCheckTargetRepository.findActiveByAssetIdAndUrl(
-        asset.assetId,
-        normalizedUrl,
-      );
+    if (input.assetId !== null && input.assetId !== undefined) {
+      asset = await this.assetReader.findById(input.assetId);
 
-    if (existingTarget) {
-      throw new ConflictException(
-        'An active health check already exists for this application and URL',
-      );
+      if (!asset) {
+        throw new NotFoundException(`Asset with ID ${input.assetId} not found`);
+      }
+
+      if (asset.status === 'DEACTIVATE') {
+        throw new BadRequestException(
+          'Deactivated asset cannot be configured for health checks',
+        );
+      }
+
+      if (asset.assetType !== 'APPLICATION') {
+        throw new BadRequestException(
+          'Health checks can only be configured for application assets',
+        );
+      }
+
+      const existingTarget =
+        await this.healthCheckTargetRepository.findActiveByAssetIdAndUrl(
+          asset.assetId,
+          normalizedUrl,
+        );
+
+      if (existingTarget) {
+        throw new ConflictException(
+          'An active health check already exists for this application and URL',
+        );
+      }
     }
 
     const createProps: CreateHealthCheckTargetProps = {
-      assetId: asset.assetId,
+      assetId: asset?.assetId ?? null,
+      name: input.name,
+      expectedStatus: input.expectedStatus,
       url: normalizedUrl,
       checkIntervalSeconds: input.checkIntervalSeconds,
     };
@@ -115,11 +123,12 @@ export class CreateHealthCheckTargetUseCase {
 
       resourceType: 'HEALTH_CHECK_TARGET',
       resourceId: healthCheckTargetId,
-      resourceName: `${asset.name} health check`,
+      resourceName: target.toObject().name,
 
       result: 'SUCCESS',
       metadata: {
-        assetId: asset.assetId,
+        assetId: asset?.assetId ?? null,
+        expectedStatus: target.toObject().expectedStatus,
         url: getAuditSafeHealthCheckUrl(normalizedUrl),
         checkIntervalSeconds: target.toObject().checkIntervalSeconds,
       },
@@ -129,16 +138,18 @@ export class CreateHealthCheckTargetUseCase {
 
     const createdData = createdTarget.toObject();
 
-    await this.alertEventPublisher.publish({
-      eventId: randomUUID(),
-      eventType: 'HEALTH_CHECK_TARGET_STATE_CHANGED',
-      healthCheckTargetId,
-      assetId: createdData.assetId,
-      url: createdData.url,
-      checkIntervalSeconds: createdData.checkIntervalSeconds,
-      state: 'RUNNING',
-      occurredAt: createdData.createdAt,
-    });
+    if (createdData.assetId !== null) {
+      await this.alertEventPublisher.publish({
+        eventId: randomUUID(),
+        eventType: 'HEALTH_CHECK_TARGET_STATE_CHANGED',
+        healthCheckTargetId,
+        assetId: createdData.assetId,
+        url: createdData.url,
+        checkIntervalSeconds: createdData.checkIntervalSeconds,
+        state: 'RUNNING',
+        occurredAt: createdData.createdAt,
+      });
+    }
 
     return createdTarget;
   }

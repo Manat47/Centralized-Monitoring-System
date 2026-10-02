@@ -85,16 +85,18 @@ export class UpdateHealthCheckTargetUseCase {
     });
 
     const updatedData = updatedTarget.toObject();
-    await this.alertEventPublisher.publish({
-      eventId: randomUUID(),
-      eventType: 'HEALTH_CHECK_TARGET_STATE_CHANGED',
-      healthCheckTargetId,
-      assetId: updatedData.assetId,
-      url: updatedData.url,
-      checkIntervalSeconds: updatedData.checkIntervalSeconds,
-      state: updatedData.enabled ? 'RUNNING' : 'PAUSED',
-      occurredAt: updatedData.updatedAt,
-    });
+    if (updatedData.assetId !== null) {
+      await this.alertEventPublisher.publish({
+        eventId: randomUUID(),
+        eventType: 'HEALTH_CHECK_TARGET_STATE_CHANGED',
+        healthCheckTargetId,
+        assetId: updatedData.assetId,
+        url: updatedData.url,
+        checkIntervalSeconds: updatedData.checkIntervalSeconds,
+        state: updatedData.enabled ? 'RUNNING' : 'PAUSED',
+        occurredAt: updatedData.updatedAt,
+      });
+    }
 
     return updatedTarget;
   }

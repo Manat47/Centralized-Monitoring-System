@@ -1,6 +1,8 @@
 export interface HealthCheckTargetProps {
   healthCheckTargetId: string;
-  assetId: string;
+  assetId: string | null;
+  name: string;
+  expectedStatus: number;
   url: string;
   checkIntervalSeconds: number;
   enabled: boolean;
@@ -11,7 +13,9 @@ export interface HealthCheckTargetProps {
 }
 
 export interface CreateHealthCheckTargetProps {
-  assetId: string;
+  assetId?: string | null;
+  name?: string;
+  expectedStatus?: number;
   url: string;
   checkIntervalSeconds?: number;
 }
@@ -23,8 +27,12 @@ export class HealthCheckTarget {
     healthCheckTargetId: string,
     props: CreateHealthCheckTargetProps,
   ): HealthCheckTarget {
-    if (!props.assetId.trim()) {
-      throw new Error('assetId is required');
+    if (
+      props.assetId !== null &&
+      props.assetId !== undefined &&
+      !props.assetId.trim()
+    ) {
+      throw new Error('assetId cannot be blank');
     }
 
     if (!props.url.trim()) {
@@ -32,6 +40,22 @@ export class HealthCheckTarget {
     }
 
     const url = new URL(props.url.trim());
+
+    const name =
+      props.name?.trim() ||
+      getAuditSafeHealthCheckUrl(url.toString()).slice(0, 120);
+    if (name.length > 120) {
+      throw new Error('Health check name must be at most 120 characters');
+    }
+
+    const expectedStatus = props.expectedStatus ?? 200;
+    if (
+      !Number.isInteger(expectedStatus) ||
+      expectedStatus < 100 ||
+      expectedStatus > 599
+    ) {
+      throw new Error('Expected HTTP status must be between 100 and 599');
+    }
 
     if (url.protocol !== 'http:' && url.protocol !== 'https:') {
       throw new Error('Health check URL must use HTTP or HTTPS');
@@ -47,7 +71,9 @@ export class HealthCheckTarget {
 
     return new HealthCheckTarget({
       healthCheckTargetId,
-      assetId: props.assetId,
+      assetId: props.assetId ?? null,
+      name,
+      expectedStatus,
       url: normalizeHealthCheckUrl(url),
       checkIntervalSeconds,
       enabled: true,

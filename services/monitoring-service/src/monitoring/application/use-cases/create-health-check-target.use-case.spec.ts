@@ -12,6 +12,7 @@ import { CreateHealthCheckTargetUseCase } from './create-health-check-target.use
 
 const application: AssetSnapshot = {
   assetId: 'asset-1',
+  name: 'Example application',
   assetType: 'APPLICATION',
   ipAddress: null,
   hostname: null,
@@ -68,12 +69,33 @@ describe('CreateHealthCheckTargetUseCase', () => {
       checkIntervalSeconds: 30,
       enabled: true,
     });
-    expect(alertEventPublisher.publish).toHaveBeenCalledWith(
+    expect(alertEventPublisher.publish.mock.calls[0][0]).toEqual(
       expect.objectContaining({
         eventType: 'HEALTH_CHECK_TARGET_STATE_CHANGED',
         state: 'RUNNING',
       }),
     );
+  });
+
+  it('creates a standalone check without reading an asset or publishing an alert event', async () => {
+    const target = await useCase.execute({
+      name: 'Standalone API',
+      expectedStatus: 204,
+      url: 'https://example.com/health',
+      actorUserId: 'user-1',
+      actorRole: 'ADMIN',
+    });
+
+    expect(target.toObject()).toMatchObject({
+      assetId: null,
+      name: 'Standalone API',
+      expectedStatus: 204,
+    });
+    expect(assetReader.findById.mock.calls).toHaveLength(0);
+    expect(repository.findActiveByAssetIdAndUrl.mock.calls).toHaveLength(0);
+    expect(repository.create.mock.calls).toHaveLength(1);
+    expect(auditPublisher.publish.mock.calls).toHaveLength(1);
+    expect(alertEventPublisher.publish.mock.calls).toHaveLength(0);
   });
 
   it('rejects non-application assets', async () => {

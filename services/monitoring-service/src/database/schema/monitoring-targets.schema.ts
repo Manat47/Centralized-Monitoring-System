@@ -134,7 +134,10 @@ export const healthCheckTargets = pgTable(
       .defaultRandom()
       .primaryKey(),
 
-    assetId: uuid('asset_id').notNull(),
+    assetId: text('asset_id'),
+
+    name: varchar('name', { length: 120 }).default('Health check').notNull(),
+    expectedStatus: integer('expected_status').default(200).notNull(),
 
     url: varchar('url', { length: 2048 }).notNull(),
 
