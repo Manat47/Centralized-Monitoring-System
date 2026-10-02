@@ -462,5 +462,8 @@ export class PostgresActivityRepository
     await this.db.query(
       "DELETE FROM log_ingest_requests WHERE received_at < now() - interval '30 days'",
     );
+    await this.db.query(
+      "DELETE FROM log_accepted_batches WHERE accepted_at < now() - interval '30 days'",
+    );
   }
 }

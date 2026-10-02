@@ -1,18 +1,17 @@
-import { HttpException, ValidationPipe } from '@nestjs/common';
+import { HttpException, Logger, ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import type { NextFunction, Request, Response } from 'express';
 import express from 'express';
 import { AppModule } from './app.module';
 import { IngestService } from './ingest.service';
 import { LogInfrastructure } from './log.infrastructure';
-import { ProcessActivityEventUseCase } from './log-events/application/use-cases/process-activity-event.use-case';
 import { randomUUID } from 'node:crypto';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, { bodyParser: false });
   const ingest = app.get(IngestService);
   const infrastructure = app.get(LogInfrastructure);
-  const processEvents = app.get(ProcessActivityEventUseCase);
+  const logger = new Logger('LogRequestReceipt');
   app.use(
     '/ingest/logs',
     (
@@ -44,9 +43,11 @@ async function bootstrap() {
                     : 'rejected_other';
         void infrastructure
           .recordAggregate(request.projectId ?? null, field)
-          .catch(() => undefined);
-        void processEvents
-          .executeRequest({
+          .catch((error: unknown) =>
+            logger.error('Could not record request metric', error),
+          );
+        void infrastructure
+          .enqueueRequestReceipt({
             requestId: request.requestId!,
             projectId: request.projectId ?? null,
             tokenId: request.tokenId ?? null,
@@ -58,7 +59,9 @@ async function bootstrap() {
                 : (request.rejectReason ?? field),
             acceptedRecords: request.acceptedRecords ?? 0,
           })
-          .catch(() => undefined);
+          .catch((error: unknown) =>
+            logger.error('Could not queue request receipt', error),
+          );
       });
       void ingest
         .authenticate(request.headers.authorization)

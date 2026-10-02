@@ -17,6 +17,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import { DataStore } from './data.store';
 import type { StoredLog } from './log-events/domain/entities/log-event.entity';
 import { ProcessActivityEventUseCase } from './log-events/application/use-cases/process-activity-event.use-case';
+import type { RequestReceipt } from './log-events/domain/repositories/activity.repository';
 
 export interface QueuedLogs {
   batchId: string;
@@ -33,6 +34,12 @@ const DEAD_LETTER_QUEUE = 'app_logs_dead_letter';
 const RETRY_QUEUE = 'app_logs_retry';
 const LOG_EXCHANGE = 'app_logs';
 const LOG_ROUTING_KEY = 'logs.events';
+const REQUEST_QUEUE = 'app_log_requests_queue';
+const REQUEST_RETRY_QUEUE = 'app_log_requests_retry';
+const REQUEST_DEAD_LETTER_QUEUE = 'app_log_requests_dead_letter';
+const REQUEST_ROUTING_KEY = 'logs.requests';
+const PENDING_RECEIPTS = 'log:request-receipts:pending';
+const PROCESSING_RECEIPTS = 'log:request-receipts:processing';
 
 @Injectable()
 export class LogInfrastructure implements OnModuleInit, OnModuleDestroy {
@@ -44,7 +51,10 @@ export class LogInfrastructure implements OnModuleInit, OnModuleDestroy {
   private connection?: ChannelModel;
   private publisher?: ConfirmChannel;
   private consumer?: Channel;
+  private requestConsumer?: Channel;
   private metricTimer?: ReturnType<typeof setInterval>;
+  private receiptTimer?: ReturnType<typeof setInterval>;
+  private flushingReceipts = false;
 
   readonly rateLimitRpm = Number(process.env.LOG_RATE_LIMIT_RPM ?? 600);
 
@@ -94,6 +104,23 @@ export class LogInfrastructure implements OnModuleInit, OnModuleDestroy {
       },
     });
     await this.publisher.bindQueue(LOG_QUEUE, LOG_EXCHANGE, LOG_ROUTING_KEY);
+    await this.publisher.assertQueue(REQUEST_QUEUE, { durable: true });
+    await this.publisher.assertQueue(REQUEST_DEAD_LETTER_QUEUE, {
+      durable: true,
+    });
+    await this.publisher.assertQueue(REQUEST_RETRY_QUEUE, {
+      durable: true,
+      arguments: {
+        'x-message-ttl': 2000,
+        'x-dead-letter-exchange': LOG_EXCHANGE,
+        'x-dead-letter-routing-key': REQUEST_ROUTING_KEY,
+      },
+    });
+    await this.publisher.bindQueue(
+      REQUEST_QUEUE,
+      LOG_EXCHANGE,
+      REQUEST_ROUTING_KEY,
+    );
     await this.publisher.assertQueue(
       process.env.RABBITMQ_AUDIT_QUEUE ?? 'audit_events',
       { durable: true },
@@ -107,6 +134,23 @@ export class LogInfrastructure implements OnModuleInit, OnModuleDestroy {
         void this.consume(message);
       },
       { noAck: false },
+    );
+    this.requestConsumer = await this.connection.createChannel();
+    await this.requestConsumer.prefetch(10);
+    await this.requestConsumer.consume(
+      REQUEST_QUEUE,
+      (message) => {
+        void this.consumeRequest(message);
+      },
+      { noAck: false },
+    );
+    this.receiptTimer = setInterval(() => {
+      void this.flushReceiptQueue().catch((error: unknown) =>
+        this.logger.error('Request receipt publish will retry', error),
+      );
+    }, 2000);
+    void this.flushReceiptQueue().catch((error: unknown) =>
+      this.logger.error('Request receipt publish will retry', error),
     );
   }
 
@@ -184,6 +228,42 @@ export class LogInfrastructure implements OnModuleInit, OnModuleDestroy {
 
   async publishLogs(payload: QueuedLogs) {
     await this.confirmPublish(LOG_EXCHANGE, LOG_ROUTING_KEY, payload);
+  }
+
+  async enqueueRequestReceipt(receipt: RequestReceipt): Promise<void> {
+    try {
+      await this.redis.lpush(PENDING_RECEIPTS, JSON.stringify(receipt));
+    } catch (error) {
+      this.logger.warn(
+        `Redis receipt staging unavailable; publishing directly: ${String(error)}`,
+      );
+      await this.confirmPublish(LOG_EXCHANGE, REQUEST_ROUTING_KEY, receipt);
+      return;
+    }
+    void this.flushReceiptQueue().catch((error: unknown) =>
+      this.logger.error('Request receipt publish will retry', error),
+    );
+  }
+
+  private async flushReceiptQueue(): Promise<void> {
+    if (this.flushingReceipts) return;
+    this.flushingReceipts = true;
+    try {
+      for (;;) {
+        const pending =
+          (await this.redis.lindex(PROCESSING_RECEIPTS, 0)) ??
+          (await this.redis.rpoplpush(PENDING_RECEIPTS, PROCESSING_RECEIPTS));
+        if (!pending) break;
+        await this.confirmPublish(
+          LOG_EXCHANGE,
+          REQUEST_ROUTING_KEY,
+          JSON.parse(pending),
+        );
+        await this.redis.lrem(PROCESSING_RECEIPTS, 1, pending);
+      }
+    } finally {
+      this.flushingReceipts = false;
+    }
   }
 
   async publishAudit(payload: Record<string, unknown>) {
@@ -373,13 +453,42 @@ export class LogInfrastructure implements OnModuleInit, OnModuleDestroy {
         payload.acceptedAt,
         payload.events.length,
         payload.idempotencyKey,
+        payload.requestId,
       );
+      await this.db.markBatchStored(payload.batchId);
       this.consumer.ack(message);
     } catch (error) {
       this.logger.error('Failed to persist queued logs; retrying', error);
       const priorAttempts = Number(message.properties.headers?.retryCount ?? 0);
       try {
         if (priorAttempts >= 10) {
+          let failed: Partial<QueuedLogs> = {};
+          try {
+            failed = JSON.parse(
+              message.content.toString(),
+            ) as Partial<QueuedLogs>;
+          } catch {
+            /* malformed payload has no batch to track */
+          }
+          if (
+            failed.batchId &&
+            failed.projectId &&
+            failed.acceptedAt &&
+            Array.isArray(failed.events)
+          ) {
+            await this.db.recordAccepted(
+              failed.batchId,
+              failed.projectId,
+              failed.acceptedAt,
+              failed.events.length,
+              failed.idempotencyKey,
+              failed.requestId,
+            );
+            await this.db.markBatchFailed(
+              failed.batchId,
+              'Log processing failed after retries',
+            );
+          }
           await this.confirmPublish('', DEAD_LETTER_QUEUE, {
             reason: String(error),
             raw: message.content.toString('base64'),
@@ -400,14 +509,52 @@ export class LogInfrastructure implements OnModuleInit, OnModuleDestroy {
     }
   }
 
+  private async consumeRequest(message: ConsumeMessage | null) {
+    if (!message || !this.requestConsumer) return;
+    try {
+      const receipt = JSON.parse(message.content.toString()) as RequestReceipt;
+      if (
+        !receipt.requestId ||
+        !receipt.receivedAt ||
+        !Number.isInteger(receipt.httpStatus)
+      )
+        throw new Error('Invalid request receipt');
+      await this.processActivity.executeRequest(receipt);
+      this.requestConsumer.ack(message);
+    } catch (error) {
+      this.logger.error('Failed to persist request receipt; retrying', error);
+      const attempts = Number(message.properties.headers?.retryCount ?? 0);
+      try {
+        if (attempts >= 10)
+          await this.confirmPublish('', REQUEST_DEAD_LETTER_QUEUE, {
+            reason: String(error),
+            raw: message.content.toString('base64'),
+          });
+        else
+          await this.confirmPublish('', REQUEST_RETRY_QUEUE, message.content, {
+            retryCount: attempts + 1,
+          });
+        this.requestConsumer?.ack(message);
+      } catch (publishError) {
+        this.logger.error(
+          'Could not publish request receipt retry',
+          publishError,
+        );
+        this.requestConsumer?.nack(message, false, true);
+      }
+    }
+  }
+
   tokenHash(token: string): string {
     return createHash('sha256').update(token).digest('hex');
   }
 
   async onModuleDestroy() {
     if (this.metricTimer) clearInterval(this.metricTimer);
+    if (this.receiptTimer) clearInterval(this.receiptTimer);
     await this.flushMetrics().catch(() => undefined);
     await this.consumer?.close();
+    await this.requestConsumer?.close();
     await this.publisher?.close();
     await this.connection?.close();
     this.redis.disconnect();

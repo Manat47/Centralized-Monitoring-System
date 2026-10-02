@@ -1,6 +1,8 @@
 import type { JwtService } from '@nestjs/jwt';
 import type { ConfigService } from '@nestjs/config';
 import type { NextFunction, Request, Response } from 'express';
+import { createHash, randomUUID } from 'node:crypto';
+import type Redis from 'ioredis';
 
 type UserRole = 'ADMIN' | 'OPERATOR';
 
@@ -21,6 +23,68 @@ const PUBLIC_ROUTES = new Set([
   '/api/metrics',
   '/api/ingest/logs',
 ]);
+
+const INGEST_PATH = '/api/ingest/logs';
+
+export function createGatewayIngestRateLimit(redis: Redis, limit = 600) {
+  if (!Number.isInteger(limit) || limit < 1)
+    throw new Error('LOG_RATE_LIMIT_RPM must be a positive integer');
+  return async (request: Request, response: Response, next: NextFunction) => {
+    const path = request.originalUrl.split('?')[0];
+    if (
+      (request.method !== 'POST' || path !== INGEST_PATH) &&
+      (request.method !== 'GET' ||
+        !/^\/api\/ingest\/logs\/receipts\/[0-9a-f-]+$/i.test(path))
+    ) {
+      next();
+      return;
+    }
+    const now = Date.now();
+    const ip = request.socket.remoteAddress ?? 'unknown';
+    const ipKey = `gateway:ingest:ip:${createHash('sha256').update(ip).digest('hex')}`;
+    const token = /^Bearer (prj_live_[A-Za-z0-9_-]+)$/.exec(
+      request.headers.authorization ?? '',
+    )?.[1];
+    const keys = token
+      ? [
+          ipKey,
+          `gateway:ingest:token:${createHash('sha256').update(token).digest('hex')}`,
+        ]
+      : [ipKey];
+    try {
+      const permitted = Number(
+        await redis.eval(
+          `for i=1,#KEYS do
+           redis.call('ZREMRANGEBYSCORE',KEYS[i],'-inf',ARGV[1])
+           if redis.call('ZCARD',KEYS[i]) >= tonumber(ARGV[2]) then return 0 end
+         end
+         for i=1,#KEYS do
+           redis.call('ZADD',KEYS[i],ARGV[3],ARGV[4])
+           redis.call('EXPIRE',KEYS[i],120)
+         end
+         return 1`,
+          keys.length,
+          ...keys,
+          now - 60_000,
+          limit,
+          now,
+          `${now}:${randomUUID()}`,
+        ),
+      );
+      if (!permitted) {
+        response
+          .status(429)
+          .json({ statusCode: 429, message: 'Log API rate limit exceeded' });
+        return;
+      }
+      next();
+    } catch {
+      response
+        .status(503)
+        .json({ statusCode: 503, message: 'Log API rate limiter unavailable' });
+    }
+  };
+}
 
 function extractAccessToken(request: Request): string | null {
   const authorization = request.headers.authorization;
@@ -72,7 +136,11 @@ export function createGatewayAuthMiddleware(
     delete request.headers['x-user-role'];
     delete request.headers['x-internal-service-secret'];
 
-    if (PUBLIC_ROUTES.has(path)) {
+    if (
+      PUBLIC_ROUTES.has(path) ||
+      (request.method === 'GET' &&
+        /^\/api\/ingest\/logs\/receipts\/[0-9a-f-]+$/i.test(path))
+    ) {
       next();
       return;
     }
