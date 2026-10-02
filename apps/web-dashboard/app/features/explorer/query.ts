@@ -1,8 +1,12 @@
 export type TimeSelection = "15m" | "1h" | "24h" | "7d" | string;
 
+export function splitQueryWords(input: string): string[] {
+  return input.trim().match(/(?:[^\s"]+|"[^"]*")+/g) ?? [];
+}
+
 export function parseQuery(input: string): { params: URLSearchParams } {
   const params = new URLSearchParams();
-  const words = input.trim().split(/\s+/).filter(Boolean);
+  const words = splitQueryWords(input);
   const search: string[] = [];
   for (let index = 0; index < words.length; index++) {
     const word = words[index];
@@ -12,13 +16,22 @@ export function parseQuery(input: string): { params: URLSearchParams } {
     const field = /^(source|event_type|severity):(.+)$/i.exec(token);
     if (field) {
       const key = field[1].toLowerCase();
-      const value = field[2];
+      const value = field[2].startsWith('"') && field[2].endsWith('"') ? field[2].slice(1, -1) : field[2];
       if (key === "severity" && !["INFO", "WARN", "ERROR", "CRITICAL"].includes(value.toUpperCase())) throw new Error("Severity must be INFO, WARN, ERROR, or CRITICAL.");
       if (excluded) params.append(`exclude_${key}`, key === "severity" ? value.toUpperCase() : value);
       else params.set(key, key === "severity" ? value.toUpperCase() : value);
       continue;
     }
-    if (excluded) throw new Error("NOT supports source, event_type, or severity.");
+    if (/^payload\.[A-Za-z_][A-Za-z_0-9]*:.+$/i.test(token)) {
+      search.push(`${excluded ? "NOT " : ""}${token}`);
+      continue;
+    }
+    if (/^(ip|user_id|location|tag|message):.+$/i.test(token)) {
+      if (excluded) throw new Error("NOT supports source, event_type, severity, or payload fields.");
+      search.push(token);
+      continue;
+    }
+    if (excluded) throw new Error("NOT supports source, event_type, severity, or payload fields.");
     const comparison = /^(status_code|duration_ms)(>=|<=|=|>|<)(\d+(?:\.\d+)?)$/i.exec(token);
     if (comparison) {
       search.push(`${comparison[1].toLowerCase()}${comparison[2]}${comparison[3]}`);

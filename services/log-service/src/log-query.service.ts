@@ -15,7 +15,12 @@ export interface LogFilters {
   limit?: string;
 }
 
-type ParsedTerm = { field: string; operator: string; value: string };
+type ParsedTerm = {
+  field: string;
+  operator: string;
+  value: string;
+  negated?: boolean;
+};
 const FIELDS = [
   'source',
   'event_type',
@@ -33,11 +38,16 @@ export function parseLogSearch(input: string): ParsedTerm[] {
   const terms: ParsedTerm[] = [];
   let rest = input.trim();
   while (rest) {
+    const notPrefix = /^NOT\s+/i.exec(rest);
+    const negated = Boolean(notPrefix);
+    if (notPrefix) rest = rest.slice(notPrefix[0].length);
     const comparison =
       /^(status_code|duration_ms)\s*(>=|<=|=|>|<)\s*(\d+(?:\.\d+)?)(?:\s+|$)/i.exec(
         rest,
       );
     if (comparison) {
+      if (negated)
+        throw new BadRequestException('NOT supports payload fields here');
       terms.push({
         field: comparison[1].toLowerCase(),
         operator: comparison[2],
@@ -49,8 +59,14 @@ export function parseLogSearch(input: string): ParsedTerm[] {
     const keyValue =
       /^([A-Za-z_][A-Za-z_0-9.]*):(?:"([^"]+)"|(\S+))(?:\s+|$)/.exec(rest);
     if (keyValue) {
-      const field = keyValue[1].toLowerCase();
-      if (!FIELDS.includes(field))
+      const rawField = keyValue[1];
+      const field = rawField.toLowerCase().startsWith('payload.')
+        ? `payload.${rawField.slice(8)}`
+        : rawField.toLowerCase();
+      if (
+        !FIELDS.includes(field) &&
+        !/^payload\.[A-Za-z_][A-Za-z_0-9]*$/.test(field)
+      )
         throw new BadRequestException(
           `Unsupported search field: ${field}. Supported fields: ${FIELDS.join(', ')}`,
         );
@@ -59,7 +75,14 @@ export function parseLogSearch(input: string): ParsedTerm[] {
         (keyValue[2] ?? keyValue[3]) !== 'Unspecified'
       )
         throw new BadRequestException(`${field} requires a numeric comparison`);
-      terms.push({ field, operator: ':', value: keyValue[2] ?? keyValue[3] });
+      if (negated && !field.startsWith('payload.'))
+        throw new BadRequestException('NOT supports payload fields here');
+      terms.push({
+        field,
+        operator: ':',
+        value: keyValue[2] ?? keyValue[3],
+        ...(negated ? { negated: true } : {}),
+      });
       rest = rest.slice(keyValue[0].length).trimStart();
       continue;
     }
@@ -69,6 +92,7 @@ export function parseLogSearch(input: string): ParsedTerm[] {
         `Unsupported search field: ${unsupported[1]}. Supported fields: ${FIELDS.join(', ')}`,
       );
     const word = /^(?:"([^"]+)"|(\S+))(?:\s+|$)/.exec(rest);
+    if (negated) throw new BadRequestException('NOT requires a payload field');
     if (!word) throw new BadRequestException('Invalid search syntax');
     terms.push({ field: 'message', operator: ':', value: word[1] ?? word[2] });
     rest = rest.slice(word[0].length).trimStart();
@@ -291,6 +315,11 @@ export class LogQueryService {
         )
           throw new BadRequestException(`Invalid ${term.field} comparison`);
         clauses.push(`e.${term.field} ${term.operator} ${add(numeric)}`);
+      } else if (term.field.startsWith('payload.')) {
+        const key = add(term.field.slice(8));
+        clauses.push(
+          `e.raw_payload->>${key}${term.negated ? ' IS DISTINCT FROM ' : '='}${add(value)}`,
+        );
       } else {
         const column = term.field === 'severity' ? 'severity' : term.field;
         clauses.push(
@@ -325,12 +354,11 @@ export class LogQueryService {
         count: Number(row.count),
       }));
     };
+    const rangeSeconds = (to - from) / 1000;
     const bucketSeconds =
-      to - from <= 24 * 3600_000
-        ? 3600
-        : to - from <= 7 * 86400_000
-          ? 21600
-          : 86400;
+      [30, 60, 300, 900, 1800, 3600, 14400, 21600, 86400].find(
+        (seconds) => rangeSeconds / seconds <= 80,
+      ) ?? 86400;
     const [
       eventTypes,
       statusCodes,
@@ -370,6 +398,7 @@ export class LogQueryService {
         severity: row.severity ?? 'Unspecified',
         count: Number(row.count),
       })),
+      bucketSeconds,
       filters: terms,
       from: new Date(from).toISOString(),
       to: new Date(to).toISOString(),
