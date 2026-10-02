@@ -36,6 +36,6 @@ export class CreateHealthCheckTargetDto {
 
   @IsOptional()
   @IsInt()
-  @Min(5)
+  @Min(30)
   checkIntervalSeconds?: number;
 }

@@ -33,7 +33,7 @@ export class MonitoringScheduler {
     }
   }
 
-  @Cron('*/5 * * * * *', { waitForCompletion: true })
+  @Cron('2/15 * * * * *', { waitForCompletion: true })
   async checkHealthTargets(): Promise<void> {
     try {
       const result = await this.checkEnabledHealthTargetsUseCase.execute();

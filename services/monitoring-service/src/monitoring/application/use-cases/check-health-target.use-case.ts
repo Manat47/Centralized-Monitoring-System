@@ -110,14 +110,27 @@ export class CheckHealthTargetUseCase {
       result,
     });
 
-    target.markChecked(result.checkedAt);
+    const available =
+      result.error === null && result.statusCode === data.expectedStatus;
+    const transition = input
+      ? null
+      : target.recordScheduledResult(available, result.checkedAt);
+    if (input) target.markChecked(result.checkedAt);
 
     await this.healthCheckTargetRepository.update(target);
 
-    if (!input && data.assetId !== null) {
+    if (transition && data.assetId !== null) {
       await this.alertEventPublisher.publish({
         eventId: randomUUID(),
-        eventType: 'HEALTH_CHECK_RESULT_RECORDED',
+        eventType:
+          transition === 'HEARTBEAT'
+            ? 'HEALTH_CHECK_RESULT_RECORDED'
+            : transition === 'FAILED'
+              ? 'HEALTH_CHECK_FAILED'
+              : 'HEALTH_CHECK_RECOVERED',
+        heartbeatOnly: transition === 'HEARTBEAT',
+        alertActive: target.toObject().alertActive,
+        available,
         healthCheckTargetId: data.healthCheckTargetId,
         assetId: data.assetId,
         url: data.url,

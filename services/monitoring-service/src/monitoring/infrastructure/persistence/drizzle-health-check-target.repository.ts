@@ -32,6 +32,9 @@ export class DrizzleHealthCheckTargetRepository implements HealthCheckTargetRepo
         enabled: data.enabled,
         archivedAt: data.archivedAt,
         lastCheckedAt: data.lastCheckedAt,
+        consecutiveFailures: data.consecutiveFailures,
+        alertActive: data.alertActive,
+        lastHeartbeatAt: data.lastHeartbeatAt,
         createdAt: data.createdAt,
         updatedAt: data.updatedAt,
       })
@@ -115,6 +118,9 @@ export class DrizzleHealthCheckTargetRepository implements HealthCheckTargetRepo
         enabled: data.enabled,
         archivedAt: data.archivedAt,
         lastCheckedAt: data.lastCheckedAt,
+        consecutiveFailures: data.consecutiveFailures,
+        alertActive: data.alertActive,
+        lastHeartbeatAt: data.lastHeartbeatAt,
         updatedAt: data.updatedAt,
       })
       .where(
@@ -139,6 +145,9 @@ export class DrizzleHealthCheckTargetRepository implements HealthCheckTargetRepo
       enabled: row.enabled,
       archivedAt: row.archivedAt,
       lastCheckedAt: row.lastCheckedAt,
+      consecutiveFailures: row.consecutiveFailures,
+      alertActive: row.alertActive,
+      lastHeartbeatAt: row.lastHeartbeatAt,
       createdAt: row.createdAt,
       updatedAt: row.updatedAt,
     });

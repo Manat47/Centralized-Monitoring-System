@@ -142,10 +142,14 @@ export const healthCheckTargets = pgTable(
     url: varchar('url', { length: 2048 }).notNull(),
 
     checkIntervalSeconds: integer('check_interval_seconds')
-      .default(15)
+      .default(30)
       .notNull(),
 
     enabled: boolean('enabled').default(true).notNull(),
+
+    consecutiveFailures: integer('consecutive_failures').default(0).notNull(),
+    alertActive: boolean('alert_active').default(false).notNull(),
+    lastHeartbeatAt: timestamp('last_heartbeat_at', { withTimezone: true }),
 
     archivedAt: timestamp('archived_at', {
       withTimezone: true,

@@ -8,6 +8,9 @@ export interface HealthCheckTargetProps {
   enabled: boolean;
   archivedAt: Date | null;
   lastCheckedAt: Date | null;
+  consecutiveFailures: number;
+  alertActive: boolean;
+  lastHeartbeatAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -61,10 +64,10 @@ export class HealthCheckTarget {
       throw new Error('Health check URL must use HTTP or HTTPS');
     }
 
-    const checkIntervalSeconds = props.checkIntervalSeconds ?? 15;
+    const checkIntervalSeconds = props.checkIntervalSeconds ?? 30;
 
-    if (checkIntervalSeconds < 5) {
-      throw new Error('Check interval must be at least 5 seconds');
+    if (!Number.isInteger(checkIntervalSeconds) || checkIntervalSeconds < 30) {
+      throw new Error('Check interval must be at least 30 seconds');
     }
 
     const now = new Date();
@@ -79,6 +82,9 @@ export class HealthCheckTarget {
       enabled: true,
       archivedAt: null,
       lastCheckedAt: null,
+      consecutiveFailures: 0,
+      alertActive: false,
+      lastHeartbeatAt: null,
       createdAt: now,
       updatedAt: now,
     });
@@ -93,12 +99,14 @@ export class HealthCheckTarget {
       throw new Error('Archived health check target cannot be enabled');
     }
 
+    if (!this.props.enabled) this.resetAlertState();
     this.props.enabled = true;
     this.props.updatedAt = new Date();
   }
 
   disable(): void {
     this.props.enabled = false;
+    this.resetAlertState();
     this.props.updatedAt = new Date();
   }
 
@@ -107,8 +115,8 @@ export class HealthCheckTarget {
       throw new Error('Archived health check target cannot be updated');
     }
 
-    if (checkIntervalSeconds < 5) {
-      throw new Error('Check interval must be at least 5 seconds');
+    if (!Number.isInteger(checkIntervalSeconds) || checkIntervalSeconds < 30) {
+      throw new Error('Check interval must be at least 30 seconds');
     }
 
     this.props.checkIntervalSeconds = checkIntervalSeconds;
@@ -123,6 +131,7 @@ export class HealthCheckTarget {
     const now = new Date();
 
     this.props.enabled = false;
+    this.resetAlertState();
     this.props.archivedAt = now;
     this.props.updatedAt = now;
   }
@@ -130,6 +139,46 @@ export class HealthCheckTarget {
   markChecked(checkedAt: Date): void {
     this.props.lastCheckedAt = checkedAt;
     this.props.updatedAt = new Date();
+  }
+
+  recordScheduledResult(
+    available: boolean,
+    checkedAt: Date,
+  ): 'FAILED' | 'RECOVERED' | 'HEARTBEAT' | null {
+    this.markChecked(checkedAt);
+    if (available) {
+      this.props.consecutiveFailures = 0;
+      if (this.props.alertActive) {
+        this.props.alertActive = false;
+        this.props.lastHeartbeatAt = checkedAt;
+        return 'RECOVERED';
+      }
+    } else {
+      this.props.consecutiveFailures += 1;
+      if (!this.props.alertActive && this.props.consecutiveFailures >= 3) {
+        this.props.alertActive = true;
+        this.props.lastHeartbeatAt = checkedAt;
+        return 'FAILED';
+      }
+    }
+
+    const heartbeatAfterMs =
+      Math.max(this.props.checkIntervalSeconds * 2, 60) * 1000;
+    if (
+      !this.props.lastHeartbeatAt ||
+      checkedAt.getTime() - this.props.lastHeartbeatAt.getTime() >=
+        heartbeatAfterMs
+    ) {
+      this.props.lastHeartbeatAt = checkedAt;
+      return 'HEARTBEAT';
+    }
+    return null;
+  }
+
+  private resetAlertState(): void {
+    this.props.consecutiveFailures = 0;
+    this.props.alertActive = false;
+    this.props.lastHeartbeatAt = null;
   }
 
   toObject(): HealthCheckTargetProps {

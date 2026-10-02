@@ -34,7 +34,7 @@ describe('HealthCheckTarget', () => {
       healthCheckTargetId: 'target-1',
       assetId: 'asset-1',
       url: 'https://example.com/health',
-      checkIntervalSeconds: 15,
+      checkIntervalSeconds: 30,
       enabled: true,
       archivedAt: null,
       lastCheckedAt: null,
@@ -77,9 +77,9 @@ describe('HealthCheckTarget', () => {
       HealthCheckTarget.create('target-2', {
         assetId: 'asset-1',
         url: 'https://example.com/health',
-        checkIntervalSeconds: 4,
+        checkIntervalSeconds: 29,
       }),
-    ).toThrow('Check interval must be at least 5 seconds');
+    ).toThrow('Check interval must be at least 30 seconds');
   });
 
   it('updates only the interval and preserves identity and URL', () => {

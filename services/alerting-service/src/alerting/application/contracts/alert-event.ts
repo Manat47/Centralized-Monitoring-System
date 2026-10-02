@@ -4,6 +4,8 @@ export type AlertEventType =
   | 'METRIC_RULE_STATE_CHANGED'
   | 'MONITORING_TARGET_STATE_CHANGED'
   | 'HEALTH_CHECK_RESULT_RECORDED'
+  | 'HEALTH_CHECK_FAILED'
+  | 'HEALTH_CHECK_RECOVERED'
   | 'HEALTH_CHECK_TARGET_STATE_CHANGED';
 
 export type AlertSeverity = 'WARNING' | 'CRITICAL';
@@ -56,7 +58,13 @@ export interface MonitoringTargetStateChangedEvent {
 
 export interface HealthCheckResultRecordedEvent {
   eventId: string;
-  eventType: 'HEALTH_CHECK_RESULT_RECORDED';
+  eventType:
+    | 'HEALTH_CHECK_RESULT_RECORDED'
+    | 'HEALTH_CHECK_FAILED'
+    | 'HEALTH_CHECK_RECOVERED';
+  heartbeatOnly?: boolean;
+  alertActive?: boolean;
+  available?: boolean;
   healthCheckTargetId: string;
   assetId: string;
   url: string;

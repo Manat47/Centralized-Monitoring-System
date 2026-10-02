@@ -257,16 +257,34 @@ export class ProcessAlertEventUseCase {
       return null;
     }
 
-    const transition = state.recordResult(
-      {
-        statusCode: event.statusCode,
-        responseTimeMs: event.responseTimeMs,
-        error: event.error,
-        occurredAt,
-      },
-      HEALTH_FAILURE_THRESHOLD,
-      HEALTH_RECOVERY_THRESHOLD,
-    );
+    state.updateCheckInterval(event.checkIntervalSeconds);
+
+    const resultInput = {
+      statusCode: event.statusCode,
+      responseTimeMs: event.responseTimeMs,
+      error: event.error,
+      occurredAt,
+      ...(event.available !== undefined
+        ? { availableOverride: event.available }
+        : {}),
+      ...(event.eventType === 'HEALTH_CHECK_FAILED'
+        ? { availableOverride: false }
+        : {}),
+      ...(event.eventType === 'HEALTH_CHECK_RECOVERED'
+        ? { availableOverride: true }
+        : {}),
+    };
+    const transition = event.heartbeatOnly
+      ? state.recordHeartbeat(resultInput, event.alertActive ?? false)
+      : state.recordResult(
+          resultInput,
+          event.eventType === 'HEALTH_CHECK_RESULT_RECORDED'
+            ? HEALTH_FAILURE_THRESHOLD
+            : 1,
+          event.eventType === 'HEALTH_CHECK_RESULT_RECORDED'
+            ? HEALTH_RECOVERY_THRESHOLD
+            : 1,
+        );
     const after = state.toObject();
 
     if (before.state === 'STALE' && after.state !== 'STALE') {

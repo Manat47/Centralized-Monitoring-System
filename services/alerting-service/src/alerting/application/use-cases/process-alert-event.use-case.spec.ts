@@ -318,6 +318,63 @@ describe('ProcessAlertEventUseCase', () => {
     });
   });
 
+  it('uses heartbeat for freshness and opens or resolves only on transition events', async () => {
+    let persistedState: HealthCheckAlertState | null = null;
+    healthStateRepository.findByTargetId.mockImplementation(() =>
+      Promise.resolve(persistedState),
+    );
+    healthStateRepository.save.mockImplementation((state) => {
+      persistedState = state;
+      return Promise.resolve(state);
+    });
+    alertRepository.findActiveByDedupKey.mockResolvedValue(null);
+    alertRepository.createWithNotification.mockImplementation((alert) =>
+      Promise.resolve(alert),
+    );
+    alertRepository.resolveWithNotification.mockImplementation((alert) =>
+      Promise.resolve(alert),
+    );
+    const base = {
+      healthCheckTargetId: randomUUID(),
+      assetId: randomUUID(),
+      url: 'https://example.com/health',
+      checkIntervalSeconds: 30,
+      statusCode: 500,
+      responseTimeMs: 42,
+      error: null,
+    };
+    await useCase.execute({
+      ...base,
+      eventId: randomUUID(),
+      eventType: 'HEALTH_CHECK_RESULT_RECORDED',
+      heartbeatOnly: true,
+      alertActive: false,
+      occurredAt: '2026-10-01T10:00:00Z',
+    });
+    expect(alertRepository.createWithNotification).not.toHaveBeenCalled();
+
+    const opened = await useCase.execute({
+      ...base,
+      eventId: randomUUID(),
+      eventType: 'HEALTH_CHECK_FAILED',
+      alertActive: true,
+      occurredAt: '2026-10-01T10:01:00Z',
+    });
+    expect(opened?.toObject().alertType).toBe('ENDPOINT_UNAVAILABLE');
+    alertRepository.findActiveByDedupKey.mockResolvedValue(opened!);
+
+    await useCase.execute({
+      ...base,
+      eventId: randomUUID(),
+      eventType: 'HEALTH_CHECK_RECOVERED',
+      statusCode: 200,
+      alertActive: false,
+      occurredAt: '2026-10-01T10:01:30Z',
+    });
+    expect(opened?.toObject().status).toBe('RESOLVED');
+    expect(alertRepository.createWithNotification).toHaveBeenCalledTimes(1);
+  });
+
   it('keeps a stale alert active when a delayed result is still outside the grace period', async () => {
     jest.useFakeTimers().setSystemTime(new Date('2026-09-30T10:03:10.000Z'));
     try {

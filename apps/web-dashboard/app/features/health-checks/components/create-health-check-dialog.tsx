@@ -33,7 +33,7 @@ export function CreateHealthCheckDialog({ buttonLabel = "New Health Check" }: { 
   const [assetId, setAssetId] = useState("");
   const [name, setName] = useState("");
   const [url, setUrl] = useState("");
-  const [interval, setInterval] = useState(15);
+  const [interval, setInterval] = useState(30);
   const [expectedStatus, setExpectedStatus] = useState(200);
   const assetsQuery = useAssets();
   const createMutation = useCreateHealthCheckTarget();
@@ -51,7 +51,7 @@ export function CreateHealthCheckDialog({ buttonLabel = "New Health Check" }: { 
     setAssetId("");
     setName("");
     setUrl("");
-    setInterval(15);
+    setInterval(30);
     setExpectedStatus(200);
     createMutation.reset();
   }
@@ -169,7 +169,7 @@ export function CreateHealthCheckDialog({ buttonLabel = "New Health Check" }: { 
               <Input
                 id="health-interval"
                 type="number"
-                min={5}
+                min={30}
                 value={interval}
                 required
                 onChange={(event) => setInterval(Number(event.target.value))}

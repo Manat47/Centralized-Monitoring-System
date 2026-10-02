@@ -9,7 +9,7 @@ export function getHealthResultStatus(target: HealthCheckTarget): HealthResultSt
 
   if (!latest) return "UNKNOWN";
 
-  const staleAfterMs = Math.max((target.checkIntervalSeconds * 2 + 5) * 1000, 30_000);
+  const staleAfterMs = Math.max(target.checkIntervalSeconds * 3, 60) * 1000;
   if (Date.now() - new Date(latest.timestamp).getTime() > staleAfterMs) return "STALE";
 
   return latest.statusCode === target.expectedStatus

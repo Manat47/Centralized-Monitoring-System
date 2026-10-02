@@ -592,7 +592,7 @@ function EditIntervalDialog({
   target: HealthCheckTarget | null;
   onClose: () => void;
 }) {
-  const [interval, setInterval] = useState(target?.checkIntervalSeconds ?? 15);
+  const [interval, setInterval] = useState(target?.checkIntervalSeconds ?? 30);
   const mutation = useUpdateHealthCheckTarget();
 
   function handleOpenChange(open: boolean) {
@@ -629,7 +629,7 @@ function EditIntervalDialog({
             <Input
               id="edit-health-interval"
               type="number"
-              min={5}
+              min={30}
               value={interval}
               onChange={(event) => setInterval(Number(event.target.value))}
             />

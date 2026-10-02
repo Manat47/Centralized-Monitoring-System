@@ -10,9 +10,7 @@ import type { AlertEventPublisher } from '../../domain/ports/alert-event-publish
 import { CheckHealthTargetUseCase } from './check-health-target.use-case';
 
 describe('CheckHealthTargetUseCase', () => {
-  const target = HealthCheckTarget.create('target-1', {
-    url: 'https://example.com/health',
-  });
+  let target: HealthCheckTarget;
   const repository = {
     findById: jest.fn(),
     update: jest.fn(),
@@ -41,7 +39,11 @@ describe('CheckHealthTargetUseCase', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    repository.findById.mockResolvedValue(target);
+    target = HealthCheckTarget.create('target-1', {
+      assetId: 'asset-1',
+      url: 'https://example.com/health',
+    });
+    repository.findById.mockImplementation(() => Promise.resolve(target));
     repository.update.mockImplementation((updated) => Promise.resolve(updated));
     storage.writeResult.mockResolvedValue(undefined);
     checker.check.mockResolvedValue({
@@ -53,6 +55,9 @@ describe('CheckHealthTargetUseCase', () => {
   });
 
   it('checks and stores a standalone target without asset lookup or alert event', async () => {
+    target = HealthCheckTarget.create('target-1', {
+      url: 'https://example.com/health',
+    });
     await useCase.execute('target-1');
 
     expect(checker.check.mock.calls[0]).toEqual(['https://example.com/health']);
@@ -65,5 +70,36 @@ describe('CheckHealthTargetUseCase', () => {
     expect(repository.update.mock.calls).toHaveLength(1);
     expect(assetReader.findById.mock.calls).toHaveLength(0);
     expect(alertPublisher.publish.mock.calls).toHaveLength(0);
+  });
+
+  it('publishes one failure after three failed checks and one recovery after success', async () => {
+    assetReader.findById.mockResolvedValue({
+      assetId: 'asset-1',
+      status: 'ACTIVATE',
+      assetType: 'APPLICATION',
+    } as Awaited<ReturnType<AssetReader['findById']>>);
+    const times = [0, 30, 60, 90, 120].map(
+      (seconds) => new Date(Date.UTC(2026, 9, 1, 0, 0, seconds)),
+    );
+    for (let index = 0; index < times.length; index += 1) {
+      checker.check.mockResolvedValueOnce({
+        statusCode: index < 4 ? 500 : 200,
+        responseTimeMs: 42,
+        checkedAt: times[index],
+        error: null,
+      });
+      await useCase.execute('target-1');
+    }
+    expect(
+      alertPublisher.publish.mock.calls.map(([event]) => event.eventType),
+    ).toEqual([
+      'HEALTH_CHECK_RESULT_RECORDED',
+      'HEALTH_CHECK_FAILED',
+      'HEALTH_CHECK_RECOVERED',
+    ]);
+    expect(target.toObject()).toMatchObject({
+      consecutiveFailures: 0,
+      alertActive: false,
+    });
   });
 });
