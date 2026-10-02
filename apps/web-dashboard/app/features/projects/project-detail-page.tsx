@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useState, type FormEvent, type KeyboardEvent } from "react";
-import { Activity, ArrowLeft, CalendarDays, Copy, FileText, KeyRound, RefreshCw, ShieldCheck, Users } from "lucide-react";
+import { Activity, ArrowLeft, CalendarDays, Copy, KeyRound, RefreshCw, Users } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -11,13 +11,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { projectApi, type Member, type Project, type ProjectRole, type ProjectToken, type Usage } from "./api";
-import { LogExplorerPanel } from "./log-explorer-panel";
-import { ActivityRulesPanel } from "./activity-rules-panel";
-
-type Tab = "logs" | "rules" | "tokens" | "members";
+type Tab = "tokens" | "members";
 const sections = [
-  { id: "logs", label: "Log & Event Explorer", icon: FileText },
-  { id: "rules", label: "Rules & Findings", icon: ShieldCheck },
   { id: "tokens", label: "Tokens", icon: KeyRound },
   { id: "members", label: "Members", icon: Users },
 ] as const;
@@ -36,7 +31,7 @@ export function ProjectDetailPage({ projectId }: { projectId: string }) {
   const [members, setMembers] = useState<Member[]>([]);
   const [tokens, setTokens] = useState<ProjectToken[]>([]);
   const [usage, setUsage] = useState<Usage | null>(null);
-  const [tab, setTab] = useState<Tab>("logs");
+  const [tab, setTab] = useState<Tab>("tokens");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [loadingProject, setLoadingProject] = useState(true);
@@ -50,6 +45,7 @@ export function ProjectDetailPage({ projectId }: { projectId: string }) {
   const canManageTokens = project?.role === "OWNER" || project?.role === "MAINTAINER";
   const isOwner = project?.role === "OWNER";
   const visibleSections = sections.filter((item) => item.id !== "tokens" || canManageTokens);
+  const selectedTab = canManageTokens ? tab : "members";
 
   const refresh = useCallback(async () => {
     const p = await projectApi.get(projectId);
@@ -138,7 +134,7 @@ export function ProjectDetailPage({ projectId }: { projectId: string }) {
         <div className="mt-2 flex flex-wrap items-center gap-2"><h1 className="text-2xl font-semibold tracking-tight text-slate-950">{project?.name ?? (loadingProject ? "Loading project..." : "Project")}</h1>{project && <Badge variant="outline" className={roleClass[project.role]}>{project.role}</Badge>}</div>
         <p className="mt-1 break-all font-mono text-xs text-slate-500">{projectId}</p>
       </div>
-      <Button type="button" size="sm" variant="outline" disabled={busy} className="w-fit rounded-lg bg-white" onClick={() => void action(async () => { await refresh(); })}><RefreshCw className={`mr-2 size-3.5 ${busy ? "animate-spin" : ""}`} />Refresh usage</Button>
+      <div className="flex flex-wrap gap-2"><Link href={`/explorer?projectId=${encodeURIComponent(projectId)}`} className="inline-flex h-8 items-center rounded-md bg-blue-600 px-3 text-sm font-medium text-white hover:bg-blue-700">Open in Explorer</Link><Button type="button" size="sm" variant="outline" disabled={busy} className="w-fit rounded-lg bg-white" onClick={() => void action(async () => { await refresh(); })}><RefreshCw className={`mr-2 size-3.5 ${busy ? "animate-spin" : ""}`} />Refresh usage</Button></div>
     </div>
 
     {error && <div role="alert" className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{error}</div>}
@@ -156,22 +152,20 @@ export function ProjectDetailPage({ projectId }: { projectId: string }) {
     {usage?.recentRejections?.length ? <Card className="border-rose-200 bg-rose-50 shadow-none"><CardContent className="p-4"><p className="text-sm font-medium text-rose-800">Recent rejected Log API requests</p><p className="mt-1 text-xs text-rose-700">Only requests using a valid project token can be attributed to this project. Rejected payloads are not stored.</p><div className="mt-2 space-y-1">{usage.recentRejections.slice(0, 5).map((item, index) => <p key={`${item.at}-${index}`} className="text-xs text-rose-800">{date(item.at)} · HTTP {item.status} · {item.reason}</p>)}</div></CardContent></Card> : null}
 
     <div role="tablist" aria-label="Project sections" className="flex gap-1 overflow-x-auto border-b border-slate-200 pb-2">
-      {visibleSections.map((item) => { const Icon = item.icon; return <button key={item.id} type="button" id={`tab-${item.id}`} role="tab" aria-controls={`panel-${item.id}`} aria-selected={tab === item.id} tabIndex={tab === item.id ? 0 : -1} onClick={() => setTab(item.id)} onKeyDown={(event) => onTabKeyDown(event, item.id)} className={tab === item.id ? "inline-flex shrink-0 items-center gap-2 rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-blue-500/50" : "inline-flex shrink-0 items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-slate-600 outline-none transition-colors duration-150 hover:bg-slate-100 hover:text-slate-950 focus-visible:ring-2 focus-visible:ring-blue-500/50"}><Icon className="size-4" />{item.label}</button>; })}
+      {visibleSections.map((item) => { const Icon = item.icon; return <button key={item.id} type="button" id={`tab-${item.id}`} role="tab" aria-controls={`panel-${item.id}`} aria-selected={selectedTab === item.id} tabIndex={selectedTab === item.id ? 0 : -1} onClick={() => setTab(item.id)} onKeyDown={(event) => onTabKeyDown(event, item.id)} className={selectedTab === item.id ? "inline-flex shrink-0 items-center gap-2 rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-blue-500/50" : "inline-flex shrink-0 items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-slate-600 outline-none transition-colors duration-150 hover:bg-slate-100 hover:text-slate-950 focus-visible:ring-2 focus-visible:ring-blue-500/50"}><Icon className="size-4" />{item.label}</button>; })}
     </div>
 
-    <div role="tabpanel" id={`panel-${tab}`} aria-labelledby={`tab-${tab}`} tabIndex={0} className="outline-none focus-visible:ring-2 focus-visible:ring-blue-500/40">
-      {tab === "logs" && <LogExplorerPanel projectId={projectId} usage={usage} />}
-      {tab === "rules" && <ActivityRulesPanel projectId={projectId} isOwner={isOwner} />}
-      {tab === "tokens" && canManageTokens && <div className="space-y-4"><Card className="border-slate-200 bg-white shadow-none"><CardHeader><CardTitle className="text-base text-slate-950">API tokens</CardTitle><p className="text-sm text-slate-500">Tokens can send logs to this project. A token is shown only once when created.</p></CardHeader><CardContent className="space-y-4">
+    <div role="tabpanel" id={`panel-${selectedTab}`} aria-labelledby={`tab-${selectedTab}`} tabIndex={0} className="outline-none focus-visible:ring-2 focus-visible:ring-blue-500/40">
+      {selectedTab === "tokens" && canManageTokens && <div className="space-y-4"><Card className="border-slate-200 bg-white shadow-none"><CardHeader><CardTitle className="text-base text-slate-950">API tokens</CardTitle><p className="text-sm text-slate-500">Tokens can send logs to this project. A token is shown only once when created.</p></CardHeader><CardContent className="space-y-4">
         <form onSubmit={createToken} aria-busy={busy} className="flex flex-col gap-3 sm:flex-row sm:items-end"><div className="min-w-0 flex-1 space-y-1.5"><Label htmlFor="token-name">Token name</Label><Input id="token-name" placeholder="e.g. production" value={name} maxLength={100} onChange={(event) => setName(event.target.value)} required /></div><Button type="submit" disabled={busy} className="bg-blue-600 text-white hover:bg-blue-700">{busy ? "Creating..." : "Create token"}</Button></form>
         {newToken && <div className="rounded-lg border border-amber-200 bg-amber-50 p-4"><p className="text-sm font-medium text-amber-800">Copy this token now. It will not be shown again.</p><code className="mt-2 block break-all rounded bg-white p-2 text-xs text-slate-900">{newToken}</code><Button type="button" size="sm" variant="outline" className="mt-2 bg-white" onClick={() => void copy(newToken)}><Copy className="mr-2 size-3" />Copy token</Button></div>}
         {tokens.length === 0 ? <p className="border-t border-slate-100 py-6 text-center text-sm text-slate-500">No tokens yet. Create one to send logs.</p> : <div className="divide-y divide-slate-100">{tokens.map((token) => <div key={token.tokenId} className="flex flex-wrap items-center justify-between gap-3 py-3 text-sm"><div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><strong className="text-slate-900">{token.name}</strong><Badge variant="outline" className={token.revokedAt ? "border-slate-200 bg-slate-50 text-slate-600" : "border-emerald-200 bg-emerald-50 text-emerald-700"}>{token.revokedAt ? "Revoked" : "Active"}</Badge></div><p className="mt-1 font-mono text-xs text-slate-500">{token.prefix}...</p><p className="mt-1 text-xs text-slate-500">Created {date(token.createdAt)}{token.lastUsedAt ? ` · Last used ${date(token.lastUsedAt)}` : ""}</p></div>{!token.revokedAt && <Button type="button" size="sm" variant="outline" disabled={busy} className="border-rose-200 text-rose-700 hover:bg-rose-50" onClick={() => setPendingRevoke(token)}>Revoke</Button>}</div>)}</div>}
       </CardContent></Card>
       <Card className="border-slate-200 bg-white shadow-none"><CardHeader><CardTitle className="text-base text-slate-950">Send your first event</CardTitle><p className="text-sm text-slate-500">Use one token per sending system. All tokens in this project share the same records and RPM limit. Send non-empty source and event_type; other fields are optional. Replace YOUR_HOST with your HTTPS domain.</p></CardHeader><CardContent className="space-y-4">
         {Object.entries(snippets).map(([language, code]) => <div key={language}><div className="mb-2 flex items-center justify-between"><strong className="text-sm text-slate-900">{language}</strong><Button type="button" size="sm" variant="outline" onClick={() => void copy(code)}><Copy className="mr-2 size-3" />Copy</Button></div><pre className="overflow-x-auto rounded-lg bg-slate-950 p-4 text-xs text-slate-100">{code}</pre></div>)}
-        <p className="text-xs text-slate-500">A 202 response means the queue accepted the record; refresh the Explorer after processing. Invalid JSON or a missing required field rejects the whole batch with its record index. Custom fields remain visible in the JSON drawer but are not searchable yet.</p>
+        <p className="text-xs text-slate-500">A 202 response means the queue accepted the record; refresh the Explorer after processing. Invalid JSON or a missing required field rejects the whole batch with its record index. Custom fields remain visible in the inline JSON inspector but are not searchable yet.</p>
       </CardContent></Card></div>}
-      {tab === "members" && <Card className="border-slate-200 bg-white shadow-none"><CardHeader><CardTitle className="text-base text-slate-950">Project members</CardTitle><p className="text-sm text-slate-500">Owners manage membership. Maintainers manage tokens. Viewers can read logs and usage.</p></CardHeader><CardContent className="space-y-4">
+      {selectedTab === "members" && <Card className="border-slate-200 bg-white shadow-none"><CardHeader><CardTitle className="text-base text-slate-950">Project members</CardTitle><p className="text-sm text-slate-500">Owners manage membership. Maintainers manage tokens. Viewers can read logs and usage.</p></CardHeader><CardContent className="space-y-4">
         {isOwner && <form onSubmit={addMember} aria-busy={busy} className="flex flex-col gap-3 sm:flex-row sm:items-end"><div className="min-w-0 flex-1 space-y-1.5"><Label htmlFor="member-email">Existing user email</Label><Input id="member-email" type="email" placeholder="name@example.com" value={memberEmail} onChange={(event) => setMemberEmail(event.target.value)} required /></div><div className="space-y-1.5"><Label htmlFor="member-role">Role</Label><select id="member-role" className="h-9 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/40 sm:w-40" value={memberRole} onChange={(event) => setMemberRole(event.target.value as ProjectRole)}><option value="VIEWER">Viewer</option><option value="MAINTAINER">Maintainer</option></select></div><Button type="submit" disabled={busy} className="bg-blue-600 text-white hover:bg-blue-700">{busy ? "Saving..." : "Add member"}</Button></form>}
         {members.length === 0 ? <p className="py-8 text-center text-sm text-slate-500">No members found.</p> : <div className="divide-y divide-slate-100">{members.map((member) => <div key={member.userId} className="flex flex-wrap items-center justify-between gap-3 py-3 text-sm"><div className="min-w-0"><strong className="text-slate-900">{member.email || member.userId}</strong><p className="mt-1 break-all font-mono text-xs text-slate-500">{member.userId}</p></div><div className="flex items-center gap-2">{isOwner && member.role !== "OWNER" ? <><select aria-label={`Role for ${member.email}`} className="h-8 rounded-lg border border-slate-200 bg-white px-2 text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/40" value={member.role} disabled={busy} onChange={(event) => void action(() => projectApi.setMemberRole(projectId, member.userId, event.target.value as ProjectRole))}><option value="VIEWER">Viewer</option><option value="MAINTAINER">Maintainer</option></select><Button type="button" size="sm" variant="outline" disabled={busy} className="border-rose-200 text-rose-700 hover:bg-rose-50" onClick={() => setPendingRemove(member)}>Remove</Button></> : <Badge variant="outline" className={roleClass[member.role]}>{member.role}</Badge>}</div></div>)}</div>}
       </CardContent></Card>}

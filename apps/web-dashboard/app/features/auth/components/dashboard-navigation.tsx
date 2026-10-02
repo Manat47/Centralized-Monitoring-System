@@ -70,6 +70,16 @@ const navigationGroups: NavigationGroup[] = [
     label: "LOG & EVENTS",
     items: [
       {
+        href: "/explorer",
+        label: "Log Explorer",
+        icon: FileText,
+      },
+      {
+        href: "/explorer/rules",
+        label: "Rules & Findings",
+        icon: Bell,
+      },
+      {
         href: "/projects",
         label: "Log Projects",
         icon: FolderKanban,
@@ -149,8 +159,9 @@ export function DashboardNavigation({
       if (!active) return;
       setProjects(items);
       const fromPath = pathname.match(/^\/projects\/([^/]+)/)?.[1];
+      const fromExplorer = pathname.startsWith("/explorer") ? new URLSearchParams(window.location.search).get("projectId") : null;
       const saved = window.localStorage.getItem("selected-log-project");
-      const selected = fromPath ?? saved;
+      const selected = fromPath ?? fromExplorer ?? saved;
       if (selected && items.some((item) => item.projectId === selected)) {
         setSelectedProjectId(selected);
       }
@@ -178,7 +189,7 @@ export function DashboardNavigation({
               const id = event.target.value;
               setSelectedProjectId(id);
               window.localStorage.setItem("selected-log-project", id);
-              router.push(id ? `/projects/${encodeURIComponent(id)}` : "/projects");
+              router.push(id ? `/explorer?projectId=${encodeURIComponent(id)}` : "/projects");
               onNavigate?.();
             }}
             className="h-9 w-full rounded-md border border-slate-700 bg-slate-900 px-2 text-sm text-slate-100"
@@ -221,7 +232,7 @@ export function DashboardNavigation({
 
                   const isActive =
                     pathname === item.href ||
-                    pathname.startsWith(`${item.href}/`) ||
+                    (item.href !== "/explorer" && pathname.startsWith(`${item.href}/`)) ||
                     (item.href === "/infrastructure" &&
                       (pathname.startsWith("/assets/") ||
                         pathname.startsWith("/monitoring-targets/")));
