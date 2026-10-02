@@ -2,7 +2,9 @@ import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import {
   flux,
+  fluxExpression,
   InfluxDB,
+  toFluxValue,
   type FluxTableMetaData,
   type QueryApi,
 } from '@influxdata/influxdb-client';
@@ -127,7 +129,7 @@ export class InfluxHealthCheckQuery implements HealthCheckQuery {
   ): Promise<HealthCheckHistoryPoint | null> {
     const query = flux`
     from(bucket: ${this.bucket})
-      |> range(start: 0)
+      |> range(start: -30d)
       |> filter(
         fn: (r) =>
           r._measurement == "health_check"
@@ -185,10 +187,16 @@ export class InfluxHealthCheckQuery implements HealthCheckQuery {
     }
 
     const requestedIds = new Set(healthCheckTargetIds);
+    const targetFilter = fluxExpression(
+      [...requestedIds]
+        .map((id) => `r.healthCheckTargetId == ${toFluxValue(id)}`)
+        .join(' or '),
+    );
     const query = flux`
       from(bucket: ${this.bucket})
-        |> range(start: 0)
+        |> range(start: -30d)
         |> filter(fn: (r) => r._measurement == "health_check")
+        |> filter(fn: (r) => ${targetFilter})
         |> filter(
           fn: (r) =>
             r._field == "statusCode" or

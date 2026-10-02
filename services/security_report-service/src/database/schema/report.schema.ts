@@ -14,41 +14,43 @@ export const reports = pgTable(
   {
     reportId: uuid('report_id').primaryKey(),
 
-  reportType: text('report_type').notNull(),
+    reportType: text('report_type').notNull(),
 
-  assetId: uuid('asset_id'),
+    assetId: uuid('asset_id'),
 
-  periodStart: timestamp('period_start', {
-    withTimezone: true,
-  }).notNull(),
+    periodStart: timestamp('period_start', {
+      withTimezone: true,
+    }).notNull(),
 
-  periodEnd: timestamp('period_end', {
-    withTimezone: true,
-  }).notNull(),
+    periodEnd: timestamp('period_end', {
+      withTimezone: true,
+    }).notNull(),
 
-  generatedBy: uuid('generated_by'),
+    generatedBy: uuid('generated_by'),
 
-  generatedByEmail: text('generated_by_email'),
+    generatedByRole: text('generated_by_role'),
 
-  status: text('status').notNull(),
+    generatedByEmail: text('generated_by_email'),
 
-  summary: jsonb('summary').$type<Record<string, unknown>>(),
+    status: text('status').notNull(),
 
-  pdfPath: text('pdf_path'),
+    summary: jsonb('summary').$type<Record<string, unknown>>(),
 
-  templateVersion: text('template_version'),
+    pdfPath: text('pdf_path'),
 
-  failureCode: text('failure_code'),
+    templateVersion: text('template_version'),
 
-  failureMessage: text('failure_message'),
+    failureCode: text('failure_code'),
 
-  generatedAt: timestamp('generated_at', {
-    withTimezone: true,
-  }),
+    failureMessage: text('failure_message'),
 
-  createdAt: timestamp('created_at', {
-    withTimezone: true,
-  }).notNull(),
+    generatedAt: timestamp('generated_at', {
+      withTimezone: true,
+    }),
+
+    createdAt: timestamp('created_at', {
+      withTimezone: true,
+    }).notNull(),
 
     updatedAt: timestamp('updated_at', {
       withTimezone: true,
@@ -60,7 +62,7 @@ export const reports = pgTable(
     uniqueIndex('reports_active_monthly_period_idx')
       .on(table.reportType, table.periodStart, table.periodEnd)
       .where(
-        sql`${table.reportType} = 'MONTHLY' AND ${table.status} IN ('GENERATING', 'COMPLETED')`,
+        sql`${table.reportType} = 'MONTHLY' AND ${table.status} IN ('PENDING', 'GENERATING', 'COMPLETED')`,
       ),
   ],
 );

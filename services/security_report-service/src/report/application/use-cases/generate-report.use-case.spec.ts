@@ -12,6 +12,7 @@ describe('GenerateReportUseCase', () => {
   function createDependencies() {
     const repository: jest.Mocked<ReportRepository> = {
       create: jest.fn(async (report) => report),
+      claimNextPending: jest.fn(),
       update: jest.fn(async (report) => report),
       findById: jest.fn(),
       findMany: jest.fn(),
@@ -62,16 +63,21 @@ describe('GenerateReportUseCase', () => {
       new Error('Monitoring service unavailable'),
     );
 
-    await expect(
-      dependencies.useCase.execute({
-        reportType: 'ON_DEMAND',
-        periodStart,
-        periodEnd,
-        generatedBy: '4b384730-569f-43a9-af26-72847553ce08',
-        generatedByRole: 'ADMIN',
-        generatedByEmail: 'admin@example.com',
-      }),
-    ).rejects.toThrow('Monitoring service unavailable');
+    dependencies.repository.create.mockImplementation(async (report) => {
+      dependencies.repository.claimNextPending.mockResolvedValueOnce(report);
+      return report;
+    });
+
+    const queued = await dependencies.useCase.execute({
+      reportType: 'ON_DEMAND',
+      periodStart,
+      periodEnd,
+      generatedBy: '4b384730-569f-43a9-af26-72847553ce08',
+      generatedByRole: 'ADMIN',
+      generatedByEmail: 'admin@example.com',
+    });
+    expect(queued.status).toBe('PENDING');
+    await dependencies.useCase.processNext();
 
     const failedReport = dependencies.repository.update.mock.calls.at(-1)?.[0];
     expect(failedReport?.toObject()).toMatchObject({
@@ -84,6 +90,32 @@ describe('GenerateReportUseCase', () => {
         result: 'FAILURE',
         action: 'REPORT_GENERATED',
       }),
+    );
+  });
+
+  it('returns a pending report before building the PDF', async () => {
+    const dependencies = createDependencies();
+    dependencies.repository.create.mockImplementation(async (report) => {
+      dependencies.repository.claimNextPending.mockResolvedValueOnce(report);
+      return report;
+    });
+    dependencies.summaryBuilder.execute.mockResolvedValue({ assets: [] });
+    dependencies.generator.generate.mockResolvedValue({
+      pdfPath: 'storage/reports/report.pdf',
+      templateVersion: 'v9',
+    });
+
+    const queued = await dependencies.useCase.execute({
+      reportType: 'ON_DEMAND',
+      periodStart,
+      periodEnd,
+    });
+
+    expect(queued.status).toBe('PENDING');
+    expect(dependencies.summaryBuilder.execute).not.toHaveBeenCalled();
+    await dependencies.useCase.processNext();
+    expect(dependencies.repository.update.mock.calls.at(-1)?.[0].toObject().status).toBe(
+      'COMPLETED',
     );
   });
 });

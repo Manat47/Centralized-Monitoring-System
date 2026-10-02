@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { eq, lt } from 'drizzle-orm';
+import { and, eq, lt, ne } from 'drizzle-orm';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 
 import { DRIZZLE_DB } from '../../../database/database.provider';
@@ -15,9 +15,7 @@ import type { HealthCheckAlertStateRepository } from '../../domain/repositories/
 import * as schema from '../../../database/schema/alerts.schema';
 
 @Injectable()
-export class DrizzleHealthCheckAlertStateRepository
-  implements HealthCheckAlertStateRepository
-{
+export class DrizzleHealthCheckAlertStateRepository implements HealthCheckAlertStateRepository {
   constructor(
     @Inject(DRIZZLE_DB)
     private readonly db: NodePgDatabase<typeof schema>,
@@ -39,14 +37,65 @@ export class DrizzleHealthCheckAlertStateRepository
     const rows = await this.db
       .select()
       .from(healthCheckAlertStates)
-      .where(lt(healthCheckAlertStates.lastResultAt, now));
+      .where(
+        and(
+          eq(healthCheckAlertStates.enabled, true),
+          eq(healthCheckAlertStates.archived, false),
+          ne(healthCheckAlertStates.state, 'STALE'),
+          lt(healthCheckAlertStates.lastResultAt, now),
+        ),
+      );
 
     return rows.map((row) => this.toDomain(row));
   }
 
-  async save(
-    state: HealthCheckAlertState,
-  ): Promise<HealthCheckAlertState> {
+  async disableByAssetId(assetId: string, occurredAt: Date): Promise<void> {
+    await this.db
+      .update(healthCheckAlertStates)
+      .set({
+        enabled: false,
+        state: 'UNKNOWN',
+        consecutiveFailures: 0,
+        consecutiveSuccesses: 0,
+        staleAlertedAt: null,
+        updatedAt: occurredAt,
+      })
+      .where(eq(healthCheckAlertStates.assetId, assetId));
+  }
+
+  async markStaleIfCurrent(state: HealthCheckAlertState): Promise<boolean> {
+    const data = state.toObject();
+    if (!data.lastResultAt || data.state !== 'STALE') return false;
+
+    const updated = await this.db
+      .update(healthCheckAlertStates)
+      .set({
+        state: data.state,
+        consecutiveFailures: data.consecutiveFailures,
+        consecutiveSuccesses: data.consecutiveSuccesses,
+        staleAlertedAt: data.staleAlertedAt,
+        updatedAt: data.updatedAt,
+      })
+      .where(
+        and(
+          eq(
+            healthCheckAlertStates.healthCheckTargetId,
+            data.healthCheckTargetId,
+          ),
+          eq(healthCheckAlertStates.enabled, true),
+          eq(healthCheckAlertStates.archived, false),
+          ne(healthCheckAlertStates.state, 'STALE'),
+          eq(healthCheckAlertStates.lastResultAt, data.lastResultAt),
+        ),
+      )
+      .returning({
+        healthCheckTargetId: healthCheckAlertStates.healthCheckTargetId,
+      });
+
+    return updated.length === 1;
+  }
+
+  async save(state: HealthCheckAlertState): Promise<HealthCheckAlertState> {
     const data = state.toObject();
 
     const [row] = await this.db

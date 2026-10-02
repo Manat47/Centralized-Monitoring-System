@@ -38,6 +38,7 @@ export class DrizzleReportRepository implements ReportRepository {
         periodStart: data.periodStart,
         periodEnd: data.periodEnd,
         generatedBy: data.generatedBy,
+        generatedByRole: data.generatedByRole,
         generatedByEmail: data.generatedByEmail,
         status: data.status,
         summary: data.summary,
@@ -54,6 +55,28 @@ export class DrizzleReportRepository implements ReportRepository {
     return this.toEntity(row);
   }
 
+  async claimNextPending(): Promise<Report | null> {
+    return this.db.transaction(async (tx) => {
+      const [pending] = await tx
+        .select({ reportId: reports.reportId })
+        .from(reports)
+        .where(eq(reports.status, 'PENDING'))
+        .orderBy(reports.createdAt)
+        .limit(1)
+        .for('update', { skipLocked: true });
+
+      if (!pending) return null;
+
+      const [claimed] = await tx
+        .update(reports)
+        .set({ status: 'GENERATING', updatedAt: new Date() })
+        .where(eq(reports.reportId, pending.reportId))
+        .returning();
+
+      return this.toEntity(claimed);
+    });
+  }
+
   async update(report: Report): Promise<Report> {
     const data = report.toObject();
 
@@ -65,6 +88,7 @@ export class DrizzleReportRepository implements ReportRepository {
         periodStart: data.periodStart,
         periodEnd: data.periodEnd,
         generatedBy: data.generatedBy,
+        generatedByRole: data.generatedByRole,
         generatedByEmail: data.generatedByEmail,
         status: data.status,
         summary: data.summary,
@@ -146,7 +170,7 @@ export class DrizzleReportRepository implements ReportRepository {
           eq(reports.reportType, 'MONTHLY'),
           eq(reports.periodStart, periodStart),
           eq(reports.periodEnd, periodEnd),
-          inArray(reports.status, ['GENERATING', 'COMPLETED']),
+          inArray(reports.status, ['PENDING', 'GENERATING', 'COMPLETED']),
         ),
       )
       .limit(1);
@@ -162,6 +186,7 @@ export class DrizzleReportRepository implements ReportRepository {
       periodStart: row.periodStart,
       periodEnd: row.periodEnd,
       generatedBy: row.generatedBy,
+      generatedByRole: row.generatedByRole as ReportProps['generatedByRole'],
       generatedByEmail: row.generatedByEmail,
       status: row.status as ReportStatus,
       summary: row.summary,

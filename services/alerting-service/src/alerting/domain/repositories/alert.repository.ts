@@ -4,6 +4,7 @@ import type {
   AlertStatus,
 } from '../entities/alert.entity';
 import type { AlertLifecycleEvent } from '../entities/alert-lifecycle-event';
+import type { NotificationEvent } from '../port/notification-event-publisher.port';
 
 export interface FindAlertsFilters {
   status?: AlertStatus;
@@ -11,9 +12,7 @@ export interface FindAlertsFilters {
   assetId?: string;
   sourceType?: 'METRIC_RULE' | 'HEALTH_CHECK';
   alertType?:
-    | 'METRIC_THRESHOLD'
-    | 'ENDPOINT_UNAVAILABLE'
-    | 'HEALTH_CHECK_STALE';
+    'METRIC_THRESHOLD' | 'ENDPOINT_UNAVAILABLE' | 'HEALTH_CHECK_STALE';
   search?: string;
 
   from?: Date;
@@ -36,6 +35,16 @@ export interface FindAlertsForReportFilters {
 export const ALERT_REPOSITORY = Symbol('ALERT_REPOSITORY');
 
 export interface AlertRepository {
+  createWithNotification(
+    alert: Alert,
+    lifecycleEvent: AlertLifecycleEvent,
+    notification: NotificationEvent,
+  ): Promise<Alert | null>;
+  resolveWithNotification(
+    alert: Alert,
+    lifecycleEvent: AlertLifecycleEvent,
+    notification: NotificationEvent,
+  ): Promise<Alert | null>;
   create(alert: Alert): Promise<Alert>;
 
   findActiveByRuleId(ruleId: string): Promise<Alert | null>;

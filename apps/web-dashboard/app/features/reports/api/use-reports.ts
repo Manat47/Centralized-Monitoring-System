@@ -10,7 +10,9 @@ export function useReports(params: ListReportsParams) {
     queryKey: ["reports", params],
     queryFn: () => getReports(params),
     refetchInterval: (query) =>
-      query.state.data?.items.some((report) => report.status === "GENERATING")
+      query.state.data?.items.some((report) =>
+        report.status === "PENDING" || report.status === "GENERATING",
+      )
         ? 5_000
         : 30_000,
   });

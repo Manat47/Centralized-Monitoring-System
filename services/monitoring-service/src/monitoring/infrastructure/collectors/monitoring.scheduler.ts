@@ -15,7 +15,7 @@ export class MonitoringScheduler {
     private readonly checkEnabledHealthTargetsUseCase: CheckEnabledHealthTargetsUseCase,
   ) {}
 
-  @Cron('*/5 * * * * *')
+  @Cron('*/5 * * * * *', { waitForCompletion: true })
   async collectMetrics(): Promise<void> {
     try {
       const result = await this.collectEnabledTargetsUseCase.execute();
@@ -25,16 +25,35 @@ export class MonitoringScheduler {
           `Checked=${result.checked}, Collected=${result.collected}, Skipped=${result.skipped}, Failed=${result.failed}`,
         );
       }
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'Unknown scheduler error';
 
-      const healthResult =
-        await this.checkEnabledHealthTargetsUseCase.execute();
+      this.logger.error(`Scheduled metric collection failed: ${message}`);
+    }
+  }
 
-      if (healthResult.performed > 0 || healthResult.failed > 0) {
+  @Cron('*/5 * * * * *', { waitForCompletion: true })
+  async checkHealthTargets(): Promise<void> {
+    try {
+      const result = await this.checkEnabledHealthTargetsUseCase.execute();
+
+      if (result.performed > 0 || result.failed > 0) {
         this.logger.log(
-          `Health: Checked=${healthResult.checked}, Performed=${healthResult.performed}, Skipped=${healthResult.skipped}, Failed=${healthResult.failed}`,
+          `Health: Checked=${result.checked}, Performed=${result.performed}, Skipped=${result.skipped}, Failed=${result.failed}`,
         );
       }
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'Unknown scheduler error';
 
+      this.logger.error(`Scheduled health checking failed: ${message}`);
+    }
+  }
+
+  @Cron('*/5 * * * * *', { waitForCompletion: true })
+  async evaluateMetricRules(): Promise<void> {
+    try {
       const evaluationResult = await this.evaluateMetricRulesUseCase.execute();
 
       if (evaluationResult.triggered > 0 || evaluationResult.recovered > 0) {
@@ -46,7 +65,7 @@ export class MonitoringScheduler {
       const message =
         error instanceof Error ? error.message : 'Unknown scheduler error';
 
-      this.logger.error(`Scheduled collection failed: ${message}`);
+      this.logger.error(`Scheduled metric rule evaluation failed: ${message}`);
     }
   }
 }

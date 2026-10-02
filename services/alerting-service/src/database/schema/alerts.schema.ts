@@ -12,6 +12,7 @@ import {
   uuid,
 } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
+import type { NotificationEvent } from '../../alerting/domain/port/notification-event-publisher.port';
 
 export const alertStatusEnum = pgEnum('alert_status', [
   'TRIGGERED',
@@ -90,8 +91,7 @@ export const alertLifecycleEvents = pgTable(
   (table) => [index('alert_lifecycle_events_alert_idx').on(table.alertId)],
 );
 
-export type AlertLifecycleEventRow =
-  typeof alertLifecycleEvents.$inferSelect;
+export type AlertLifecycleEventRow = typeof alertLifecycleEvents.$inferSelect;
 
 export const processedAlertEvents = pgTable('processed_alert_events', {
   eventId: uuid('event_id').primaryKey(),
@@ -99,6 +99,24 @@ export const processedAlertEvents = pgTable('processed_alert_events', {
     .defaultNow()
     .notNull(),
 });
+
+export const notificationOutbox = pgTable(
+  'notification_outbox',
+  {
+    eventId: uuid('event_id').primaryKey(),
+    payload: jsonb('payload').$type<NotificationEvent>().notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    publishedAt: timestamp('published_at', { withTimezone: true }),
+  },
+  (table) => [
+    index('notification_outbox_pending_idx').on(
+      table.publishedAt,
+      table.createdAt,
+    ),
+  ],
+);
 
 export const healthCheckAlertStates = pgTable('health_check_alert_states', {
   healthCheckTargetId: uuid('health_check_target_id').primaryKey(),

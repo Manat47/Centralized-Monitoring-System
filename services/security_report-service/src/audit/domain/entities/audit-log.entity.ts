@@ -16,6 +16,7 @@ export const AUDIT_RESOURCE_TYPES = [
   'PROJECT',
   'PROJECT_MEMBER',
   'PROJECT_TOKEN',
+  'DETECTION_RULE',
 ] as const;
 export type AuditResourceType = (typeof AUDIT_RESOURCE_TYPES)[number];
 
@@ -59,6 +60,9 @@ export const AUDIT_ACTIONS = [
   'PROJECT_MEMBER_REMOVED',
   'PROJECT_TOKEN_CREATED',
   'PROJECT_TOKEN_REVOKED',
+  'DETECTION_RULE_CREATED',
+  'DETECTION_RULE_ENABLED',
+  'DETECTION_RULE_DISABLED',
 ] as const;
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];
 

@@ -1,5 +1,5 @@
 export type ReportType = "ON_DEMAND" | "MONTHLY";
-export type ReportStatus = "GENERATING" | "COMPLETED" | "FAILED";
+export type ReportStatus = "PENDING" | "GENERATING" | "COMPLETED" | "FAILED";
 
 export interface ReportListItem {
   reportId: string;

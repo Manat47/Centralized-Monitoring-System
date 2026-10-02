@@ -62,6 +62,7 @@ export class GenerateReportUseCase {
       periodStart: input.periodStart,
       periodEnd: input.periodEnd,
       generatedBy: input.generatedBy,
+      generatedByRole: input.generatedByRole,
       generatedByEmail: input.generatedByEmail,
     });
 
@@ -83,6 +84,14 @@ export class GenerateReportUseCase {
       throw error;
     }
 
+    return this.toMetadata(report.toObject());
+  }
+
+  async processNext(): Promise<boolean> {
+    const report = await this.reportRepository.claimNextPending();
+    if (!report) return false;
+
+    const input = report.toObject();
     try {
       const summary = await this.buildReportSummaryUseCase.execute({
         assetId: input.assetId,
@@ -105,10 +114,6 @@ export class GenerateReportUseCase {
       report.complete({ ...summary }, pdf.pdfPath, pdf.templateVersion);
 
       await this.reportRepository.update(report);
-
-      await this.recordUserAuditEvent(report.toObject(), input, 'SUCCESS');
-
-      return this.toMetadata(report.toObject());
     } catch (error) {
       const failure = error instanceof Error ? error : new Error(String(error));
       report.fail({
@@ -125,8 +130,11 @@ export class GenerateReportUseCase {
         failure,
       );
 
-      throw error;
+      return true;
     }
+
+    await this.recordUserAuditEvent(report.toObject(), input, 'SUCCESS');
+    return true;
   }
 
   private sanitizeFailureMessage(message: string): string {

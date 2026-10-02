@@ -12,7 +12,11 @@ named `auth.login` does not verify that a login happened in the customer's app.
 - RabbitMQ confirms durable queue admission before the API returns HTTP 202.
   A worker inserts records into PostgreSQL; search visibility can lag behind 202.
 - Redis caches token lookups, enforces the shared 600 request per rolling minute
-  project limit, and buffers per-minute metric counters.
+  project limit, buffers per-minute metric counters, and stages HTTP request
+  receipts until RabbitMQ confirms them. The gateway also limits ingestion by
+  the connecting IP and project token before forwarding to this service. If a
+  reverse proxy forwards API traffic, its IP shares one gateway limit unless
+  client IP handling is configured at that trusted edge.
 - InfluxDB bucket `log_metrics` stores only aggregated per-minute request and
   ingestion metrics. New raw logs are never written there.
 
@@ -23,7 +27,10 @@ Configure `DATABASE_URL`, `REDIS_URL`, `RABBITMQ_URL`, `INFLUXDB_URL`,
 create the metrics bucket. Run `npm install`, `npm run db:migrate`, and
 `npm run start:dev`. Compose runs migrations on service startup.
 
-**Existing data:** migration `003_generic_log_records.sql` adds the new schema.
+**Existing data:** migrations `003_generic_log_records.sql` and
+`004_ingestion_batch_status.sql` add records and batch tracking. Existing
+accepted batches are marked `UNKNOWN` because their processing history cannot
+be reconstructed.
 It does not erase the older Activity tables or raw Influx bucket. Historical
 records in those stores are not automatically copied into the new Explorer:
 the old Activity projection lacks the original customer payload, and the old
@@ -58,11 +65,15 @@ chooses the event name. `message`, `severity` (`INFO`, `WARN`, `ERROR`,
 `user_id`, `client.ip`, `client.location`, and `tags` are optional indexed or
 display fields. Other JSON fields may contain nested objects or arrays within
 the eight-level depth and 1 MB request limit. They are preserved in
-`rawPayload` and visible in the detail drawer, but cannot be searched or used
+`rawPayload` and visible in the inline JSON inspector, but cannot be searched or used
 for record rules in this version. A customer-supplied `project_id` stays in
 raw JSON and cannot override the project derived from the token.
 
-Send one object, an array, or `{ "events": [...] }` with 1–500 records. A bad
+Send one object, an array, or `{ "events": [...] }` with 1–500 records. The
+`events` envelope is recognized only when it is the sole top-level key and is
+an array; a single record may use `events` as a custom field. Leading and
+trailing whitespace in `source` and `event_type` is removed from indexed values,
+while the original JSON is preserved. A bad
 record rejects the entire batch with its `events[index].field` in HTTP 400.
 Event timestamps may be at most 30 days old or five minutes ahead. When absent,
 the server uses receive time and marks `timeSource: "received"`. No source,
@@ -76,7 +87,7 @@ same accepted body returns 202 with `duplicate: true` and adds no records.
 
 | Status | Meaning |
 | --- | --- |
-| 202 | RabbitMQ durably accepted the batch; `acceptedRecords` reports its size. |
+| 202 | RabbitMQ durably accepted the batch; `acceptedRecords` reports its size and `batchId` identifies it. |
 | 400 | JSON or a required/standard field is invalid; the response names the failing index. |
 | 401 | Missing, invalid, or revoked project token. |
 | 409 | Idempotency key is already in progress or was used for another body. |
@@ -84,11 +95,18 @@ same accepted body returns 202 with `duplicate: true` and adds no records.
 | 429 | Project used more than its allowed requests in the last rolling 60 seconds. |
 | 503 | Ingestion dependency or queue unavailable; retry with the same idempotency key. |
 
-After 202, open the project's Log & Event Explorer and refresh until the record
-appears. Its detail drawer shows the raw payload and a separate envelope with
+After 202, call `GET /api/ingest/logs/receipts/<batchId>` with the same project
+Bearer token to check `QUEUED`, `STORED`, or `FAILED`. `UNKNOWN` applies only to
+historical batches created before tracking. A duplicate idempotent request
+returns the original `batchId` when available. The receipt may briefly be absent
+if the database was unavailable after RabbitMQ accepted the batch; retry the
+status request. Open the project's Log & Event Explorer to inspect stored records.
+Its inline inspector shows the raw payload and a separate envelope with
 project, token ID/name, request ID, server event ID, receive time, and storage
 status. It never shows the token secret. Recent valid-token rejection reasons
-appear on the project page. Invalid-token requests have no attributable project
+appear on the project page. Gateway-blocked 429 responses do not reach the log
+service and therefore are absent from its request receipts and project counters.
+Invalid-token requests that reach the log service have no attributable project
 and are shown only as a system-level rate to global admins.
 
 ## Search and rules
@@ -107,8 +125,10 @@ Project owners can create two kinds of count rule:
   grouped by project or token ID. Every Log API request, including a rejected
   one, can contribute after its response is sent.
 - `ACCEPTED_RECORDS`: customer-reported event type and supported field value,
-  grouped by project, token ID, IP, or user ID when present. Only records near
-  their receive time and received after the rule was enabled contribute.
+  grouped by project, token ID, IP, or user ID when present. Only records whose
+  event timestamp differs from receive time by at most five minutes and that
+  were received after the rule was enabled contribute. Older records remain
+  searchable but do not trigger these rules.
 
 Rule preview and list show recent matching data or `Waiting for data`.
 Findings identify their data source, condition, group, count, and window. A
@@ -116,8 +136,9 @@ group produces at most one finding per window. Members can read findings;
 only owners manage rules. No notification is sent in this release.
 
 New records, request receipts, and findings are retained for 30 days. The
-worker retries failed processing through a durable retry queue and sends
-exhausted messages to a durable dead-letter queue. The future warm/cold storage
+worker retries failed processing through durable retry queues and sends
+exhausted messages to durable dead-letter queues. Receipt publishing retries
+from Redis until RabbitMQ confirms it. The future warm/cold storage
 port is in `src/log-events/domain/ports/activity-archive.port.ts`.
 
 The 100,000 records per project per day and typical two-second 24-hour search

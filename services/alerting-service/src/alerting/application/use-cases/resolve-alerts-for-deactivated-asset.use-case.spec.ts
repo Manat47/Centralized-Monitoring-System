@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 
 import { Alert } from '../../domain/entities/alert.entity';
 import type { AlertRepository } from '../../domain/repositories/alert.repository';
+import type { HealthCheckAlertStateRepository } from '../../domain/repositories/health-check-alert-state.repository';
 import { ProcessAlertEventUseCase } from './process-alert-event.use-case';
 import { ResolveAlertsForDeactivatedAssetUseCase } from './resolve-alerts-for-deactivated-asset.use-case';
 
@@ -22,11 +23,15 @@ describe('ResolveAlertsForDeactivatedAssetUseCase', () => {
     findActiveByAssetId: jest.fn(),
   } as unknown as jest.Mocked<AlertRepository>;
   const resolveAlert = jest.fn<ProcessAlertEventUseCase['resolveAlert']>();
+  const healthStateRepository = {
+    disableByAssetId: jest.fn(),
+  } as unknown as jest.Mocked<HealthCheckAlertStateRepository>;
   const processAlertEventUseCase = {
     resolveAlert,
   } as unknown as jest.Mocked<ProcessAlertEventUseCase>;
   const useCase = new ResolveAlertsForDeactivatedAssetUseCase(
     repository,
+    healthStateRepository,
     processAlertEventUseCase,
   );
 
@@ -50,6 +55,10 @@ describe('ResolveAlertsForDeactivatedAssetUseCase', () => {
     ).resolves.toBe(2);
 
     expect(resolveAlert).toHaveBeenCalledTimes(2);
+    expect(healthStateRepository.disableByAssetId).toHaveBeenCalledWith(
+      'asset-1',
+      new Date('2026-08-30T01:00:00.000Z'),
+    );
     expect(resolveAlert).toHaveBeenCalledWith(
       triggered,
       null,
@@ -57,5 +66,20 @@ describe('ResolveAlertsForDeactivatedAssetUseCase', () => {
       'ASSET_DEACTIVATED',
       'Alert resolved because the asset was deactivated',
     );
+  });
+
+  it('disables stale evaluation even when the asset has no active alerts', async () => {
+    repository.findActiveByAssetId.mockResolvedValue([]);
+
+    await expect(
+      useCase.execute({
+        eventType: 'ASSET_DEACTIVATED',
+        assetId: 'asset-1',
+        occurredAt: '2026-08-30T01:00:00.000Z',
+      }),
+    ).resolves.toBe(0);
+
+    expect(healthStateRepository.disableByAssetId).toHaveBeenCalledTimes(1);
+    expect(resolveAlert).not.toHaveBeenCalled();
   });
 });

@@ -30,6 +30,7 @@ import { DrizzleHealthCheckAlertStateRepository } from './infrastructure/persist
 import { EvaluateStaleHealthChecksUseCase } from './application/use-cases/evaluate-stale-health-checks.use-case';
 import { AlertEvaluationScheduler } from './infrastructure/schedulers/alert-evaluation.scheduler';
 import { QueryAssetAlertImpactUseCase } from './application/use-cases/query-asset-alert-impact.use-case';
+import { NotificationOutboxDispatcher } from './infrastructure/publishers/notification-outbox.dispatcher';
 
 @Module({
   imports: [
@@ -112,6 +113,7 @@ import { QueryAssetAlertImpactUseCase } from './application/use-cases/query-asse
     ResolveAlertsForDeactivatedAssetUseCase,
     EvaluateStaleHealthChecksUseCase,
     AlertEvaluationScheduler,
+    NotificationOutboxDispatcher,
     {
       provide: ALERT_REPOSITORY,
       useClass: DrizzleAlertRepository,
