@@ -1,0 +1,2 @@
+ALTER TABLE "health_check_targets" ADD COLUMN "name" varchar(120) DEFAULT 'Health check' NOT NULL;--> statement-breakpoint
+ALTER TABLE "health_check_targets" ADD COLUMN "expected_status" integer DEFAULT 200 NOT NULL;

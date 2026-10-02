@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 
 import { useAssets } from "@/app/features/assets/api/use-assets";
+import { AdminOnly } from "@/app/features/auth/components/admin-only";
 import { getCpuUsage } from "@/app/features/monitoring-targets/api/get-cpu-usage";
 import { getDiskUsage } from "@/app/features/monitoring-targets/api/get-disk-usage";
 import { getMemoryUsage } from "@/app/features/monitoring-targets/api/get-memory-usage";
@@ -25,7 +26,6 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useAlertById } from "../api/use-alert-by-id";
 import { useAcknowledgeAlert, useCloseAlert } from "../api/use-alert-actions";
 import type { Alert, AlertDetail, AlertLifecycleEvent } from "../types/alert";
-import { useState } from "react";
 
 const ReactECharts = dynamic(() => import("echarts-for-react"), { ssr: false });
 
@@ -157,6 +157,13 @@ export function AlertDetailView() {
                 View asset{" "}
                 <ExternalLink className="size-3 transition-transform duration-150 group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
               </Link>
+              {alert.sourceType === "METRIC_RULE" && alert.ruleId && (
+                <AdminOnly>
+                  <Link href={`/metric-rules?ruleId=${encodeURIComponent(alert.ruleId)}`} className="group flex items-center justify-center gap-1 rounded-sm text-sm text-blue-600 hover:underline">
+                    Edit Trigger Rule <ExternalLink className="size-3" />
+                  </Link>
+                </AdminOnly>
+              )}
             </CardContent>
           </Card>
         </div>
@@ -273,19 +280,10 @@ function HealthContext({ alert }: { alert: Alert }) {
 }
 
 function MetricContext({ alert }: { alert: Alert }) {
-  const [now] = useState(() => Date.now());
   const start = new Date(
-    new Date(alert.triggeredAt).getTime() - 30 * 60_000,
+    new Date(alert.triggeredAt).getTime() - 60 * 60_000,
   ).toISOString();
-  const terminal = alert.resolvedAt
-    ? new Date(alert.resolvedAt).getTime()
-    : now;
-  const end = new Date(
-    Math.min(
-      terminal + 30 * 60_000,
-      new Date(alert.triggeredAt).getTime() + 24 * 60 * 60_000,
-    ),
-  ).toISOString();
+  const end = alert.triggeredAt;
   const metricQuery = useQuery({
     queryKey: ["alert-metric-context", alert.alertId, start, end],
     queryFn: async () => {
@@ -389,7 +387,7 @@ function MetricContext({ alert }: { alert: Alert }) {
           {alert.metricType.replaceAll("_", " ")} around the event
         </CardTitle>
         <p className="text-xs text-slate-500">
-          Metric values before and after the alert transition
+          Metric values in the hour before this alert
         </p>
       </CardHeader>
       <CardContent className="p-4">

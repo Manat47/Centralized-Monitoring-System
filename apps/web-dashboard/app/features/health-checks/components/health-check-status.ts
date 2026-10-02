@@ -12,7 +12,7 @@ export function getHealthResultStatus(target: HealthCheckTarget): HealthResultSt
   const staleAfterMs = Math.max((target.checkIntervalSeconds * 2 + 5) * 1000, 30_000);
   if (Date.now() - new Date(latest.timestamp).getTime() > staleAfterMs) return "STALE";
 
-  return latest.statusCode !== null && latest.statusCode >= 200 && latest.statusCode < 300
+  return latest.statusCode === target.expectedStatus
     ? "AVAILABLE"
     : "UNAVAILABLE";
 }

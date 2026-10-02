@@ -28,11 +28,13 @@ import {
 import { useCreateHealthCheckTarget } from "../api/use-health-check-actions";
 import { hasOriginMismatch } from "./health-check-status";
 
-export function CreateHealthCheckDialog() {
+export function CreateHealthCheckDialog({ buttonLabel = "New Health Check" }: { buttonLabel?: string }) {
   const [open, setOpen] = useState(false);
   const [assetId, setAssetId] = useState("");
+  const [name, setName] = useState("");
   const [url, setUrl] = useState("");
   const [interval, setInterval] = useState(15);
+  const [expectedStatus, setExpectedStatus] = useState(200);
   const assetsQuery = useAssets();
   const createMutation = useCreateHealthCheckTarget();
   const applications = (assetsQuery.data ?? []).filter(
@@ -47,8 +49,10 @@ export function CreateHealthCheckDialog() {
 
   function reset() {
     setAssetId("");
+    setName("");
     setUrl("");
     setInterval(15);
+    setExpectedStatus(200);
     createMutation.reset();
   }
 
@@ -62,9 +66,11 @@ export function CreateHealthCheckDialog() {
 
     try {
       await createMutation.mutateAsync({
-        assetId,
+        ...(assetId ? { assetId } : {}),
+        name: name.trim(),
         url: url.trim(),
         checkIntervalSeconds: interval,
+        expectedStatus,
       });
       handleOpenChange(false);
     } catch {
@@ -90,33 +96,38 @@ export function CreateHealthCheckDialog() {
           }
         >
           <Plus className="size-4" />
-          Create Health Check
+          {buttonLabel}
         </DialogTrigger>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>Create Health Check</DialogTitle>
             <DialogDescription>
-              Monitor an HTTP endpoint for an application asset.
+              Monitor an HTTP endpoint. Linking an application asset is optional.
             </DialogDescription>
           </DialogHeader>
 
           <form onSubmit={handleSubmit} className="space-y-5 pt-2">
             <div className="grid gap-2">
-              <Label>Application</Label>
+              <Label htmlFor="health-name">Name</Label>
+              <Input id="health-name" value={name} maxLength={120} required placeholder="Payment API" onChange={(event) => setName(event.target.value)} />
+            </div>
+
+            <div className="grid gap-2">
+              <Label>Link to asset (optional)</Label>
               <Select
-                value={assetId}
+                value={assetId || "standalone"}
                 onValueChange={(value) => {
-                  const nextId = value ?? "";
+                  const nextId = value === "standalone" ? "" : value ?? "";
                   const asset = applications.find(
                     (item) => item.assetId === nextId,
                   );
                   setAssetId(nextId);
-                  setUrl(asset?.endpoint ?? "");
+                  if (asset?.endpoint && !url) setUrl(asset.endpoint);
                 }}
               >
                 <SelectTrigger className="h-10 w-full">
-                  <SelectValue placeholder="Select an application">
-                    {selectedAsset?.name}
+                  <SelectValue>
+                    {selectedAsset?.name ?? "Standalone (no asset)"}
                   </SelectValue>
                 </SelectTrigger>
                 <SelectContent
@@ -124,6 +135,7 @@ export function CreateHealthCheckDialog() {
                   sideOffset={6}
                   className="duration-150"
                 >
+                  <SelectItem value="standalone">Standalone (no asset)</SelectItem>
                   {applications.map((asset) => (
                     <SelectItem key={asset.assetId} value={asset.assetId}>
                       {asset.name}
@@ -164,6 +176,11 @@ export function CreateHealthCheckDialog() {
               />
             </div>
 
+            <div className="grid gap-2">
+              <Label htmlFor="health-expected-status">Expected HTTP status</Label>
+              <Input id="health-expected-status" type="number" min={100} max={599} value={expectedStatus} required onChange={(event) => setExpectedStatus(Number(event.target.value))} />
+            </div>
+
             {createMutation.isError && (
               <p className="text-sm text-rose-600">
                 {createMutation.error instanceof Error
@@ -182,7 +199,7 @@ export function CreateHealthCheckDialog() {
               </Button>
               <Button
                 type="submit"
-                disabled={!assetId || createMutation.isPending}
+                disabled={!name.trim() || createMutation.isPending}
                 className="
     bg-blue-600 text-white
     shadow-sm shadow-blue-950/5

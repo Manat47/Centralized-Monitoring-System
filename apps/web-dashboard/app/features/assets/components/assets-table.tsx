@@ -33,6 +33,8 @@ import type {
 
 import { useAssets } from "../api/use-assets";
 import { AssetActions } from "./asset-actions";
+import { useDashboardSummary } from "@/app/features/dashboard/api/use-dashboard-summary";
+import type { AssetOverallStatus } from "@/app/features/dashboard/types/dashboard-summary";
 
 type AssetStatusFilter = "CURRENT" | "ALL" | AssetStatus;
 
@@ -144,11 +146,16 @@ function AssetsTableSkeleton() {
   );
 }
 
-export function AssetsTable() {
+export function AssetsTable({ overallFilter, initialStatus }: { overallFilter?: string; initialStatus?: AssetStatusFilter }) {
   const { data, isLoading, isError, error, isFetching } = useAssets();
+  const summaryQuery = useDashboardSummary(Boolean(overallFilter));
+  const overallStatuses = useMemo(() => overallFilter?.split(",").filter((value): value is AssetOverallStatus =>
+    ["OK", "WARNING", "CRITICAL", "NO_DATA", "NOT_MONITORED", "INACTIVE"].includes(value),
+  ) ?? [], [overallFilter]);
+  const overviewById = useMemo(() => new Map((summaryQuery.data?.assetOverview ?? []).map((asset) => [asset.assetId, asset.overallStatus])), [summaryQuery.data]);
   const [search, setSearch] = useState("");
   const [targetType, setTargetType] = useState<"ALL" | AssetTargetType>("ALL");
-  const [status, setStatus] = useState<AssetStatusFilter>("CURRENT");
+  const [status, setStatus] = useState<AssetStatusFilter>(initialStatus ?? "CURRENT");
   const [environment, setEnvironment] = useState<"ALL" | AssetEnvironment>(
     "ALL",
   );
@@ -177,20 +184,23 @@ export function AssetsTable() {
         (status === "CURRENT" && asset.status !== "DEACTIVATE") ||
         asset.status === status;
 
+      const matchesOverall = overallStatuses.length === 0 || overallStatuses.includes(overviewById.get(asset.assetId) ?? "INACTIVE");
+
       return (
         matchesSearch &&
         matchesTargetType &&
         matchesEnvironment &&
-        matchesStatus
+        matchesStatus &&
+        matchesOverall
       );
     });
-  }, [data, search, targetType, environment, status]);
+  }, [data, search, targetType, environment, status, overallStatuses, overviewById]);
 
-  if (isLoading) {
+  if (isLoading || (overallFilter && summaryQuery.isLoading)) {
     return <AssetsTableSkeleton />;
   }
 
-  if (isError) {
+  if (isError || (overallFilter && summaryQuery.isError)) {
     return (
       <Card>
         <CardContent className="py-10 text-center">
@@ -227,6 +237,12 @@ export function AssetsTable() {
       </CardHeader>
 
       <CardContent className="p-0">
+        {overallStatuses.length > 0 && (
+          <div className="flex items-center gap-3 border-b border-slate-100 bg-blue-50 px-5 py-2 text-xs text-blue-800">
+            <span>Dashboard filter: {overallStatuses.join(", ").replaceAll("_", " ")}</span>
+            <Link href="/infrastructure?view=inventory" className="font-medium underline">Clear filter</Link>
+          </div>
+        )}
         <div className="flex flex-wrap items-center gap-3 border-b border-slate-100 px-5 py-4">
           <div className="relative w-full min-w-0 flex-1 sm:min-w-64 sm:max-w-sm">
             <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-400" />

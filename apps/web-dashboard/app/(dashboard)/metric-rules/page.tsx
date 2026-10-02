@@ -1,7 +1,8 @@
 import { MetricRulesTable } from "@/app/features/metric-rules/components/metric-rules-table";
 import { CreateMetricRuleDialog } from "@/app/features/metric-rules/components/create-metric-rule-dialog";
 
-export default function MetricRulesPage() {
+export default async function MetricRulesPage({ searchParams }: { searchParams: Promise<{ ruleId?: string }> }) {
+  const { ruleId } = await searchParams;
   return (
     <section className="space-y-6">
       <div className="flex flex-col items-start justify-between gap-4 sm:flex-row">
@@ -16,7 +17,7 @@ export default function MetricRulesPage() {
         <CreateMetricRuleDialog />
       </div>
 
-      <MetricRulesTable />
+      <MetricRulesTable selectedRuleId={ruleId} />
     </section>
   );
 }

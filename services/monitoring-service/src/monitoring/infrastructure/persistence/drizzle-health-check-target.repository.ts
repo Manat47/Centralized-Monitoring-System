@@ -25,6 +25,8 @@ export class DrizzleHealthCheckTargetRepository implements HealthCheckTargetRepo
       .values({
         healthCheckTargetId: data.healthCheckTargetId,
         assetId: data.assetId,
+        name: data.name,
+        expectedStatus: data.expectedStatus,
         url: data.url,
         checkIntervalSeconds: data.checkIntervalSeconds,
         enabled: data.enabled,
@@ -106,6 +108,8 @@ export class DrizzleHealthCheckTargetRepository implements HealthCheckTargetRepo
     const [row] = await this.db
       .update(schema.healthCheckTargets)
       .set({
+        name: data.name,
+        expectedStatus: data.expectedStatus,
         url: data.url,
         checkIntervalSeconds: data.checkIntervalSeconds,
         enabled: data.enabled,
@@ -128,6 +132,8 @@ export class DrizzleHealthCheckTargetRepository implements HealthCheckTargetRepo
     return HealthCheckTarget.restore({
       healthCheckTargetId: row.healthCheckTargetId,
       assetId: row.assetId,
+      name: row.name,
+      expectedStatus: row.expectedStatus,
       url: row.url,
       checkIntervalSeconds: row.checkIntervalSeconds,
       enabled: row.enabled,
