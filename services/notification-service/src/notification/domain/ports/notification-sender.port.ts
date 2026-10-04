@@ -5,7 +5,11 @@ export interface SendNotificationInput {
   sourceId: string;
   severity: 'WARNING' | 'CRITICAL';
   status: 'TRIGGERED' | 'RESOLVED';
-  alertType: 'METRIC_THRESHOLD' | 'ENDPOINT_UNAVAILABLE' | 'HEALTH_CHECK_STALE';
+  alertType:
+    | 'METRIC_THRESHOLD'
+    | 'ENDPOINT_UNAVAILABLE'
+    | 'HEALTH_CHECK_STALE'
+    | 'LOG_FINDING';
   metricType: string;
   resolutionReason?: string;
   title: string;

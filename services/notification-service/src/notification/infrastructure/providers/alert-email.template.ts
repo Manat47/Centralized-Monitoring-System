@@ -18,7 +18,11 @@ export function buildAlertEmail(
   const occurredAt = formatBangkokTime(input.occurredAt);
   const headline = buildHeadline(input);
   const referenceLabel =
-    input.assetId === null ? 'Health check target ID' : 'Asset ID';
+    input.alertType === 'LOG_FINDING'
+      ? 'Rule ID'
+      : input.assetId === null
+        ? 'Health check target ID'
+        : 'Asset ID';
   const referenceId = input.assetId ?? input.sourceId;
 
   const accentColor = resolved
@@ -272,6 +276,10 @@ function detailItem(label: string, value: string): string {
 
 function buildHeadline(input: SendNotificationInput): string {
   const resolved = input.status === 'RESOLVED';
+
+  if (input.alertType === 'LOG_FINDING') {
+    return input.title;
+  }
 
   if (input.alertType === 'METRIC_THRESHOLD') {
     return resolved

@@ -49,4 +49,21 @@ describe('buildAlertEmail', () => {
     expect(email.html).toContain('Health check target ID: target-1');
     expect(email.text).not.toContain('Asset ID: null');
   });
+
+  it('shows the rule title and rule ID for a log finding', () => {
+    const email = buildAlertEmail({
+      ...input,
+      assetId: null,
+      sourceId: 'rule-1',
+      alertType: 'LOG_FINDING',
+      metricType: 'LOG_FINDING',
+      status: 'TRIGGERED',
+      title: 'Database errors',
+      message: '5 matching logs',
+    });
+
+    expect(email.text).toContain('Database errors');
+    expect(email.text).toContain('Rule ID: rule-1');
+    expect(email.html).toContain('Database errors');
+  });
 });

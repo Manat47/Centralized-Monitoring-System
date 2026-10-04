@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import { sanitizeLogMessage } from './sanitize-log-message';
 
 export interface LogFindingRule {
   id: string;
@@ -24,13 +25,15 @@ export interface MatchedCandidate {
   candidateId: string;
   ruleId: string;
   serviceName: string;
-  fingerprint: string;
   threshold: number;
   timeWindowSeconds: number;
   cooldownMinutes: number;
   occurredAt: string;
   projectId: string;
   sourceEventId: string;
+  ruleName: string;
+  severity: LogFindingRule['severity'];
+  safeMessage: string;
 }
 
 export function matchLogFinding(
@@ -65,11 +68,6 @@ export function matchLogFinding(
     matched = haystack.toLowerCase().includes(query.toLowerCase());
   }
   if (!matched) return null;
-  const fingerprint = createHash('sha256')
-    .update(
-      `${projectId}\0${rule.id}\0${log.source.toLowerCase()}\0${query.toLowerCase()}`,
-    )
-    .digest('hex');
   const candidateId = createHash('sha256')
     .update(`${projectId}\0${rule.id}\0${log.eventId}`)
     .digest('hex');
@@ -77,12 +75,17 @@ export function matchLogFinding(
     candidateId,
     ruleId: rule.id,
     serviceName: log.source,
-    fingerprint,
     threshold: rule.threshold,
     timeWindowSeconds: rule.timeWindowSeconds,
     cooldownMinutes: rule.cooldownMinutes,
     occurredAt: log.timestamp,
     projectId,
     sourceEventId: log.eventId,
+    ruleName: rule.name,
+    severity: rule.severity,
+    safeMessage: sanitizeLogMessage(log.message ?? log.event_type).slice(
+      0,
+      2048,
+    ),
   };
 }

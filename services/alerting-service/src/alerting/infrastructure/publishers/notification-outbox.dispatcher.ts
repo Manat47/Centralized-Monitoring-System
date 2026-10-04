@@ -10,6 +10,7 @@ import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 
 import { DRIZZLE_DB } from '../../../database/database.provider';
 import { notificationOutbox } from '../../../database/schema/alerts.schema';
+import { LogFindingEventPublisher } from '../../../log-finding/log-finding-event.publisher';
 import * as schema from '../../../database/schema/alerts.schema';
 import {
   NOTIFICATION_EVENT_PUBLISHER,
@@ -29,6 +30,7 @@ export class NotificationOutboxDispatcher
     private readonly db: NodePgDatabase<typeof schema>,
     @Inject(NOTIFICATION_EVENT_PUBLISHER)
     private readonly publisher: NotificationEventPublisher,
+    private readonly logFindingPublisher: LogFindingEventPublisher,
   ) {}
 
   onModuleInit(): void {
@@ -55,7 +57,11 @@ export class NotificationOutboxDispatcher
             .for('update', { skipLocked: true });
 
           if (!row) return false;
-          await this.publisher.publish(row.payload);
+          if (row.payload.eventType === 'log_finding_alert') {
+            await this.logFindingPublisher.publish(row.payload);
+          } else {
+            await this.publisher.publish(row.payload);
+          }
           await tx
             .update(notificationOutbox)
             .set({ publishedAt: new Date() })

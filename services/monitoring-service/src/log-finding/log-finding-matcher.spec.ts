@@ -27,14 +27,15 @@ describe('matchLogFinding', () => {
       sourceEventId: log.eventId,
     });
     expect(JSON.stringify(result)).not.toContain('password=secret');
+    expect(result?.safeMessage).toContain('password=[REDACTED]');
   });
 
-  it('filters by service and isolates project fingerprints', () => {
+  it('filters by service and isolates project candidate IDs', () => {
     expect(
       matchLogFinding({ ...rule, serviceName: 'auth' }, log, 'project-1'),
     ).toBeNull();
-    expect(matchLogFinding(rule, log, 'project-1')?.fingerprint).not.toBe(
-      matchLogFinding(rule, log, 'project-2')?.fingerprint,
+    expect(matchLogFinding(rule, log, 'project-1')?.candidateId).not.toBe(
+      matchLogFinding(rule, log, 'project-2')?.candidateId,
     );
   });
 

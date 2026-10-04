@@ -1,10 +1,15 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { fingerprintFor } from './log-finding-sanitizer';
+import { LogFindingStateRepository } from './log-finding-state.repository';
 
 export interface LogFindingCandidate {
   candidateId: string;
   ruleId: string;
+  ruleName: string;
   serviceName: string;
-  fingerprint: string;
+  severity: 'low' | 'medium' | 'high' | 'critical';
+  safeMessage: string;
+  projectId: string;
   threshold: number;
   timeWindowSeconds: number;
   cooldownMinutes: number;
@@ -15,6 +20,7 @@ interface WindowState {
   hits: number[];
   suppressedUntil: number;
   currentCount: number;
+  countOverflow: boolean;
   lastSeen: number;
 }
 
@@ -29,10 +35,21 @@ export class LogFindingBuffer {
   private readonly seen = new Map<string, number>();
   private totalHits = 0;
 
-  record(candidate: LogFindingCandidate, now = Date.now()): void {
+  constructor(private readonly states: LogFindingStateRepository) {}
+
+  async record(
+    candidate: LogFindingCandidate,
+    now = Date.now(),
+  ): Promise<'trigger' | 'summary' | null> {
     if (
       !candidate.candidateId ||
-      !candidate.fingerprint ||
+      !candidate.ruleId ||
+      typeof candidate.ruleName !== 'string' ||
+      !candidate.serviceName ||
+      typeof candidate.projectId !== 'string' ||
+      typeof candidate.safeMessage !== 'string' ||
+      candidate.safeMessage.length > 2048 ||
+      !['low', 'medium', 'high', 'critical'].includes(candidate.severity) ||
       !Number.isInteger(candidate.threshold) ||
       candidate.threshold < 1 ||
       !Number.isInteger(candidate.timeWindowSeconds) ||
@@ -42,41 +59,77 @@ export class LogFindingBuffer {
     ) {
       throw new Error('Invalid log finding candidate');
     }
-    if (this.seen.has(candidate.candidateId)) return;
+    const seenUntil = this.seen.get(candidate.candidateId);
+    if (seenUntil && seenUntil > now) return null;
+    const fingerprint = fingerprintFor(
+      candidate.ruleId,
+      candidate.serviceName,
+      candidate.safeMessage,
+    );
+    const previous = this.windows.get(fingerprint);
+    const from = now - candidate.timeWindowSeconds * 1000;
+    const hits = (previous?.hits ?? []).filter((time) => time >= from);
+    if (hits.length < MAX_HITS) hits.push(now);
+    let currentCount = Math.min(MAX_HITS, (previous?.currentCount ?? 0) + 1);
+    let countOverflow =
+      (previous?.countOverflow ?? false) ||
+      (previous?.currentCount ?? 0) >= MAX_HITS;
+    let suppressedUntil = previous?.suppressedUntil ?? 0;
+    let kind: 'trigger' | 'summary' | null = null;
+
+    if (
+      suppressedUntil > 0 &&
+      suppressedUntil <= now &&
+      hits.length < candidate.threshold
+    ) {
+      suppressedUntil = 0;
+      currentCount = 1;
+      countOverflow = false;
+    } else if (suppressedUntil > 0 && suppressedUntil <= now) {
+      kind = 'summary';
+    } else if (suppressedUntil === 0 && hits.length >= candidate.threshold) {
+      kind = 'trigger';
+    }
+
+    if (kind) {
+      const result = await this.states.persistTransition({
+        candidate,
+        fingerprint,
+        kind,
+        matchCount: kind === 'trigger' ? hits.length : currentCount,
+        countOverflow,
+        at: new Date(now),
+      });
+      suppressedUntil = result.suppressedUntil.getTime();
+      if (result.accepted) {
+        currentCount = 0;
+        countOverflow = false;
+        this.logger.log(
+          `Log finding ${kind} queued for rule ${candidate.ruleId}`,
+        );
+      } else {
+        kind = null;
+      }
+    }
+
+    if (!previous && this.windows.size >= MAX_KEYS) this.evictOldest();
+    this.totalHits -= previous?.hits.length ?? 0;
+    this.totalHits += hits.length;
+    if (this.totalHits > MAX_TOTAL_HITS) this.evictOldest(fingerprint);
+    this.windows.set(fingerprint, {
+      hits,
+      currentCount,
+      countOverflow,
+      suppressedUntil,
+      lastSeen: now,
+    });
     if (this.seen.size >= MAX_KEYS * 2) this.pruneSeen(now);
     if (this.seen.size >= MAX_KEYS * 2) {
       const oldest = this.seen.keys().next().value as string | undefined;
       if (oldest) this.seen.delete(oldest);
     }
     this.seen.set(candidate.candidateId, now + 60 * 60_000);
-
-    let state = this.windows.get(candidate.fingerprint);
-    if (!state) {
-      if (this.windows.size >= MAX_KEYS) this.evictOldest();
-      state = { hits: [], suppressedUntil: 0, currentCount: 0, lastSeen: now };
-      this.windows.set(candidate.fingerprint, state);
-    }
-    const from = now - candidate.timeWindowSeconds * 1000;
-    const oldLength = state.hits.length;
-    state.hits = state.hits.filter((time) => time >= from);
-    this.totalHits -= oldLength - state.hits.length;
-    if (this.totalHits >= MAX_TOTAL_HITS)
-      this.evictOldest(candidate.fingerprint);
-    if (state.hits.length < MAX_HITS) {
-      state.hits.push(now);
-      this.totalHits += 1;
-    }
-    state.currentCount = Math.min(MAX_HITS, state.currentCount + 1);
-    state.lastSeen = now;
-    if (
-      state.hits.length >= candidate.threshold &&
-      now >= state.suppressedUntil
-    ) {
-      state.suppressedUntil = now + candidate.cooldownMinutes * 60_000;
-      this.logger.log(
-        `Log finding threshold reached for rule ${candidate.ruleId}, fingerprint ${candidate.fingerprint}, count ${state.currentCount}; notification dispatch pending Phase 2`,
-      );
-    }
+    return kind;
   }
 
   private pruneSeen(now: number): void {
