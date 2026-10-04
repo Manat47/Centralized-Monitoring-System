@@ -88,6 +88,10 @@ function formatRelativeDate(value: string | null | undefined): string {
   return `${Math.floor(seconds / 86400)}d ago`;
 }
 
+function displayName(target: HealthCheckTarget): string {
+  return target.name?.trim() || target.url;
+}
+
 const resultStyles: Record<HealthResultStatus, string> = {
   AVAILABLE: "border-emerald-200 bg-emerald-50 text-emerald-700",
   UNAVAILABLE: "border-rose-200 bg-rose-50 text-rose-700",
@@ -152,12 +156,12 @@ export function HealthChecksTable() {
         matchesArchive &&
         (resultFilter === "ALL" || result === resultFilter) &&
         (!query ||
-          target.name.toLowerCase().includes(query) ||
+          displayName(target).toLowerCase().includes(query) ||
           asset?.name.toLowerCase().includes(query) ||
           target.url.toLowerCase().includes(query))
       );
     }).sort((a, b) =>
-      a.name.localeCompare(b.name, undefined, { sensitivity: "base", numeric: true }) ||
+      displayName(a).localeCompare(displayName(b), undefined, { sensitivity: "base", numeric: true }) ||
       a.healthCheckTargetId.localeCompare(b.healthCheckTargetId),
     );
   }, [archiveFilter, assetById, resultFilter, search, targets]);
@@ -337,7 +341,7 @@ export function HealthChecksTable() {
                         )}
                       >
                         <TableCell className="pl-4 font-medium text-slate-900">
-                          <span className="block">{target.name}</span>
+                          <span className="block">{displayName(target)}</span>
                           <span className="block text-xs font-normal text-slate-500">{asset?.name ?? (target.assetId ? "Unknown asset" : "Standalone")}</span>
                         </TableCell>
                         <TableCell>
