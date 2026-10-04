@@ -44,6 +44,9 @@ function isPublicRoute(method: string, path: string): boolean {
 }
 
 function isSharedRoute(method: string, path: string): boolean {
+  if (method === 'GET' && path === '/api/log-finding-rules') {
+    return true;
+  }
   if (path === '/api/projects' || path.startsWith('/api/projects/')) {
     return true;
   }
@@ -128,6 +131,12 @@ function isSharedRoute(method: string, path: string): boolean {
 }
 
 function isAdminRoute(method: string, path: string): boolean {
+  if (
+    path === '/api/log-finding-rules' ||
+    path.startsWith('/api/log-finding-rules/')
+  ) {
+    return true;
+  }
   if (path === '/api/users' || path.startsWith('/api/users/')) {
     return true;
   }

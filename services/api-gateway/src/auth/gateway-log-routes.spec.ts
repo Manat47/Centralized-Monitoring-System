@@ -43,6 +43,43 @@ describe('log routes at the gateway', () => {
     expect(next).toHaveBeenCalledTimes(1);
   });
 
+  it('allows operators to view finding rules but reserves rule changes for administrators', () => {
+    const next = jest.fn() as NextFunction;
+    const json = jest.fn();
+    const status = jest.fn().mockReturnValue({ json });
+    const operator = { headers: { 'x-user-role': 'OPERATOR' } };
+    gatewayAuthorizationMiddleware(
+      {
+        ...operator,
+        method: 'GET',
+        originalUrl: '/api/log-finding-rules',
+      } as unknown as Request,
+      { status } as unknown as Response,
+      next,
+    );
+    expect(next).toHaveBeenCalledTimes(1);
+    gatewayAuthorizationMiddleware(
+      {
+        ...operator,
+        method: 'POST',
+        originalUrl: '/api/log-finding-rules',
+      } as unknown as Request,
+      { status } as unknown as Response,
+      next,
+    );
+    expect(status).toHaveBeenCalledWith(403);
+    gatewayAuthorizationMiddleware(
+      {
+        method: 'PATCH',
+        originalUrl: '/api/log-finding-rules/rule-id',
+        headers: { 'x-user-role': 'ADMIN' },
+      } as unknown as Request,
+      { status } as unknown as Response,
+      next,
+    );
+    expect(next).toHaveBeenCalledTimes(2);
+  });
+
   it('rejects ingestion at the gateway before proxying when the rolling limit is reached', async () => {
     const evaluate = jest.fn((...args: unknown[]) => {
       void args;
