@@ -10,6 +10,7 @@ import {
 } from '@willsoto/nestjs-prometheus';
 import { HttpMetricsMiddleware } from './metrics/http-metrics.middleware';
 import { AssetLifecycleImpactModule } from './asset-lifecycle-impact/asset-lifecycle-impact.module';
+import { NotificationSettingsGatewayController } from './notification-settings/notification-settings.controller';
 
 @Module({
   imports: [
@@ -36,5 +37,6 @@ import { AssetLifecycleImpactModule } from './asset-lifecycle-impact/asset-lifec
 
     HttpMetricsMiddleware,
   ],
+  controllers: [NotificationSettingsGatewayController],
 })
 export class AppModule {}

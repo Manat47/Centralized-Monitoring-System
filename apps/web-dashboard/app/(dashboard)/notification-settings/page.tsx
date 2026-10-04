@@ -1,5 +1,5 @@
 import { AdminOnly } from "@/app/features/auth/components/admin-only";
-import { NotificationSettingsForm } from "@/app/features/notification-settings/components/notification-settings-form";
+import { MultiChannelSettingsForm } from "@/app/features/notification-settings/components/multi-channel-settings-form";
 
 export default function NotificationSettingsPage() {
   return (
@@ -14,11 +14,11 @@ export default function NotificationSettingsPage() {
         <div>
           <h1 className="text-2xl font-semibold">Notification Settings</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Manage the email addresses that receive alert notifications.
+            Configure destinations and routing for alert notifications.
           </p>
         </div>
 
-        <NotificationSettingsForm />
+        <MultiChannelSettingsForm />
       </section>
     </AdminOnly>
   );

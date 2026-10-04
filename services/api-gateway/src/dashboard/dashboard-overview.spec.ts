@@ -12,8 +12,6 @@ describe('buildDashboardOverview', () => {
     overrides: Partial<AssetResponse> & Pick<AssetResponse, 'assetId' | 'name'>,
   ): AssetResponse {
     return {
-      assetId: overrides.assetId,
-      name: overrides.name,
       hostname: null,
       targetType: 'SERVER',
       ipAddress: '10.20.1.11',
@@ -31,7 +29,6 @@ describe('buildDashboardOverview', () => {
   ): MonitoringTargetResponse {
     return {
       targetId: `target-${overrides.assetId}`,
-      assetId: overrides.assetId,
       monitoringType: 'NODE_EXPORTER',
       scrapeIntervalSeconds: 15,
       verificationStatus: 'VERIFIED',

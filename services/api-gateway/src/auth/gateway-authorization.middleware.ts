@@ -180,6 +180,13 @@ function isAdminRoute(method: string, path: string): boolean {
     return true;
   }
 
+  if (
+    path === '/api/notification-settings' ||
+    path.startsWith('/api/notification-settings/')
+  ) {
+    return true;
+  }
+
   return false;
 }
 

@@ -2,7 +2,10 @@ import { authenticatedFetch } from "@/app/lib/authenticated-fetch";
 
 import type {
   NotificationRecipient,
+  NotificationSettings,
   TestNotificationResult,
+  TestChannelResult,
+  UpdateNotificationSettingsInput,
 } from "../types/notification-settings";
 
 const API_GATEWAY_URL =
@@ -73,4 +76,66 @@ export async function sendTestNotification(): Promise<TestNotificationResult> {
   }
 
   return (await response.json()) as TestNotificationResult;
+}
+
+const settingsUrl = `${API_GATEWAY_URL}/notification-settings`;
+
+function normalizeSettings(value: unknown): NotificationSettings {
+  if (!value || typeof value !== "object") {
+    return { isFallbackEnabled: false, recipients: [] };
+  }
+  const raw = value as Record<string, unknown>;
+  const rows = Array.isArray(raw.recipients) ? raw.recipients : [];
+  const recipients = rows.flatMap((item): NotificationSettings["recipients"] => {
+    if (!item || typeof item !== "object") return [];
+    const row = item as Record<string, unknown>;
+    const channel = row.channel;
+    if (
+      typeof row.recipientId !== "string" ||
+      !["email", "line", "slack", "webhook"].includes(String(channel))
+    ) return [];
+    return [{
+      recipientId: row.recipientId,
+      channel: channel as NotificationSettings["recipients"][number]["channel"],
+      name: typeof row.name === "string" ? row.name : "Unnamed channel",
+      destination: typeof row.destination === "string" ? row.destination : "",
+      isEnabled: row.isEnabled === true,
+      priority: typeof row.priority === "number" ? row.priority : null,
+      hasSecretToken: row.hasSecretToken === true,
+    }];
+  });
+  return { isFallbackEnabled: raw.isFallbackEnabled === true, recipients };
+}
+
+export async function getNotificationSettings(): Promise<NotificationSettings> {
+  const response = await authenticatedFetch(settingsUrl);
+  if (!response.ok) {
+    throw new Error(await getErrorMessage(response, "Failed to load notification settings"));
+  }
+  return normalizeSettings(await response.json());
+}
+
+export async function updateNotificationSettings(
+  input: UpdateNotificationSettingsInput,
+): Promise<NotificationSettings> {
+  const response = await authenticatedFetch(settingsUrl, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+  if (!response.ok) {
+    throw new Error(await getErrorMessage(response, "Failed to save notification settings"));
+  }
+  return normalizeSettings(await response.json());
+}
+
+export async function testNotificationChannel(recipientId: string): Promise<TestChannelResult> {
+  const response = await authenticatedFetch(
+    `${settingsUrl}/${encodeURIComponent(recipientId)}/test`,
+    { method: "POST" },
+  );
+  if (!response.ok) {
+    throw new Error(await getErrorMessage(response, "Channel test failed"));
+  }
+  return (await response.json()) as TestChannelResult;
 }

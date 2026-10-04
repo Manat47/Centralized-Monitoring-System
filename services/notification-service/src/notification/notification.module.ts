@@ -27,6 +27,10 @@ import { SendUserInvitationUseCase } from './application/use-cases/send-user-inv
 import { NotificationExecutionRouter } from './application/services/notification-execution.router';
 import { NOTIFICATION_ROUTING_REPOSITORY } from './domain/ports/notification-routing.repository';
 import { DrizzleNotificationRoutingRepository } from './infrastructure/persistence/drizzle-notification-routing.repository';
+import { ManageNotificationSettingsUseCase } from './application/use-cases/manage-notification-settings.use-case';
+import { NOTIFICATION_SETTINGS_REPOSITORY } from './domain/ports/notification-settings.repository';
+import { DrizzleNotificationSettingsRepository } from './infrastructure/persistence/drizzle-notification-settings.repository';
+import { NotificationSettingsController } from './presentation/notification-settings.controller';
 
 @Module({
   imports: [
@@ -56,7 +60,11 @@ import { DrizzleNotificationRoutingRepository } from './infrastructure/persisten
     ]),
   ],
 
-  controllers: [NotificationEventConsumer, NotificationRecipientsController],
+  controllers: [
+    NotificationEventConsumer,
+    NotificationRecipientsController,
+    NotificationSettingsController,
+  ],
 
   providers: [
     SendNotificationUseCase,
@@ -65,6 +73,7 @@ import { DrizzleNotificationRoutingRepository } from './infrastructure/persisten
     SendTestNotificationUseCase,
     SendUserInvitationUseCase,
     NotificationExecutionRouter,
+    ManageNotificationSettingsUseCase,
     GmailSmtpNotificationSender,
     LineNotificationSender,
     SlackNotificationSender,
@@ -87,6 +96,10 @@ import { DrizzleNotificationRoutingRepository } from './infrastructure/persisten
     {
       provide: NOTIFICATION_ROUTING_REPOSITORY,
       useClass: DrizzleNotificationRoutingRepository,
+    },
+    {
+      provide: NOTIFICATION_SETTINGS_REPOSITORY,
+      useClass: DrizzleNotificationSettingsRepository,
     },
     {
       provide: AUDIT_EVENT_PUBLISHER,

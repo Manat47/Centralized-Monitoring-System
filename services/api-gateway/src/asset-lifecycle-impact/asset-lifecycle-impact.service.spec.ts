@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { BadRequestException } from '@nestjs/common';
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { of } from 'rxjs';
+import type { AxiosResponse } from 'axios';
 
 import { AssetLifecycleImpactService } from './asset-lifecycle-impact.service';
 
@@ -28,7 +29,7 @@ describe('AssetLifecycleImpactService', () => {
             name: 'server-01',
             status: 'ACTIVATE',
           },
-        } as never),
+        } as unknown as AxiosResponse),
       )
       .mockReturnValueOnce(
         of({
@@ -37,12 +38,12 @@ describe('AssetLifecycleImpactService', () => {
             healthChecks: { configured: 0, enabled: 0 },
             metricRules: { configured: 2, enabled: 2 },
           },
-        } as never),
+        } as unknown as AxiosResponse),
       )
       .mockReturnValueOnce(
         of({
           data: { triggered: 1, acknowledged: 1, total: 2 },
-        } as never),
+        } as unknown as AxiosResponse),
       );
 
     await expect(service.getImpact('asset-1', 'INACTIVATE')).resolves.toEqual(
@@ -69,7 +70,7 @@ describe('AssetLifecycleImpactService', () => {
           name: 'server-01',
           status: 'ACTIVATE',
         },
-      } as never),
+      } as unknown as AxiosResponse),
     );
 
     await expect(
@@ -86,7 +87,7 @@ describe('AssetLifecycleImpactService', () => {
             name: 'server-01',
             status: 'INACTIVATE',
           },
-        } as never),
+        } as unknown as AxiosResponse),
       )
       .mockReturnValueOnce(
         of({
@@ -95,12 +96,12 @@ describe('AssetLifecycleImpactService', () => {
             healthChecks: { configured: 0, enabled: 0 },
             metricRules: { configured: 2, enabled: 1 },
           },
-        } as never),
+        } as unknown as AxiosResponse),
       )
       .mockReturnValueOnce(
         of({
           data: { triggered: 2, acknowledged: 1, total: 3 },
-        } as never),
+        } as unknown as AxiosResponse),
       );
 
     await expect(service.getImpact('asset-1', 'DEACTIVATE')).resolves.toEqual(
