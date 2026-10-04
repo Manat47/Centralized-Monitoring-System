@@ -23,6 +23,7 @@ import { DiskUsageChart } from "./disk-usage-chart";
 import { MemoryUsageChart } from "./memory-usage-chart";
 import { NetworkRateChart } from "./network-rate-chart";
 import type { MetricThreshold } from "./metric-chart-utils";
+import { CopyIpButton } from "./copy-ip-button";
 
 const ranges = [
   { value: "15", label: "Last 15 minutes" },
@@ -51,7 +52,8 @@ export function HostInspectionDrawer({ asset, healthChecks, hasMetricTarget, onC
 
 function HostInspectionContent({ asset, healthChecks, hasMetricTarget }: Omit<HostInspectionDrawerProps, "onClose"> & { asset: Asset }) {
   const [rangeMinutes, setRangeMinutes] = useState("60");
-  const [tab, setTab] = useState<"performance" | "health">("performance");
+  const [selectedTab, setSelectedTab] = useState<"performance" | "health" | null>(null);
+  const tab = selectedTab ?? (asset.targetType === "SERVER" && hasMetricTarget ? "performance" : "health");
   const [refreshing, setRefreshing] = useState(false);
   const queryClient = useQueryClient();
   const metricRules = useMetricRules();
@@ -85,7 +87,11 @@ function HostInspectionContent({ asset, healthChecks, hasMetricTarget }: Omit<Ho
         <div className="rounded-lg bg-blue-50 p-2 text-blue-700"><Server className="size-5" /></div>
         <div>
           <DialogTitle className="text-xl">{asset.name}</DialogTitle>
-          <DialogDescription className="mt-1">{asset.ipAddress ?? asset.hostname ?? asset.endpoint ?? "No address"} · {asset.targetType}</DialogDescription>
+          <DialogDescription className="mt-1 flex flex-wrap items-center gap-1">
+            {asset.ipAddress ?? asset.hostname ?? asset.endpoint ?? "No address"}
+            {asset.ipAddress && <CopyIpButton ipAddress={asset.ipAddress} />}
+            <span aria-hidden="true">·</span> {asset.targetType}
+          </DialogDescription>
         </div>
         <Badge variant="outline" className="ml-auto">{asset.status === "ACTIVATE" ? "Active" : asset.status === "INACTIVATE" ? "Inactive" : "Deactivated"}</Badge>
       </div>
@@ -100,9 +106,14 @@ function HostInspectionContent({ asset, healthChecks, hasMetricTarget }: Omit<Ho
 
     <div className="px-6 pt-5">
       <div role="tablist" aria-label="Host inspection" className="flex gap-1 border-b border-slate-200">
-        <Button type="button" role="tab" aria-selected={tab === "performance"} variant="ghost" className={tab === "performance" ? "rounded-none border-b-2 border-blue-600 text-blue-700" : "rounded-none text-slate-500"} onClick={() => setTab("performance")}>Performance</Button>
-        <Button type="button" role="tab" aria-selected={tab === "health"} variant="ghost" className={tab === "health" ? "rounded-none border-b-2 border-blue-600 text-blue-700" : "rounded-none text-slate-500"} onClick={() => setTab("health")}>Health Checks ({activeHealthChecks.length})</Button>
+        <Button type="button" role="tab" aria-selected={tab === "performance"} variant="ghost" className={tab === "performance" ? "rounded-none border-b-2 border-blue-600 text-blue-700" : "rounded-none text-slate-500"} onClick={() => setSelectedTab("performance")}>Performance</Button>
+        <Button type="button" role="tab" aria-selected={tab === "health"} variant="ghost" className={tab === "health" ? "rounded-none border-b-2 border-blue-600 text-blue-700" : "rounded-none text-slate-500"} onClick={() => setSelectedTab("health")}>Health Checks ({activeHealthChecks.length})</Button>
       </div>
+      {tab === "health" && (
+        <Link className="mt-3 inline-block text-xs font-medium text-blue-700 hover:underline" href={`/monitoring/targets?search=${encodeURIComponent(asset.name)}`}>
+          View monitoring targets for {asset.name}
+        </Link>
+      )}
     </div>
 
     <div className="space-y-4 px-6 py-5">

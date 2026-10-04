@@ -1,9 +1,9 @@
 "use client";
 
-import { useMemo, useState, type KeyboardEvent, type MouseEvent } from "react";
+import { useMemo, useState, type KeyboardEvent } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
-import { Copy, Search, Server } from "lucide-react";
+import { Activity, Globe, Search, Server } from "lucide-react";
 
 import { useAssets } from "@/app/features/assets/api/use-assets";
 import { AssetActions } from "@/app/features/assets/components/asset-actions";
@@ -21,9 +21,12 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 
 import { getMetricsSummary } from "../api/get-metrics-summary";
 import { useMonitoringTargets } from "../api/use-monitoring-targets";
+import { CopyIpButton } from "./copy-ip-button";
 import { HostInspectionDrawer } from "./host-inspection-drawer";
 
 type StatusFilter = "ALL" | "ACTIVATE" | "INACTIVATE" | "DEACTIVATE";
+type TypeFilter = "ALL" | "SERVER" | "APPLICATION";
+type SortOrder = "HEALTH" | "NAME_ASC" | "NAME_DESC" | "SERVER_FIRST" | "APP_FIRST";
 
 function statusFor(asset: Asset, checks: HealthCheckTarget[]) {
   if (asset.status === "DEACTIVATE") return { label: "Deactivated", className: "border-slate-200 bg-slate-100 text-slate-600" };
@@ -38,6 +41,22 @@ function latestCheck(checks: HealthCheckTarget[]): HealthCheckTarget | undefined
   return checks.filter((check) => !check.archivedAt).sort((a, b) => Date.parse(b.latest?.timestamp ?? b.lastCheckedAt ?? "0") - Date.parse(a.latest?.timestamp ?? a.lastCheckedAt ?? "0"))[0];
 }
 
+function healthRank(asset: Asset, checks: HealthCheckTarget[]): number {
+  switch (statusFor(asset, checks).label) {
+    case "Warning": return 0;
+    case "Stale": return 1;
+    case "Active": return 2;
+    case "Inactive": return 3;
+    default: return 4;
+  }
+}
+
+function typeRank(asset: Asset, order: "SERVER_FIRST" | "APP_FIRST"): number {
+  if (asset.targetType === "SERVICE") return 2;
+  if (order === "SERVER_FIRST") return asset.targetType === "SERVER" ? 0 : 1;
+  return asset.targetType === "APPLICATION" ? 0 : 1;
+}
+
 function formatPercent(value: number | null | undefined) {
   return typeof value === "number" && Number.isFinite(value) ? `${Math.round(value)}%` : "—";
 }
@@ -49,9 +68,12 @@ function ResourceSnapshot({ assetId, enabled }: { assetId: string; enabled: bool
     enabled,
     refetchInterval: 60_000,
   });
-  if (!enabled) return <span className="text-slate-400">No active metrics</span>;
+  if (!enabled) return <span className="text-slate-400" aria-label="No active metrics">—</span>;
   if (query.isLoading) return <span className="text-slate-400">Loading...</span>;
   if (query.isError) return <span className="text-rose-600">Unavailable</span>;
+  if (query.data?.cpu.averageUsagePercent == null && query.data?.memory?.usagePercent == null) {
+    return <span className="text-slate-400" aria-label="No metric data">—</span>;
+  }
   return <span className="whitespace-nowrap">CPU {formatPercent(query.data?.cpu.averageUsagePercent)} <span className="text-slate-300">/</span> Mem {formatPercent(query.data?.memory?.usagePercent)}</span>;
 }
 
@@ -61,20 +83,44 @@ export function InfrastructureConsole() {
   const selectedHostId = searchParams.get("inspectHost");
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("ALL");
+  const [typeFilter, setTypeFilter] = useState<TypeFilter>("ALL");
+  const [sortOrder, setSortOrder] = useState<SortOrder>("HEALTH");
   const assetsQuery = useAssets();
   const targetsQuery = useMonitoringTargets();
   const healthQuery = useHealthCheckTargets();
   const assets = useMemo(() => assetsQuery.data ?? [], [assetsQuery.data]);
-  const monitoringTargets = targetsQuery.data ?? [];
   const healthTargets = healthQuery.data ?? [];
+  const healthByAsset = useMemo(() => {
+    const grouped = new Map<string, HealthCheckTarget[]>();
+    for (const target of healthQuery.data ?? []) {
+      if (!target.assetId) continue;
+      const checks = grouped.get(target.assetId) ?? [];
+      checks.push(target);
+      grouped.set(target.assetId, checks);
+    }
+    return grouped;
+  }, [healthQuery.data]);
+  const metricAssetIds = useMemo(() => new Set(
+    (targetsQuery.data ?? [])
+      .filter((target) => target.monitoringType === "NODE_EXPORTER" && !target.archivedAt && target.monitoringEnabled)
+      .map((target) => target.assetId),
+  ), [targetsQuery.data]);
   const selectedAsset = assets.find((asset) => asset.assetId === selectedHostId) ?? null;
   const filteredAssets = useMemo(() => {
     const term = search.trim().toLowerCase();
     return assets.filter((asset) =>
+      (typeFilter === "ALL" || asset.targetType === typeFilter) &&
       (statusFilter === "ALL" || asset.status === statusFilter) &&
       (!term || [asset.name, asset.hostname, asset.ipAddress, asset.endpoint].some((value) => value?.toLowerCase().includes(term))),
-    ).sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: "base", numeric: true }) || a.assetId.localeCompare(b.assetId));
-  }, [assets, search, statusFilter]);
+    ).sort((a, b) => {
+      const byName = a.name.localeCompare(b.name, undefined, { sensitivity: "base", numeric: true });
+      const byId = a.assetId.localeCompare(b.assetId);
+      if (sortOrder === "HEALTH") return healthRank(a, healthByAsset.get(a.assetId) ?? []) - healthRank(b, healthByAsset.get(b.assetId) ?? []) || byName || byId;
+      if (sortOrder === "NAME_ASC") return byName || byId;
+      if (sortOrder === "NAME_DESC") return -byName || byId;
+      return typeRank(a, sortOrder) - typeRank(b, sortOrder) || byName || byId;
+    });
+  }, [assets, healthByAsset, search, sortOrder, statusFilter, typeFilter]);
 
   function inspect(assetId: string | null) {
     const params = new URLSearchParams(searchParams.toString());
@@ -87,37 +133,55 @@ export function InfrastructureConsole() {
     if (event.key === "Enter" || event.key === " ") { event.preventDefault(); inspect(assetId); }
   }
 
-  function copyIp(event: MouseEvent<HTMLButtonElement>, ipAddress: string) {
-    event.stopPropagation();
-    void navigator.clipboard.writeText(ipAddress);
-  }
-
   const selectedHealth = healthTargets.filter((target) => target.assetId === selectedHostId);
-  const selectedHasMetricTarget = monitoringTargets.some((target) => target.assetId === selectedHostId && !target.archivedAt && target.monitoringEnabled);
+  const selectedHasMetricTarget = selectedHostId !== null && metricAssetIds.has(selectedHostId);
 
   return <section className="space-y-5">
     <header className="flex flex-wrap items-start justify-between gap-4"><div><p className="text-xs font-semibold uppercase tracking-widest text-blue-700">Infrastructure</p><h1 className="mt-1 text-2xl font-semibold text-slate-950">Hosts & Assets</h1><p className="mt-1 text-sm text-slate-500">Health and resource snapshots across registered infrastructure.</p></div><CreateAssetDialog /></header>
 
     <Card className="overflow-hidden border-slate-200 bg-white shadow-none"><CardContent className="p-0">
+      <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 px-4 pt-4" role="group" aria-label="Filter asset type">
+        {([
+          ["ALL", "All", assets.length],
+          ["SERVER", "Servers", assets.filter((asset) => asset.targetType === "SERVER").length],
+          ["APPLICATION", "Applications", assets.filter((asset) => asset.targetType === "APPLICATION").length],
+        ] as const).map(([value, label, count]) => (
+          <button
+            key={value}
+            type="button"
+            aria-pressed={typeFilter === value}
+            onClick={() => setTypeFilter(value)}
+            className={`rounded-t-md border-b-2 px-3 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${
+              typeFilter === value ? "border-blue-600 bg-blue-50 text-blue-700" : "border-transparent text-slate-500 hover:bg-slate-50 hover:text-slate-900"
+            }`}
+          >
+            {label} <span className="tabular-nums">({count})</span>
+          </button>
+        ))}
+      </div>
       <div className="flex flex-wrap items-center gap-3 border-b border-slate-200 px-4 py-4">
         <div className="relative w-full sm:w-72"><Search className="absolute top-2.5 left-3 size-4 text-slate-400" /><Input aria-label="Search hosts" placeholder="Search by name or IP" value={search} onChange={(event) => setSearch(event.target.value)} className="pl-9" /></div>
+        <Select value={sortOrder} onValueChange={(value) => { if (value === "HEALTH" || value === "NAME_ASC" || value === "NAME_DESC" || value === "SERVER_FIRST" || value === "APP_FIRST") setSortOrder(value); }}>
+          <SelectTrigger aria-label="Sort infrastructure" className="w-full bg-white sm:w-60"><SelectValue>{sortOrder === "HEALTH" ? "Health Status (Issues First)" : sortOrder === "NAME_ASC" ? "Name (A-Z)" : sortOrder === "NAME_DESC" ? "Name (Z-A)" : sortOrder === "SERVER_FIRST" ? "Type (Servers First)" : "Type (Apps First)"}</SelectValue></SelectTrigger>
+          <SelectContent><SelectItem value="HEALTH">Health Status (Issues First)</SelectItem><SelectItem value="NAME_ASC">Name (A-Z)</SelectItem><SelectItem value="NAME_DESC">Name (Z-A)</SelectItem><SelectItem value="SERVER_FIRST">Type (Servers First)</SelectItem><SelectItem value="APP_FIRST">Type (Apps First)</SelectItem></SelectContent>
+        </Select>
         <Select value={statusFilter} onValueChange={(value) => { if (value === "ALL" || value === "ACTIVATE" || value === "INACTIVATE" || value === "DEACTIVATE") setStatusFilter(value); }}><SelectTrigger aria-label="Filter by asset status" className="w-40 bg-white"><SelectValue>{statusFilter === "ALL" ? "All statuses" : statusFilter === "ACTIVATE" ? "Active" : statusFilter === "INACTIVATE" ? "Inactive" : "Deactivated"}</SelectValue></SelectTrigger><SelectContent><SelectItem value="ALL">All statuses</SelectItem><SelectItem value="ACTIVATE">Active</SelectItem><SelectItem value="INACTIVATE">Inactive</SelectItem><SelectItem value="DEACTIVATE">Deactivated</SelectItem></SelectContent></Select>
         <span className="ml-auto text-xs text-slate-500">{filteredAssets.length} of {assets.length} assets</span>
       </div>
 
       {assetsQuery.isLoading ? <p className="px-5 py-14 text-center text-sm text-slate-500">Loading infrastructure...</p> : assetsQuery.isError ? <p role="alert" className="px-5 py-14 text-center text-sm text-rose-600">Could not load assets.</p> : <div className="overflow-x-auto"><Table className="min-w-[920px]"><TableHeader><TableRow className="bg-slate-50"><TableHead className="pl-4">Host name</TableHead><TableHead>IP address</TableHead><TableHead>Status</TableHead><TableHead>Uptime / check</TableHead><TableHead>CPU / Memory</TableHead><TableHead className="pr-4 text-right">Actions</TableHead></TableRow></TableHeader><TableBody>
         {filteredAssets.length === 0 ? <TableRow><TableCell colSpan={6} className="py-16 text-center text-sm text-slate-500">{assets.length ? "No assets match the current filters." : "No assets registered yet."}</TableCell></TableRow> : filteredAssets.map((asset) => {
-          const checks = healthTargets.filter((target) => target.assetId === asset.assetId);
+          const checks = healthByAsset.get(asset.assetId) ?? [];
           const check = latestCheck(checks);
           const healthStatus = check ? check.enabled ? getHealthResultStatus(check) : "PAUSED" : null;
           const assetStatus = statusFor(asset, checks);
-          const hasMetricTarget = monitoringTargets.some((target) => target.assetId === asset.assetId && !target.archivedAt && target.monitoringEnabled);
-          return <TableRow key={asset.assetId} tabIndex={0} aria-label={`Inspect ${asset.name}`} className="cursor-pointer hover:bg-blue-50/50 focus-visible:bg-blue-50 focus-visible:outline-blue-500" onClick={() => inspect(asset.assetId)} onKeyDown={(event) => onRowKeyDown(event, asset.assetId)}>
-            <TableCell className="pl-4"><span className="flex items-center gap-2 font-medium text-slate-900"><Server className="size-4 text-slate-400" />{asset.name}</span><span className="ml-6 text-xs text-slate-500">{asset.targetType} · {asset.environment}</span></TableCell>
-            <TableCell className="font-mono text-xs">{asset.ipAddress ? <span className="flex items-center gap-1">{asset.ipAddress}<button type="button" aria-label={`Copy IP ${asset.ipAddress}`} className="rounded p-1 text-slate-400 hover:text-blue-700" onClick={(event) => { if (asset.ipAddress) copyIp(event, asset.ipAddress); }}><Copy className="size-3" /></button></span> : <span className="text-slate-400">—</span>}</TableCell>
+          const hasMetricTarget = metricAssetIds.has(asset.assetId);
+          return <TableRow key={asset.assetId} tabIndex={0} aria-label={`Inspect ${asset.name}`} aria-selected={selectedHostId === asset.assetId} className={`cursor-pointer focus-visible:outline-blue-500 ${selectedHostId === asset.assetId ? "bg-blue-50 hover:bg-blue-100" : "hover:bg-blue-50/50 focus-visible:bg-blue-50"}`} onClick={() => inspect(asset.assetId)} onKeyDown={(event) => onRowKeyDown(event, asset.assetId)}>
+            <TableCell className="pl-4"><span className="flex items-center gap-2 font-medium text-slate-900">{asset.targetType === "SERVER" ? <Server className="size-4 shrink-0 text-slate-500" /> : asset.targetType === "APPLICATION" ? <Globe className="size-4 shrink-0 text-indigo-600" /> : <Activity className="size-4 shrink-0 text-slate-500" />}{asset.name}<Badge variant="outline" className={asset.targetType === "APPLICATION" ? "border-indigo-200 bg-indigo-50 text-[10px] text-indigo-700" : "border-slate-200 bg-slate-100 text-[10px] text-slate-600"}>{asset.targetType === "APPLICATION" ? "APP" : asset.targetType}</Badge></span><span className="ml-6 text-xs text-slate-500">{asset.environment}</span></TableCell>
+            <TableCell className="font-mono text-xs">{asset.ipAddress ? <span className="flex items-center gap-1">{asset.ipAddress}<CopyIpButton ipAddress={asset.ipAddress} compact /></span> : <span className="text-slate-400">—</span>}</TableCell>
             <TableCell><Badge variant="outline" className={assetStatus.className}>{assetStatus.label}</Badge></TableCell>
             <TableCell className="text-xs">{healthQuery.isLoading ? "Loading..." : healthQuery.isError ? "Unavailable" : !check ? "No check" : healthStatus === "AVAILABLE" ? <span className="text-emerald-700">Passing ({check.latest?.statusCode ?? "—"})</span> : healthStatus === "UNAVAILABLE" ? <span className="text-rose-600">Failed ({check.latest?.statusCode ?? "No response"})</span> : healthStatus === "STALE" ? <span className="text-amber-700">Stale</span> : healthStatus === "PAUSED" ? "Paused" : "No result"}</TableCell>
-            <TableCell className="text-xs"><ResourceSnapshot assetId={asset.assetId} enabled={hasMetricTarget && asset.status === "ACTIVATE"} /></TableCell>
+            <TableCell className="text-xs"><ResourceSnapshot assetId={asset.assetId} enabled={asset.targetType === "SERVER" && hasMetricTarget && asset.status === "ACTIVATE"} /></TableCell>
             <TableCell className="pr-4"><div className="flex items-center justify-end gap-1" onClick={(event) => event.stopPropagation()} onKeyDown={(event) => event.stopPropagation()}><Button size="sm" variant="outline" onClick={() => inspect(asset.assetId)}>Inspect</Button><AssetActions asset={asset} /></div></TableCell>
           </TableRow>;
         })}

@@ -14,6 +14,7 @@ import {
   FolderKanban,
   ScrollText,
   Server,
+  Radar,
   Users,
 } from "lucide-react";
 
@@ -99,6 +100,11 @@ const navigationGroups: NavigationGroup[] = [
         href: "/infrastructure",
         label: "Infrastructure",
         icon: Server,
+      },
+      {
+        href: "/monitoring/targets",
+        label: "Monitoring Targets",
+        icon: Radar,
       },
       {
         href: "/metric-rules",
@@ -233,8 +239,7 @@ export function DashboardNavigation({
                     pathname === item.href ||
                     (item.href !== "/explorer" && pathname.startsWith(`${item.href}/`)) ||
                     (item.href === "/infrastructure" &&
-                      (pathname.startsWith("/assets/") ||
-                        pathname.startsWith("/monitoring-targets/")));
+                      pathname.startsWith("/assets/"));
 
                   if (item.disabled) {
                     return (

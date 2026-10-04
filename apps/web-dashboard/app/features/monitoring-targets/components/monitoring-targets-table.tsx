@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { Menu as MenuPrimitive } from "@base-ui/react/menu";
 import {
   Archive,
@@ -157,6 +158,24 @@ function getVerificationClass(status: VerificationStatus): string {
   }
 }
 
+function DiagnosticBadge({ error, context, assetName }: { error: string; context: string; assetName: string }) {
+  const label = /time(?:d)?\s*out|timeout|aborted/i.test(error) ? "Timeout" : "Failed";
+  return (
+    <Tooltip>
+      <TooltipTrigger
+        render={<button type="button" aria-label={`${context} for ${assetName}: ${error}`} className="inline-flex rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500" />}
+      >
+        <Badge variant="outline" className="gap-1 border-rose-200 bg-rose-50 text-rose-700">
+          <CircleAlert className="size-3" />{label}
+        </Badge>
+      </TooltipTrigger>
+      <TooltipContent side="top" className="max-h-64 max-w-sm overflow-y-auto break-words font-normal">
+        {context}: {error}
+      </TooltipContent>
+    </Tooltip>
+  );
+}
+
 function getMonitoringState(
   target: MonitoringTarget,
   asset: Asset | undefined,
@@ -194,7 +213,8 @@ function getMonitoringState(
 }
 
 export function MonitoringTargetsTable() {
-  const [search, setSearch] = useState("");
+  const searchParams = useSearchParams();
+  const [search, setSearch] = useState(() => searchParams.get("search") ?? "");
   const [verificationStatus, setVerificationStatus] = useState<
     "ALL" | VerificationStatus
   >("ALL");
@@ -439,6 +459,17 @@ export function MonitoringTargetsTable() {
               Clear
             </Button>
 
+            {actionError && (
+              <span
+                role="alert"
+                title={actionError instanceof Error ? actionError.message : "Failed to update monitoring target"}
+                className="inline-flex items-center gap-1 rounded-md border border-rose-200 bg-rose-50 px-2 py-1 text-xs font-medium text-rose-700"
+              >
+                <CircleAlert className="size-3.5" /> Action failed
+                <span className="sr-only">{actionError instanceof Error ? actionError.message : "Failed to update monitoring target"}</span>
+              </span>
+            )}
+
             <span
               className={cn(
                 "ml-auto text-xs text-slate-500",
@@ -451,14 +482,6 @@ export function MonitoringTargetsTable() {
                 " · Updating"}
             </span>
           </div>
-
-          {actionError && (
-            <div className="border-b border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
-              {actionError instanceof Error
-                ? actionError.message
-                : "Failed to update monitoring target"}
-            </div>
-          )}
 
           <Table className="min-w-[1120px]">
             <TableHeader>
@@ -534,11 +557,6 @@ export function MonitoringTargetsTable() {
                     !target.monitoringEnabled &&
                     target.verificationStatus === "VERIFIED";
                   const canDisable = !isReadOnly && target.monitoringEnabled;
-                  const errorLabel =
-                    target.verificationStatus === "FAILED"
-                      ? "Verification failed"
-                      : "Collection failed";
-
                   return (
                       <TableRow key={target.targetId} className="transition-colors duration-150">
                         <TableCell className="pl-4">
@@ -585,26 +603,23 @@ export function MonitoringTargetsTable() {
                         <TableCell>{target.scrapeIntervalSeconds}s</TableCell>
                         <TableCell>
                           <div className="flex items-center gap-1.5">
-                            <Badge variant="outline" className={getVerificationClass(target.verificationStatus)}>
-                              {formatVerification(target.verificationStatus)}
-                            </Badge>
-                            {target.lastError && (
-                              <Tooltip>
-                                <TooltipTrigger render={<button type="button" aria-label={`${errorLabel} for ${asset?.name ?? "monitoring target"}`} className="inline-flex items-center rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500" />}>
-                                  <Badge variant="outline" className="gap-1 border-rose-200 bg-rose-50 text-rose-700"><CircleAlert className="size-3" />Error</Badge>
-                                </TooltipTrigger>
-                                <TooltipContent side="top" className="max-h-64 max-w-sm overflow-y-auto break-words font-normal">{errorLabel}: {target.lastError}</TooltipContent>
-                              </Tooltip>
+                            {target.verificationStatus === "FAILED" && target.lastError ? (
+                              <DiagnosticBadge error={target.lastError} context="Verification failed" assetName={asset?.name ?? "monitoring target"} />
+                            ) : (
+                              <Badge variant="outline" className={getVerificationClass(target.verificationStatus)}>
+                                {formatVerification(target.verificationStatus)}
+                              </Badge>
                             )}
                           </div>
                         </TableCell>
                         <TableCell>
-                          <Badge
-                            variant="outline"
-                            className={monitoringState.className}
-                          >
-                            {monitoringState.label}
-                          </Badge>
+                          {target.lastError && target.verificationStatus === "VERIFIED" && target.monitoringEnabled && !target.archivedAt && asset?.status === "ACTIVATE" ? (
+                            <DiagnosticBadge error={target.lastError} context="Collection failed" assetName={asset.name} />
+                          ) : (
+                            <Badge variant="outline" className={monitoringState.className}>
+                              {monitoringState.label}
+                            </Badge>
+                          )}
                         </TableCell>
                         <TableCell>
                           {formatRelativeDate(target.lastVerifiedAt)}
