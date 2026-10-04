@@ -1,30 +1,18 @@
-import { Inject, Injectable, Logger } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 
 import type { NotificationEvent } from '../contracts/notification-event.contract';
-
 import {
-  NOTIFICATION_SENDER,
-  type NotificationSender,
-} from '../../domain/ports/notification-sender.port';
-
-import {
-  NOTIFICATION_RECIPIENT_REPOSITORY,
-  type NotificationRecipientRepository,
-} from '../../domain/ports/notification-recipient.repository';
+  NotificationExecutionRouter,
+  type NotificationExecutionReport,
+} from '../services/notification-execution.router';
 
 @Injectable()
 export class SendNotificationUseCase {
-  private readonly logger = new Logger(SendNotificationUseCase.name);
+  constructor(private readonly executionRouter: NotificationExecutionRouter) {}
 
-  constructor(
-    @Inject(NOTIFICATION_SENDER)
-    private readonly notificationSender: NotificationSender,
-
-    @Inject(NOTIFICATION_RECIPIENT_REPOSITORY)
-    private readonly notificationRecipientRepository: NotificationRecipientRepository,
-  ) {}
-
-  async execute(event: NotificationEvent): Promise<void> {
+  async execute(
+    event: NotificationEvent,
+  ): Promise<NotificationExecutionReport> {
     let title: string;
 
     if (event.eventType === 'ALERT_TRIGGERED') {
@@ -41,53 +29,23 @@ export class SendNotificationUseCase {
       title = `${event.severity} alert resolved`;
     }
 
-    const recipients = await this.notificationRecipientRepository.findAll();
-
-    if (recipients.length === 0) {
-      this.logger.warn(
-        `No notification recipients configured for alert ${event.alertId}`,
-      );
-
-      return;
-    }
-
-    let successCount = 0;
-    let lastError: Error | null = null;
-
-    for (const recipient of recipients) {
-      try {
-        await this.notificationSender.send({
-          recipientEmail: recipient.email,
-          alertId: event.alertId,
-          assetId: event.assetId,
-          sourceId: event.sourceId,
-          severity: event.severity,
-          status:
-            event.eventType === 'ALERT_TRIGGERED' ? 'TRIGGERED' : 'RESOLVED',
-          alertType: event.alertType,
-          metricType: event.metricType,
-          resolutionReason:
-            event.eventType === 'ALERT_RESOLVED'
-              ? event.resolutionReason
-              : undefined,
-          title,
-          message: event.message,
-          occurredAt: new Date(event.occurredAt),
-        });
-
-        successCount++;
-      } catch (error) {
-        lastError = error instanceof Error ? error : new Error(String(error));
-
-        this.logger.error(
-          `Failed to send notification to ${recipient.email}`,
-          lastError.stack,
-        );
-      }
-    }
-
-    if (successCount === 0 && lastError) {
-      throw lastError;
-    }
+    // TODO: Emit alert delivery/fallback audit events when the shared audit
+    // contract accepts system actors and notification delivery actions.
+    return this.executionRouter.execute({
+      alertId: event.alertId,
+      assetId: event.assetId,
+      sourceId: event.sourceId,
+      severity: event.severity,
+      status: event.eventType === 'ALERT_TRIGGERED' ? 'TRIGGERED' : 'RESOLVED',
+      alertType: event.alertType,
+      metricType: event.metricType,
+      resolutionReason:
+        event.eventType === 'ALERT_RESOLVED'
+          ? event.resolutionReason
+          : undefined,
+      title,
+      message: event.message,
+      occurredAt: new Date(event.occurredAt),
+    });
   }
 }

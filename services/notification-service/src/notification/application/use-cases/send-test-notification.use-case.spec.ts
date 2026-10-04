@@ -3,10 +3,8 @@ import {
   ServiceUnavailableException,
 } from '@nestjs/common';
 
-import { NotificationRecipient } from '../../domain/entities/notification-recipient.entity';
+import type { NotificationExecutionRouter } from '../services/notification-execution.router';
 import type { AuditEventPublisher } from '../../domain/ports/audit-event-publisher.port';
-import type { NotificationRecipientRepository } from '../../domain/ports/notification-recipient.repository';
-import type { NotificationSender } from '../../domain/ports/notification-sender.port';
 import { SendTestNotificationUseCase } from './send-test-notification.use-case';
 
 describe('SendTestNotificationUseCase', () => {
@@ -16,79 +14,74 @@ describe('SendTestNotificationUseCase', () => {
     actorEmail: 'admin@example.com',
   };
 
-  let repository: jest.Mocked<NotificationRecipientRepository>;
-  let sender: jest.Mocked<NotificationSender>;
-  let auditPublisher: jest.Mocked<AuditEventPublisher>;
-  let useCase: SendTestNotificationUseCase;
+  const executeMock = jest.fn();
+  const router = {
+    execute: executeMock,
+  } as unknown as jest.Mocked<NotificationExecutionRouter>;
+  const publishMock: jest.MockedFunction<AuditEventPublisher['publish']> =
+    jest.fn();
+  const auditPublisher: jest.Mocked<AuditEventPublisher> = {
+    publish: publishMock,
+  };
+  const useCase = new SendTestNotificationUseCase(router, auditPublisher);
 
-  beforeEach(() => {
-    repository = {
-      findAll: jest.fn(),
-      replaceAll: jest.fn(),
-    };
-    sender = {
-      send: jest.fn(),
-      sendTest: jest.fn(),
-      sendUserInvitation: jest.fn(),
-    };
-    auditPublisher = {
-      publish: jest.fn(),
-    };
-    useCase = new SendTestNotificationUseCase(
-      repository,
-      sender,
-      auditPublisher,
-    );
-  });
+  beforeEach(() => jest.clearAllMocks());
 
-  it('rejects the test when no recipients are configured', async () => {
-    repository.findAll.mockResolvedValue([]);
+  it('rejects when no enabled recipients exist', async () => {
+    router.execute.mockResolvedValue({
+      mode: 'broadcast',
+      recipientCount: 0,
+      sentCount: 0,
+      failedCount: 0,
+      deliveries: [],
+    });
 
     await expect(useCase.execute(actor)).rejects.toBeInstanceOf(
       BadRequestException,
     );
-    expect(sender.sendTest).not.toHaveBeenCalled();
+    expect(publishMock).not.toHaveBeenCalled();
   });
 
-  it('sends to every recipient and records a successful audit event', async () => {
-    repository.findAll.mockResolvedValue([
-      NotificationRecipient.create({
-        recipientId: 'recipient-1',
-        email: 'one@example.com',
-      }),
-      NotificationRecipient.create({
-        recipientId: 'recipient-2',
-        email: 'two@example.com',
-      }),
-    ]);
+  it('uses the router and keeps the existing test audit contract', async () => {
+    router.execute.mockResolvedValue({
+      mode: 'fallback',
+      recipientCount: 2,
+      sentCount: 1,
+      failedCount: 1,
+      deliveries: [],
+    });
 
     await expect(useCase.execute(actor)).resolves.toEqual({
       recipientCount: 2,
-      sentCount: 2,
-      failedCount: 0,
+      sentCount: 1,
+      failedCount: 1,
     });
-    expect(sender.sendTest).toHaveBeenCalledTimes(2);
-    expect(auditPublisher.publish).toHaveBeenCalledWith(
+    expect(executeMock).toHaveBeenCalledWith(
+      expect.objectContaining({ title: 'Notification test' }),
+    );
+    expect(publishMock).toHaveBeenCalledWith(
       expect.objectContaining({
         action: 'NOTIFICATION_TEST_SENT',
         result: 'SUCCESS',
       }),
     );
+    const auditEvent = publishMock.mock.calls[0][0];
+    expect(auditEvent.metadata).toMatchObject({ mode: 'fallback' });
   });
 
-  it('reports total delivery failure after recording the failed attempt', async () => {
-    repository.findAll.mockResolvedValue([
-      NotificationRecipient.create({
-        recipientId: 'recipient-1',
-        email: 'one@example.com',
-      }),
-    ]);
-    sender.sendTest.mockRejectedValue(new Error('SMTP unavailable'));
+  it('reports failure when every channel failed', async () => {
+    router.execute.mockResolvedValue({
+      mode: 'broadcast',
+      recipientCount: 1,
+      sentCount: 0,
+      failedCount: 1,
+      deliveries: [],
+    });
 
     await expect(useCase.execute(actor)).rejects.toBeInstanceOf(
       ServiceUnavailableException,
     );
-    expect(auditPublisher.publish).toHaveBeenCalledWith(
+    expect(publishMock).toHaveBeenCalledWith(
       expect.objectContaining({
         result: 'FAILURE',
         errorCode: 'NOTIFICATION_TEST_PARTIAL_FAILURE',

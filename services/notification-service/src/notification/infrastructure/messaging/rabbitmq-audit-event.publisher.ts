@@ -8,10 +8,7 @@ import {
   type AuditEvent,
   type AuditEventPublisher,
 } from '../../domain/ports/audit-event-publisher.port';
-import {
-  AUDIT_EVENTS_CLIENT,
-  AUDIT_EVENT_PATTERN,
-} from './rabbitmq.constants';
+import { AUDIT_EVENTS_CLIENT, AUDIT_EVENT_PATTERN } from './rabbitmq.constants';
 
 @Injectable()
 export class RabbitMqAuditEventPublisher implements AuditEventPublisher {

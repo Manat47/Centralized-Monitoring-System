@@ -4,8 +4,15 @@ import { ConfigService } from '@nestjs/config';
 import { ClientsModule, Transport } from '@nestjs/microservices';
 
 import { SendNotificationUseCase } from './application/use-cases/send-notification.use-case';
-import { NOTIFICATION_SENDER } from './domain/ports/notification-sender.port';
+import {
+  NOTIFICATION_CHANNEL_SENDERS,
+  NOTIFICATION_SENDER,
+  type NotificationSenderPort,
+} from './domain/ports/notification-sender.port';
 import { GmailSmtpNotificationSender } from './infrastructure/providers/gmail-smtp-notification.sender';
+import { LineNotificationSender } from './infrastructure/providers/line-notification.sender';
+import { SlackNotificationSender } from './infrastructure/providers/slack-notification.sender';
+import { WebhookNotificationSender } from './infrastructure/providers/webhook-notification.sender';
 import { NotificationEventConsumer } from './infrastructure/messaging/notification-event.consumer';
 import { NOTIFICATION_RECIPIENT_REPOSITORY } from './domain/ports/notification-recipient.repository';
 import { DrizzleNotificationRecipientRepository } from './infrastructure/persistence/drizzle-notification-recipient.repository';
@@ -17,6 +24,9 @@ import { AUDIT_EVENTS_CLIENT } from './infrastructure/messaging/rabbitmq.constan
 import { RabbitMqAuditEventPublisher } from './infrastructure/messaging/rabbitmq-audit-event.publisher';
 import { SendTestNotificationUseCase } from './application/use-cases/send-test-notification.use-case';
 import { SendUserInvitationUseCase } from './application/use-cases/send-user-invitation.use-case';
+import { NotificationExecutionRouter } from './application/services/notification-execution.router';
+import { NOTIFICATION_ROUTING_REPOSITORY } from './domain/ports/notification-routing.repository';
+import { DrizzleNotificationRoutingRepository } from './infrastructure/persistence/drizzle-notification-routing.repository';
 
 @Module({
   imports: [
@@ -54,13 +64,37 @@ import { SendUserInvitationUseCase } from './application/use-cases/send-user-inv
     UpdateNotificationRecipientsUseCase,
     SendTestNotificationUseCase,
     SendUserInvitationUseCase,
+    NotificationExecutionRouter,
+    GmailSmtpNotificationSender,
+    LineNotificationSender,
+    SlackNotificationSender,
+    WebhookNotificationSender,
+    {
+      provide: NOTIFICATION_CHANNEL_SENDERS,
+      useFactory: (
+        gmail: GmailSmtpNotificationSender,
+        line: LineNotificationSender,
+        slack: SlackNotificationSender,
+        webhook: WebhookNotificationSender,
+      ): NotificationSenderPort[] => [gmail, line, slack, webhook],
+      inject: [
+        GmailSmtpNotificationSender,
+        LineNotificationSender,
+        SlackNotificationSender,
+        WebhookNotificationSender,
+      ],
+    },
+    {
+      provide: NOTIFICATION_ROUTING_REPOSITORY,
+      useClass: DrizzleNotificationRoutingRepository,
+    },
     {
       provide: AUDIT_EVENT_PUBLISHER,
       useClass: RabbitMqAuditEventPublisher,
     },
     {
       provide: NOTIFICATION_SENDER,
-      useClass: GmailSmtpNotificationSender,
+      useExisting: GmailSmtpNotificationSender,
     },
     {
       provide: NOTIFICATION_RECIPIENT_REPOSITORY,

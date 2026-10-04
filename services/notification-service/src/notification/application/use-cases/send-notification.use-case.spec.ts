@@ -1,36 +1,16 @@
-import type { NotificationSender } from '../../domain/ports/notification-sender.port';
-import type { NotificationRecipientRepository } from '../../domain/ports/notification-recipient.repository';
-import { NotificationRecipient } from '../../domain/entities/notification-recipient.entity';
+import type { NotificationExecutionRouter } from '../services/notification-execution.router';
 import { SendNotificationUseCase } from './send-notification.use-case';
 
 describe('SendNotificationUseCase', () => {
-  let notificationSender: jest.Mocked<NotificationSender>;
-  let notificationRecipientRepository: jest.Mocked<NotificationRecipientRepository>;
-  let useCase: SendNotificationUseCase;
+  const executeMock = jest.fn();
+  const router = {
+    execute: executeMock,
+  } as unknown as jest.Mocked<NotificationExecutionRouter>;
+  const useCase = new SendNotificationUseCase(router);
 
-  beforeEach(() => {
-    notificationSender = {
-      send: jest.fn(),
-      sendTest: jest.fn(),
-      sendUserInvitation: jest.fn(),
-    };
-    notificationRecipientRepository = {
-      findAll: jest.fn().mockResolvedValue([
-        NotificationRecipient.create({
-          recipientId: 'recipient-1',
-          email: 'operator@example.com',
-        }),
-      ]),
-      replaceAll: jest.fn(),
-    };
+  beforeEach(() => jest.clearAllMocks());
 
-    useCase = new SendNotificationUseCase(
-      notificationSender,
-      notificationRecipientRepository,
-    );
-  });
-
-  it('should send a triggered alert notification', async () => {
+  it('maps a triggered event into a channel-neutral alert', async () => {
     await useCase.execute({
       eventType: 'ALERT_TRIGGERED',
       alertId: 'alert-1',
@@ -45,8 +25,7 @@ describe('SendNotificationUseCase', () => {
       occurredAt: '2026-07-15T02:00:00.000Z',
     });
 
-    expect(notificationSender.send).toHaveBeenCalledWith({
-      recipientEmail: 'operator@example.com',
+    expect(executeMock).toHaveBeenCalledWith({
       alertId: 'alert-1',
       assetId: 'asset-1',
       sourceId: 'rule-1',
@@ -61,7 +40,7 @@ describe('SendNotificationUseCase', () => {
     });
   });
 
-  it('should send a resolved alert notification', async () => {
+  it('maps a resolved event and preserves its reason', async () => {
     await useCase.execute({
       eventType: 'ALERT_RESOLVED',
       alertId: 'alert-1',
@@ -69,7 +48,7 @@ describe('SendNotificationUseCase', () => {
       sourceId: 'rule-1',
       alertType: 'METRIC_THRESHOLD',
       ruleId: 'rule-1',
-      assetId: 'asset-1',
+      assetId: null,
       metricType: 'CPU_USAGE',
       severity: 'WARNING',
       message: 'CPU usage recovered',
@@ -77,19 +56,13 @@ describe('SendNotificationUseCase', () => {
       resolutionReason: 'METRIC_RECOVERED',
     });
 
-    expect(notificationSender.send).toHaveBeenCalledWith({
-      recipientEmail: 'operator@example.com',
-      alertId: 'alert-1',
-      assetId: 'asset-1',
-      sourceId: 'rule-1',
-      severity: 'WARNING',
-      status: 'RESOLVED',
-      alertType: 'METRIC_THRESHOLD',
-      metricType: 'CPU_USAGE',
-      resolutionReason: 'METRIC_RECOVERED',
-      title: 'WARNING alert resolved',
-      message: 'CPU usage recovered',
-      occurredAt: new Date('2026-07-15T02:05:00.000Z'),
-    });
+    expect(executeMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        assetId: null,
+        status: 'RESOLVED',
+        resolutionReason: 'METRIC_RECOVERED',
+        title: 'WARNING alert resolved',
+      }),
+    );
   });
 });

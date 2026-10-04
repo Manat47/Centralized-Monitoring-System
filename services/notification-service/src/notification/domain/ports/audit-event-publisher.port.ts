@@ -2,9 +2,7 @@ export interface AuditEvent {
   actorUserId: string;
   actorRole: 'ADMIN' | 'OPERATOR';
   actorEmail?: string | null;
-  action:
-    | 'NOTIFICATION_RECIPIENTS_UPDATED'
-    | 'NOTIFICATION_TEST_SENT';
+  action: 'NOTIFICATION_RECIPIENTS_UPDATED' | 'NOTIFICATION_TEST_SENT';
   resourceType: 'NOTIFICATION_SETTINGS';
   resourceId?: string | null;
   resourceName?: string | null;

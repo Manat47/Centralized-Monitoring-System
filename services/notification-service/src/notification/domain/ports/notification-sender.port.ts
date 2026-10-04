@@ -33,6 +33,10 @@ export interface NotificationSenderPort {
   sendAlert(input: SendChannelNotificationInput): Promise<SendResult>;
 }
 
+export const NOTIFICATION_CHANNEL_SENDERS = Symbol(
+  'NOTIFICATION_CHANNEL_SENDERS',
+);
+
 export interface SendUserInvitationInput {
   recipientEmail: string;
   displayName: string;

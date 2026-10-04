@@ -1,3 +1,5 @@
+import { randomUUID } from 'node:crypto';
+
 import {
   BadRequestException,
   Inject,
@@ -9,14 +11,7 @@ import {
   AUDIT_EVENT_PUBLISHER,
   type AuditEventPublisher,
 } from '../../domain/ports/audit-event-publisher.port';
-import {
-  NOTIFICATION_RECIPIENT_REPOSITORY,
-  type NotificationRecipientRepository,
-} from '../../domain/ports/notification-recipient.repository';
-import {
-  NOTIFICATION_SENDER,
-  type NotificationSender,
-} from '../../domain/ports/notification-sender.port';
+import { NotificationExecutionRouter } from '../services/notification-execution.router';
 
 export interface SendTestNotificationInput {
   actorUserId: string;
@@ -33,10 +28,7 @@ export interface SendTestNotificationResult {
 @Injectable()
 export class SendTestNotificationUseCase {
   constructor(
-    @Inject(NOTIFICATION_RECIPIENT_REPOSITORY)
-    private readonly notificationRecipientRepository: NotificationRecipientRepository,
-    @Inject(NOTIFICATION_SENDER)
-    private readonly notificationSender: NotificationSender,
+    private readonly executionRouter: NotificationExecutionRouter,
     @Inject(AUDIT_EVENT_PUBLISHER)
     private readonly auditEventPublisher: AuditEventPublisher,
   ) {}
@@ -44,28 +36,27 @@ export class SendTestNotificationUseCase {
   async execute(
     input: SendTestNotificationInput,
   ): Promise<SendTestNotificationResult> {
-    const recipients = await this.notificationRecipientRepository.findAll();
+    const delivery = await this.executionRouter.execute({
+      alertId: randomUUID(),
+      assetId: null,
+      sourceId: 'notification-test',
+      severity: 'WARNING',
+      status: 'TRIGGERED',
+      alertType: 'ENDPOINT_UNAVAILABLE',
+      metricType: 'NOTIFICATION_TEST',
+      title: 'Notification test',
+      message: 'This is a test notification from Centralized Monitoring.',
+      occurredAt: new Date(),
+    });
 
-    if (recipients.length === 0) {
+    if (delivery.recipientCount === 0) {
       throw new BadRequestException('No notification recipients configured');
     }
 
-    let sentCount = 0;
-    let failedCount = 0;
-
-    for (const recipient of recipients) {
-      try {
-        await this.notificationSender.sendTest(recipient.email);
-        sentCount += 1;
-      } catch {
-        failedCount += 1;
-      }
-    }
-
     const result: SendTestNotificationResult = {
-      recipientCount: recipients.length,
-      sentCount,
-      failedCount,
+      recipientCount: delivery.recipientCount,
+      sentCount: delivery.sentCount,
+      failedCount: delivery.failedCount,
     };
 
     await this.auditEventPublisher.publish({
@@ -76,21 +67,39 @@ export class SendTestNotificationUseCase {
       resourceType: 'NOTIFICATION_SETTINGS',
       resourceId: null,
       resourceName: 'Alert notification recipients',
-      result: failedCount === 0 ? 'SUCCESS' : 'FAILURE',
+      result:
+        delivery.mode === 'fallback'
+          ? delivery.sentCount > 0
+            ? 'SUCCESS'
+            : 'FAILURE'
+          : delivery.failedCount === 0
+            ? 'SUCCESS'
+            : 'FAILURE',
       metadata: {
         recipientCount: result.recipientCount,
         sentCount: result.sentCount,
         failedCount: result.failedCount,
+        mode: delivery.mode,
+        channels: delivery.deliveries.map((attempt) => ({
+          channel: attempt.recipient.channel,
+          success: attempt.result.success,
+          attempts: attempt.attempts,
+        })),
       },
-      errorCode: failedCount > 0 ? 'NOTIFICATION_TEST_PARTIAL_FAILURE' : null,
+      errorCode:
+        delivery.failedCount > 0 &&
+        (delivery.mode === 'broadcast' || delivery.sentCount === 0)
+          ? 'NOTIFICATION_TEST_PARTIAL_FAILURE'
+          : null,
       errorMessage:
-        failedCount > 0
-          ? `Failed to send to ${failedCount} of ${recipients.length} recipients`
+        delivery.failedCount > 0 &&
+        (delivery.mode === 'broadcast' || delivery.sentCount === 0)
+          ? `Failed to send to ${delivery.failedCount} of ${delivery.recipientCount} recipients`
           : null,
       occurredAt: new Date(),
     });
 
-    if (sentCount === 0) {
+    if (delivery.sentCount === 0) {
       throw new ServiceUnavailableException(
         'Failed to send test notification to all recipients',
       );

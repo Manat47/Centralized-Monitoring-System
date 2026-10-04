@@ -70,8 +70,12 @@ export class UpdateNotificationRecipientsUseCase {
       existingRecipients.map((recipient) => recipient.email),
     );
     const nextEmails = new Set(normalizedEmails);
-    const added = normalizedEmails.filter((email) => !previousEmails.has(email));
-    const removed = [...previousEmails].filter((email) => !nextEmails.has(email));
+    const added = normalizedEmails.filter(
+      (email) => !previousEmails.has(email),
+    );
+    const removed = [...previousEmails].filter(
+      (email) => !nextEmails.has(email),
+    );
 
     await this.auditEventPublisher.publish({
       actorUserId: input.actorUserId,

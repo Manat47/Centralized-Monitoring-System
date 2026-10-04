@@ -15,13 +15,17 @@ describe('UpdateNotificationRecipientsUseCase', () => {
   let repository: jest.Mocked<NotificationRecipientRepository>;
   let auditPublisher: jest.Mocked<AuditEventPublisher>;
   let useCase: UpdateNotificationRecipientsUseCase;
+  let replaceAllMock: jest.Mock;
+  let publishMock: jest.Mock;
 
   beforeEach(() => {
+    replaceAllMock = jest.fn();
     repository = {
       findAll: jest.fn(),
-      replaceAll: jest.fn(),
+      replaceAll: replaceAllMock,
     };
-    auditPublisher = { publish: jest.fn() };
+    publishMock = jest.fn();
+    auditPublisher = { publish: publishMock };
     useCase = new UpdateNotificationRecipientsUseCase(
       repository,
       auditPublisher,
@@ -41,10 +45,10 @@ describe('UpdateNotificationRecipientsUseCase', () => {
     });
 
     expect(result[0]).toEqual(existing.toObject());
-    expect(repository.replaceAll).toHaveBeenCalledWith(
+    expect(replaceAllMock).toHaveBeenCalledWith(
       expect.arrayContaining([existing, expect.any(NotificationRecipient)]),
     );
-    expect(auditPublisher.publish).toHaveBeenCalledWith(
+    expect(publishMock).toHaveBeenCalledWith(
       expect.objectContaining({
         actorEmail: actor.actorEmail,
         action: 'NOTIFICATION_RECIPIENTS_UPDATED',
@@ -65,7 +69,7 @@ describe('UpdateNotificationRecipientsUseCase', () => {
       }),
     ).rejects.toBeInstanceOf(BadRequestException);
 
-    expect(repository.replaceAll).not.toHaveBeenCalled();
-    expect(auditPublisher.publish).not.toHaveBeenCalled();
+    expect(replaceAllMock).not.toHaveBeenCalled();
+    expect(publishMock).not.toHaveBeenCalled();
   });
 });
