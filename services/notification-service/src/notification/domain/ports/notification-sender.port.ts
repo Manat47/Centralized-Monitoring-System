@@ -1,7 +1,8 @@
 export interface SendNotificationInput {
   recipientEmail: string;
   alertId: string;
-  assetId: string;
+  assetId: string | null;
+  sourceId: string;
   severity: 'WARNING' | 'CRITICAL';
   status: 'TRIGGERED' | 'RESOLVED';
   alertType: 'METRIC_THRESHOLD' | 'ENDPOINT_UNAVAILABLE' | 'HEALTH_CHECK_STALE';

@@ -1,12 +1,15 @@
 import { BadRequestException } from '@nestjs/common';
 
 import type { AuditEventPublisher } from '../../domain/ports/audit-event-publisher.port';
-import type { AssetReader } from '../../domain/ports/asset-reader.port';
+import type {
+  AssetReader,
+  AssetSnapshot,
+} from '../../domain/ports/asset-reader.port';
 import type { MonitoringTargetRepository } from '../../domain/repositories/monitoring-target.repository';
 import { CreateMonitoringTargetUseCase } from './create-monitoring-target.use-case';
 
 describe('CreateMonitoringTargetUseCase address source', () => {
-  const asset = {
+  const asset: AssetSnapshot = {
     assetId: '85ffffba-fdf7-464e-aad5-1b4a3b82110a',
     name: 'server-01',
     assetType: 'SERVER' as const,

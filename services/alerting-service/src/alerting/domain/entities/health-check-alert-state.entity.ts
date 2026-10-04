@@ -3,7 +3,7 @@ export type HealthCheckEvaluationStatus =
 
 export interface HealthCheckAlertStateProps {
   healthCheckTargetId: string;
-  assetId: string;
+  assetId: string | null;
   url: string;
   enabled: boolean;
   archived: boolean;
@@ -36,7 +36,7 @@ export class HealthCheckAlertState {
 
   static create(input: {
     healthCheckTargetId: string;
-    assetId: string;
+    assetId: string | null;
     url: string;
     checkIntervalSeconds: number;
     enabled?: boolean;
@@ -70,7 +70,7 @@ export class HealthCheckAlertState {
   }
 
   configure(input: {
-    assetId: string;
+    assetId: string | null;
     url: string;
     checkIntervalSeconds: number;
     enabled: boolean;
@@ -217,6 +217,13 @@ export class HealthCheckAlertState {
 
   toObject(): HealthCheckAlertStateProps {
     return { ...this.props };
+  }
+
+  hasFreshResultAt(now: Date): boolean {
+    return (
+      this.props.lastResultAt !== null &&
+      now.getTime() - this.props.lastResultAt.getTime() <= this.staleAfterMs()
+    );
   }
 
   private reset(state: HealthCheckEvaluationStatus): void {

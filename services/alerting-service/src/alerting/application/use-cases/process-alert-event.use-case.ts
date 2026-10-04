@@ -248,12 +248,14 @@ export class ProcessAlertEventUseCase {
 
     const before = state.toObject();
     const occurredAt = new Date(event.occurredAt);
+    const evaluatedAt = new Date();
 
-    if (
-      !before.enabled ||
-      before.archived ||
-      (before.lastResultAt && occurredAt <= before.lastResultAt)
-    ) {
+    if (!before.enabled || before.archived) {
+      return null;
+    }
+
+    if (before.lastResultAt && occurredAt <= before.lastResultAt) {
+      await this.resolveStaleAlertIfFresh(state, event.url, evaluatedAt);
       return null;
     }
 
@@ -275,7 +277,11 @@ export class ProcessAlertEventUseCase {
         : {}),
     };
     const transition = event.heartbeatOnly
-      ? state.recordHeartbeat(resultInput, event.alertActive ?? false)
+      ? state.recordHeartbeat(
+          resultInput,
+          event.alertActive ?? false,
+          evaluatedAt,
+        )
       : state.recordResult(
           resultInput,
           event.eventType === 'HEALTH_CHECK_RESULT_RECORDED'
@@ -284,26 +290,12 @@ export class ProcessAlertEventUseCase {
           event.eventType === 'HEALTH_CHECK_RESULT_RECORDED'
             ? HEALTH_RECOVERY_THRESHOLD
             : 1,
+          evaluatedAt,
         );
     const after = state.toObject();
 
-    if (before.state === 'STALE' && after.state !== 'STALE') {
-      const staleAlert = await this.alertRepository.findActiveByDedupKey(
-        this.healthDedupKey(event.healthCheckTargetId, 'HEALTH_CHECK_STALE'),
-      );
-
-      if (staleAlert) {
-        await this.resolveAlert(
-          staleAlert,
-          null,
-          occurredAt,
-          'HEALTH_CHECK_DATA_RESUMED',
-          `Health check data resumed for ${event.url}`,
-        );
-      }
-    }
-
     await this.healthStateRepository.save(state);
+    await this.resolveStaleAlertIfFresh(state, event.url, evaluatedAt);
 
     if (
       after.state === 'ALERTED' &&
@@ -451,6 +443,30 @@ export class ProcessAlertEventUseCase {
     alertType: 'ENDPOINT_UNAVAILABLE' | 'HEALTH_CHECK_STALE',
   ): string {
     return `HEALTH_CHECK:${targetId}:${alertType}`;
+  }
+
+  private async resolveStaleAlertIfFresh(
+    state: HealthCheckAlertState,
+    url: string,
+    evaluatedAt: Date,
+  ): Promise<void> {
+    const data = state.toObject();
+    if (data.state === 'STALE' || !state.hasFreshResultAt(evaluatedAt)) {
+      return;
+    }
+
+    const staleAlert = await this.alertRepository.findActiveByDedupKey(
+      this.healthDedupKey(data.healthCheckTargetId, 'HEALTH_CHECK_STALE'),
+    );
+    if (staleAlert) {
+      await this.resolveAlert(
+        staleAlert,
+        null,
+        data.lastResultAt ?? evaluatedAt,
+        'HEALTH_CHECK_DATA_RESUMED',
+        `Health check data resumed for ${url}`,
+      );
+    }
   }
 
   private healthActualText(event: HealthCheckResultRecordedEvent): string {

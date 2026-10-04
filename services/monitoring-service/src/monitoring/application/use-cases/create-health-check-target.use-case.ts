@@ -138,18 +138,16 @@ export class CreateHealthCheckTargetUseCase {
 
     const createdData = createdTarget.toObject();
 
-    if (createdData.assetId !== null) {
-      await this.alertEventPublisher.publish({
-        eventId: randomUUID(),
-        eventType: 'HEALTH_CHECK_TARGET_STATE_CHANGED',
-        healthCheckTargetId,
-        assetId: createdData.assetId,
-        url: createdData.url,
-        checkIntervalSeconds: createdData.checkIntervalSeconds,
-        state: 'RUNNING',
-        occurredAt: createdData.createdAt,
-      });
-    }
+    await this.alertEventPublisher.publish({
+      eventId: randomUUID(),
+      eventType: 'HEALTH_CHECK_TARGET_STATE_CHANGED',
+      healthCheckTargetId,
+      assetId: createdData.assetId,
+      url: createdData.url,
+      checkIntervalSeconds: createdData.checkIntervalSeconds,
+      state: 'RUNNING',
+      occurredAt: createdData.createdAt,
+    });
 
     return createdTarget;
   }

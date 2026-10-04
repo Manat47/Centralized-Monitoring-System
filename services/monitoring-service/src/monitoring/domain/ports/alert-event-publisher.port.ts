@@ -68,7 +68,7 @@ export interface HealthCheckResultRecordedEvent {
   alertActive?: boolean;
   available?: boolean;
   healthCheckTargetId: string;
-  assetId: string;
+  assetId: string | null;
   url: string;
   checkIntervalSeconds: number;
   statusCode: number | null;
@@ -81,7 +81,7 @@ export interface HealthCheckTargetStateChangedEvent {
   eventId: string;
   eventType: 'HEALTH_CHECK_TARGET_STATE_CHANGED';
   healthCheckTargetId: string;
-  assetId: string;
+  assetId: string | null;
   url: string;
   checkIntervalSeconds: number;
   state: 'RUNNING' | 'PAUSED' | 'ARCHIVED';

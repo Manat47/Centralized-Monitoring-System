@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, jest } from '@jest/globals';
 
 import { MonitoringTarget } from '../../domain/entities/monitoring-target.entity';
 import type { MetricsCollectorResolver } from '../../domain/ports/metrics-collector-resolver.port';
+import type { MetricsCollector } from '../../domain/ports/metrics-collector.port';
 import type { MetricsParser } from '../../domain/ports/metrics-parser.port';
 import type { MetricsStorage } from '../../domain/ports/metrics-storage.port';
 import type { MonitoringTargetRepository } from '../../domain/repositories/monitoring-target.repository';
@@ -91,7 +92,7 @@ describe('CollectTargetMetricsUseCase attempt tracking', () => {
         .mockResolvedValue(target),
       update,
     } as unknown as jest.Mocked<MonitoringTargetRepository>;
-    const collect = jest.fn().mockResolvedValue({
+    const collect = jest.fn<MetricsCollector['collect']>().mockResolvedValue({
       success: false,
       rawMetrics: null,
       collectedAt: attemptedAt,
@@ -99,7 +100,7 @@ describe('CollectTargetMetricsUseCase attempt tracking', () => {
     });
     const collectorResolver = {
       resolve: jest.fn<MetricsCollectorResolver['resolve']>().mockReturnValue({
-        verify: jest.fn(),
+        verify: jest.fn<MetricsCollector['verify']>(),
         collect,
       }),
     } as unknown as jest.Mocked<MetricsCollectorResolver>;

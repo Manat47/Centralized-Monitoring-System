@@ -76,7 +76,10 @@ export function AlertDetailView() {
         </p>
         <h1 className="mt-2 text-2xl font-semibold">
           {alert.severity === "CRITICAL" ? "Critical" : "Warning"} alert —{" "}
-          {asset?.name ?? alert.assetId}
+          {asset?.name ??
+            (typeof alert.context?.url === "string"
+              ? alert.context.url
+              : (alert.assetId ?? alert.sourceId))}
         </h1>
       </div>
 
@@ -151,10 +154,14 @@ export function AlertDetailView() {
                 </p>
               )}
               <Link
-                href={`/assets/${alert.assetId}`}
+                href={
+                  alert.assetId
+                    ? `/assets/${alert.assetId}`
+                    : `/health-checks/${alert.sourceId}`
+                }
                 className="group flex items-center justify-center gap-1 rounded-sm text-sm text-blue-600 transition-colors duration-150 hover:text-blue-700 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/40"
               >
-                View asset{" "}
+                {alert.assetId ? "View asset" : "View health check"}{" "}
                 <ExternalLink className="size-3 transition-transform duration-150 group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
               </Link>
               {alert.sourceType === "METRIC_RULE" && alert.ruleId && (
@@ -280,6 +287,7 @@ function HealthContext({ alert }: { alert: Alert }) {
 }
 
 function MetricContext({ alert }: { alert: Alert }) {
+  const assetId = alert.assetId;
   const start = new Date(
     new Date(alert.triggeredAt).getTime() - 60 * 60_000,
   ).toISOString();
@@ -287,9 +295,10 @@ function MetricContext({ alert }: { alert: Alert }) {
   const metricQuery = useQuery({
     queryKey: ["alert-metric-context", alert.alertId, start, end],
     queryFn: async () => {
+      if (!assetId) return [];
       if (alert.metricType === "CPU_USAGE") {
         const values = await getCpuUsage({
-          assetId: alert.assetId,
+          assetId,
           start,
           end,
         });
@@ -313,14 +322,14 @@ function MetricContext({ alert }: { alert: Alert }) {
       }
       if (alert.metricType === "MEMORY_USAGE")
         return sortMetricPoints(
-          (await getMemoryUsage({ assetId: alert.assetId, start, end })).map(
+          (await getMemoryUsage({ assetId, start, end })).map(
             (point) =>
               [point.timestamp, point.usagePercent] as [string, number],
           ),
         );
       if (alert.metricType === "DISK_USAGE") {
         const values = await getDiskUsage({
-          assetId: alert.assetId,
+          assetId,
           start,
           end,
         });
@@ -418,7 +427,13 @@ function Details({ alert, assetName }: { alert: Alert; assetName?: string }) {
             ? "Resolved"
             : "Closed",
     ],
-    ["Asset", assetName ?? alert.assetId],
+    [
+      alert.assetId ? "Asset" : "Health check",
+      assetName ??
+        (typeof alert.context?.url === "string"
+          ? alert.context.url
+          : (alert.assetId ?? alert.sourceId)),
+    ],
     [
       "Source",
       alert.sourceType === "HEALTH_CHECK" ? "Health check" : "Metric rule",

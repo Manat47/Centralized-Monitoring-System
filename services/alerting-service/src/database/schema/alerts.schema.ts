@@ -35,7 +35,7 @@ export const alerts = pgTable(
     alertType: text('alert_type').notNull(),
     dedupKey: text('dedup_key').notNull(),
     ruleId: uuid('rule_id'),
-    assetId: uuid('asset_id').notNull(),
+    assetId: uuid('asset_id'),
     metricType: text('metric_type').notNull(),
     severity: alertSeverityEnum('severity').notNull(),
     status: alertStatusEnum('status').notNull(),
@@ -120,7 +120,7 @@ export const notificationOutbox = pgTable(
 
 export const healthCheckAlertStates = pgTable('health_check_alert_states', {
   healthCheckTargetId: uuid('health_check_target_id').primaryKey(),
-  assetId: uuid('asset_id').notNull(),
+  assetId: uuid('asset_id'),
   url: text('url').notNull(),
   enabled: boolean('enabled').default(true).notNull(),
   archived: boolean('archived').default(false).notNull(),

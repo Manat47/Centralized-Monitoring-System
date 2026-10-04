@@ -60,6 +60,7 @@ export class SendNotificationUseCase {
           recipientEmail: recipient.email,
           alertId: event.alertId,
           assetId: event.assetId,
+          sourceId: event.sourceId,
           severity: event.severity,
           status:
             event.eventType === 'ALERT_TRIGGERED' ? 'TRIGGERED' : 'RESOLVED',

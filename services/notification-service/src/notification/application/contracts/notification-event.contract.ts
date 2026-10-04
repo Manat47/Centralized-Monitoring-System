@@ -20,7 +20,7 @@ interface NotificationEventBase {
   sourceId: string;
   alertType: 'METRIC_THRESHOLD' | 'ENDPOINT_UNAVAILABLE' | 'HEALTH_CHECK_STALE';
   ruleId: string | null;
-  assetId: string;
+  assetId: string | null;
   metricType: string;
   severity: NotificationSeverity;
   message: string;

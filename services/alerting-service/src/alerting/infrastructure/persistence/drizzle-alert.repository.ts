@@ -59,12 +59,21 @@ export class DrizzleAlertRepository implements AlertRepository {
           .select({
             enabled: healthCheckAlertStates.enabled,
             archived: healthCheckAlertStates.archived,
+            state: healthCheckAlertStates.state,
+            staleAlertedAt: healthCheckAlertStates.staleAlertedAt,
           })
           .from(healthCheckAlertStates)
           .where(eq(healthCheckAlertStates.healthCheckTargetId, data.sourceId))
           .limit(1)
           .for('update');
         if (!state?.enabled || state.archived) return null;
+        if (
+          data.alertType === 'HEALTH_CHECK_STALE' &&
+          (state.state !== 'STALE' ||
+            state.staleAlertedAt?.getTime() !== data.triggeredAt.getTime())
+        ) {
+          return null;
+        }
       }
       const [created] = await tx.insert(alerts).values(data).returning();
       await tx.insert(alertLifecycleEvents).values(lifecycleEvent);

@@ -17,6 +17,9 @@ export function buildAlertEmail(
   const eventTimeLabel = resolved ? 'Resolved at' : 'Triggered at';
   const occurredAt = formatBangkokTime(input.occurredAt);
   const headline = buildHeadline(input);
+  const referenceLabel =
+    input.assetId === null ? 'Health check target ID' : 'Asset ID';
+  const referenceId = input.assetId ?? input.sourceId;
 
   const accentColor = resolved
     ? '#059669'
@@ -41,7 +44,7 @@ export function buildAlertEmail(
       : []),
     '',
     'Technical reference',
-    `Asset ID: ${input.assetId}`,
+    `${referenceLabel}: ${referenceId}`,
     `Alert ID: ${input.alertId}`,
     '',
     'Automated notification from Centralized Monitoring.',
@@ -196,7 +199,7 @@ export function buildAlertEmail(
                       word-break:break-all;
                     "
                   >
-                    Asset ID: ${escapeHtml(input.assetId)}
+                    ${referenceLabel}: ${escapeHtml(referenceId)}
                     <br>
                     Alert ID: ${escapeHtml(input.alertId)}
                   </div>

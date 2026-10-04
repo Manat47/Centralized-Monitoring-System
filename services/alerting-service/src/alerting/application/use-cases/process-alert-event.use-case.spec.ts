@@ -88,7 +88,7 @@ describe('ProcessAlertEventUseCase', () => {
       eventId: randomUUID(),
       eventType: 'METRIC_THRESHOLD_EXCEEDED',
       ruleId: data.sourceId,
-      assetId: data.assetId,
+      assetId: data.assetId!,
       metricType: data.metricType,
       severity: data.severity,
       thresholdValue: 80,
@@ -122,7 +122,7 @@ describe('ProcessAlertEventUseCase', () => {
       eventId: randomUUID(),
       eventType: 'METRIC_THRESHOLD_RECOVERED',
       ruleId,
-      assetId: existingAlert.toObject().assetId,
+      assetId: existingAlert.toObject().assetId!,
       metricType: 'CPU_USAGE',
       severity: 'WARNING',
       thresholdValue: 80,
@@ -158,7 +158,7 @@ describe('ProcessAlertEventUseCase', () => {
       eventId: randomUUID(),
       eventType: 'METRIC_THRESHOLD_RECOVERED',
       ruleId,
-      assetId: existingAlert.toObject().assetId,
+      assetId: existingAlert.toObject().assetId!,
       metricType: 'CPU_USAGE',
       severity: 'WARNING',
       thresholdValue: 80,
@@ -192,7 +192,7 @@ describe('ProcessAlertEventUseCase', () => {
       eventId: randomUUID(),
       eventType: 'METRIC_RULE_STATE_CHANGED',
       ruleId,
-      assetId: existingAlert.toObject().assetId,
+      assetId: existingAlert.toObject().assetId!,
       state: 'DISABLED',
       occurredAt: '2026-07-14T10:05:00.000Z',
       message: 'Metric alert resolved because its rule was disabled',
@@ -361,7 +361,7 @@ describe('ProcessAlertEventUseCase', () => {
       occurredAt: '2026-10-01T10:01:00Z',
     });
     expect(opened?.toObject().alertType).toBe('ENDPOINT_UNAVAILABLE');
-    alertRepository.findActiveByDedupKey.mockResolvedValue(opened!);
+    alertRepository.findActiveByDedupKey.mockResolvedValue(opened);
 
     await useCase.execute({
       ...base,
@@ -372,6 +372,75 @@ describe('ProcessAlertEventUseCase', () => {
       occurredAt: '2026-10-01T10:01:30Z',
     });
     expect(opened?.toObject().status).toBe('RESOLVED');
+    expect(alertRepository.createWithNotification).toHaveBeenCalledTimes(1);
+  });
+
+  it('opens and resolves a standalone health alert without an asset', async () => {
+    let persistedState: HealthCheckAlertState | null = null;
+    let opened: Alert | null = null;
+    healthStateRepository.findByTargetId.mockImplementation(() =>
+      Promise.resolve(persistedState),
+    );
+    healthStateRepository.save.mockImplementation((state) => {
+      persistedState = state;
+      return Promise.resolve(state);
+    });
+    alertRepository.findActiveByDedupKey.mockImplementation((key) =>
+      Promise.resolve(key.endsWith('ENDPOINT_UNAVAILABLE') ? opened : null),
+    );
+    alertRepository.createWithNotification.mockImplementation((alert) => {
+      opened = alert;
+      return Promise.resolve(alert);
+    });
+    alertRepository.resolveWithNotification.mockImplementation((alert) =>
+      Promise.resolve(alert),
+    );
+    const healthCheckTargetId = randomUUID();
+    const base = {
+      healthCheckTargetId,
+      assetId: null,
+      url: 'https://example.com/ready',
+      checkIntervalSeconds: 30,
+    };
+
+    await useCase.execute({
+      ...base,
+      eventId: randomUUID(),
+      eventType: 'HEALTH_CHECK_TARGET_STATE_CHANGED',
+      state: 'RUNNING',
+      occurredAt: '2026-10-02T10:00:00.000Z',
+    });
+    const failed = await useCase.execute({
+      ...base,
+      eventId: randomUUID(),
+      eventType: 'HEALTH_CHECK_FAILED',
+      available: false,
+      statusCode: null,
+      responseTimeMs: 42,
+      error: 'Connection refused',
+      occurredAt: '2026-10-02T10:01:00.000Z',
+    });
+    expect(failed?.toObject()).toMatchObject({
+      assetId: null,
+      alertType: 'ENDPOINT_UNAVAILABLE',
+      status: 'TRIGGERED',
+    });
+
+    await useCase.execute({
+      ...base,
+      eventId: randomUUID(),
+      eventType: 'HEALTH_CHECK_RECOVERED',
+      available: true,
+      statusCode: 200,
+      responseTimeMs: 42,
+      error: null,
+      occurredAt: '2026-10-02T10:02:00.000Z',
+    });
+    expect(
+      alertRepository.resolveWithNotification.mock.calls[0]?.[0].toObject()
+        .status,
+    ).toBe('RESOLVED');
+    // eslint-disable-next-line @typescript-eslint/unbound-method
     expect(alertRepository.createWithNotification).toHaveBeenCalledTimes(1);
   });
 
@@ -456,6 +525,127 @@ describe('ProcessAlertEventUseCase', () => {
       expect(alertRepository.resolveWithNotification.mock.calls).toHaveLength(
         1,
       );
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it('resolves an orphaned stale alert when a fresh result arrives after state recovered', async () => {
+    jest.useFakeTimers().setSystemTime(new Date('2026-10-02T10:03:20.000Z'));
+    try {
+      const healthCheckTargetId = randomUUID();
+      const assetId = randomUUID();
+      const state = HealthCheckAlertState.create({
+        healthCheckTargetId,
+        assetId,
+        url: 'https://example.com/health',
+        checkIntervalSeconds: 30,
+      });
+      state.recordHeartbeat(
+        {
+          statusCode: 200,
+          responseTimeMs: 42,
+          error: null,
+          occurredAt: new Date('2026-10-02T10:03:00.000Z'),
+        },
+        false,
+      );
+      const staleAlert = Alert.create(randomUUID(), {
+        sourceType: 'HEALTH_CHECK',
+        sourceId: healthCheckTargetId,
+        alertType: 'HEALTH_CHECK_STALE',
+        dedupKey: `HEALTH_CHECK:${healthCheckTargetId}:HEALTH_CHECK_STALE`,
+        assetId,
+        metricType: 'HTTP',
+        severity: 'WARNING',
+        actualText: 'No recent result',
+        message: 'No recent health check result',
+        triggeredAt: new Date('2026-10-02T10:02:00.000Z'),
+      });
+      healthStateRepository.findByTargetId.mockResolvedValue(state);
+      healthStateRepository.save.mockResolvedValue(state);
+      alertRepository.findActiveByDedupKey.mockResolvedValue(staleAlert);
+      alertRepository.resolveWithNotification.mockImplementation((alert) =>
+        Promise.resolve(alert),
+      );
+
+      await useCase.execute({
+        eventId: randomUUID(),
+        eventType: 'HEALTH_CHECK_RESULT_RECORDED',
+        heartbeatOnly: true,
+        alertActive: false,
+        healthCheckTargetId,
+        assetId,
+        url: 'https://example.com/health',
+        checkIntervalSeconds: 30,
+        statusCode: 200,
+        responseTimeMs: 42,
+        error: null,
+        occurredAt: '2026-10-02T10:03:15.000Z',
+      });
+
+      expect(staleAlert.toObject().status).toBe('RESOLVED');
+      expect(alertRepository.resolveWithNotification).toHaveBeenCalledWith(
+        expect.any(Alert),
+        expect.objectContaining({ reason: 'HEALTH_CHECK_DATA_RESUMED' }),
+        expect.any(Object),
+      );
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it('reconciles a stale alert when the same fresh result is retried', async () => {
+    jest.useFakeTimers().setSystemTime(new Date('2026-10-02T10:03:20.000Z'));
+    try {
+      const healthCheckTargetId = randomUUID();
+      const assetId = randomUUID();
+      const state = HealthCheckAlertState.create({
+        healthCheckTargetId,
+        assetId,
+        url: 'https://example.com/health',
+        checkIntervalSeconds: 30,
+      });
+      const occurredAt = new Date('2026-10-02T10:03:15.000Z');
+      state.recordHeartbeat(
+        { statusCode: 200, responseTimeMs: 42, error: null, occurredAt },
+        false,
+      );
+      const staleAlert = Alert.create(randomUUID(), {
+        sourceType: 'HEALTH_CHECK',
+        sourceId: healthCheckTargetId,
+        alertType: 'HEALTH_CHECK_STALE',
+        dedupKey: `HEALTH_CHECK:${healthCheckTargetId}:HEALTH_CHECK_STALE`,
+        assetId,
+        metricType: 'HTTP',
+        severity: 'WARNING',
+        actualText: 'No recent result',
+        message: 'No recent health check result',
+        triggeredAt: new Date('2026-10-02T10:02:00.000Z'),
+      });
+      healthStateRepository.findByTargetId.mockResolvedValue(state);
+      alertRepository.findActiveByDedupKey.mockResolvedValue(staleAlert);
+      alertRepository.resolveWithNotification.mockImplementation((alert) =>
+        Promise.resolve(alert),
+      );
+
+      await useCase.execute({
+        eventId: randomUUID(),
+        eventType: 'HEALTH_CHECK_RESULT_RECORDED',
+        heartbeatOnly: true,
+        alertActive: false,
+        healthCheckTargetId,
+        assetId,
+        url: 'https://example.com/health',
+        checkIntervalSeconds: 30,
+        statusCode: 200,
+        responseTimeMs: 42,
+        error: null,
+        occurredAt: occurredAt.toISOString(),
+      });
+
+      expect(staleAlert.toObject().status).toBe('RESOLVED');
+      expect(healthStateRepository.save).not.toHaveBeenCalled();
     } finally {
       jest.useRealTimers();
     }

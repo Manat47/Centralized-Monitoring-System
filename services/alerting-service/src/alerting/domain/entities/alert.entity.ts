@@ -28,7 +28,7 @@ export interface AlertProps {
   alertType: AlertType;
   dedupKey: string;
   ruleId: string | null;
-  assetId: string;
+  assetId: string | null;
   metricType: string;
   severity: AlertSeverity;
   status: AlertStatus;
@@ -54,7 +54,7 @@ export interface CreateAlertProps {
   alertType?: AlertType;
   dedupKey?: string;
   ruleId?: string | null;
-  assetId: string;
+  assetId: string | null;
   metricType: string;
   severity: AlertSeverity;
   thresholdValue?: number | null;

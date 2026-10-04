@@ -13,23 +13,27 @@ describe('QueryHealthReportSummaryUseCase', () => {
       url: 'https://example.com/status',
     });
     const history = {
-      execute: jest.fn().mockResolvedValue([
-        {
-          timestamp: new Date(),
-          statusCode: 202,
-          responseTimeMs: 10,
-          error: null,
-        },
-        {
-          timestamp: new Date(),
-          statusCode: 200,
-          responseTimeMs: 12,
-          error: null,
-        },
-      ]),
+      execute: jest
+        .fn<QueryHealthCheckHistoryUseCase['execute']>()
+        .mockResolvedValue([
+          {
+            timestamp: new Date(),
+            statusCode: 202,
+            responseTimeMs: 10,
+            error: null,
+          },
+          {
+            timestamp: new Date(),
+            statusCode: 200,
+            responseTimeMs: 12,
+            error: null,
+          },
+        ]),
     } as unknown as QueryHealthCheckHistoryUseCase;
     const repository = {
-      findById: jest.fn().mockResolvedValue(target),
+      findById: jest
+        .fn<HealthCheckTargetRepository['findById']>()
+        .mockResolvedValue(target),
     } as unknown as HealthCheckTargetRepository;
     const useCase = new QueryHealthReportSummaryUseCase(history, repository);
 

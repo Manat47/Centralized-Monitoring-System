@@ -209,7 +209,11 @@ export function NeedsAttention() {
                   <TableCell>
                     <div>
                       <p className="text-sm font-medium text-slate-900 transition-colors duration-150 group-hover:text-slate-950">
-                        {assetNames.get(alert.assetId) ?? "Unknown asset"}
+                        {alert.assetId
+                          ? (assetNames.get(alert.assetId) ?? alert.assetId)
+                          : typeof alert.context?.url === "string"
+                            ? alert.context.url
+                            : alert.sourceId}
                       </p>
                     </div>
                   </TableCell>

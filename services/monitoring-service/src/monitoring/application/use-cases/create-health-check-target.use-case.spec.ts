@@ -77,7 +77,7 @@ describe('CreateHealthCheckTargetUseCase', () => {
     );
   });
 
-  it('creates a standalone check without reading an asset or publishing an alert event', async () => {
+  it('creates a standalone check and publishes its running state without an asset', async () => {
     const target = await useCase.execute({
       name: 'Standalone API',
       expectedStatus: 204,
@@ -95,7 +95,13 @@ describe('CreateHealthCheckTargetUseCase', () => {
     expect(repository.findActiveByAssetIdAndUrl.mock.calls).toHaveLength(0);
     expect(repository.create.mock.calls).toHaveLength(1);
     expect(auditPublisher.publish.mock.calls).toHaveLength(1);
-    expect(alertEventPublisher.publish.mock.calls).toHaveLength(0);
+    expect(alertEventPublisher.publish.mock.calls[0][0]).toEqual(
+      expect.objectContaining({
+        eventType: 'HEALTH_CHECK_TARGET_STATE_CHANGED',
+        state: 'RUNNING',
+        assetId: null,
+      }),
+    );
   });
 
   it('rejects non-application assets', async () => {

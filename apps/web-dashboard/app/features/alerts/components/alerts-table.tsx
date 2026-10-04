@@ -231,7 +231,11 @@ export function AlertsTable() {
                   </TableCell>
 
                   <TableCell className="font-medium">
-                    {assetNames.get(alert.assetId) ?? alert.assetId}
+                    {alert.assetId
+                      ? (assetNames.get(alert.assetId) ?? alert.assetId)
+                      : typeof alert.context?.url === "string"
+                        ? alert.context.url
+                        : alert.sourceId}
                   </TableCell>
 
                   <TableCell>

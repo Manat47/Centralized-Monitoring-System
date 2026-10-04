@@ -54,7 +54,7 @@ describe('CheckHealthTargetUseCase', () => {
     });
   });
 
-  it('checks and stores a standalone target without asset lookup or alert event', async () => {
+  it('checks and stores a standalone target without asset lookup and publishes a heartbeat', async () => {
     target = HealthCheckTarget.create('target-1', {
       url: 'https://example.com/health',
     });
@@ -69,7 +69,41 @@ describe('CheckHealthTargetUseCase', () => {
     );
     expect(repository.update.mock.calls).toHaveLength(1);
     expect(assetReader.findById.mock.calls).toHaveLength(0);
-    expect(alertPublisher.publish.mock.calls).toHaveLength(0);
+    expect(alertPublisher.publish.mock.calls[0][0]).toEqual(
+      expect.objectContaining({
+        eventType: 'HEALTH_CHECK_RESULT_RECORDED',
+        assetId: null,
+      }),
+    );
+  });
+
+  it('publishes standalone failure and recovery after the configured consecutive checks', async () => {
+    target = HealthCheckTarget.create('target-1', {
+      url: 'https://example.com/health',
+    });
+    const times = [0, 30, 60, 90, 120].map(
+      (seconds) => new Date(Date.UTC(2026, 9, 1, 0, 0, seconds)),
+    );
+    for (let index = 0; index < times.length; index += 1) {
+      checker.check.mockResolvedValueOnce({
+        statusCode: index < 3 ? null : 200,
+        responseTimeMs: 42,
+        checkedAt: times[index],
+        error: index < 3 ? 'Connection refused' : null,
+      });
+      await useCase.execute('target-1');
+    }
+
+    expect(
+      alertPublisher.publish.mock.calls
+        .map(([event]) => event.eventType)
+        .filter((type) => type !== 'HEALTH_CHECK_RESULT_RECORDED'),
+    ).toEqual(['HEALTH_CHECK_FAILED', 'HEALTH_CHECK_RECOVERED']);
+    expect(
+      alertPublisher.publish.mock.calls.every(
+        ([event]) => event.assetId === null,
+      ),
+    ).toBe(true);
   });
 
   it('publishes one failure after three failed checks and one recovery after two successes', async () => {

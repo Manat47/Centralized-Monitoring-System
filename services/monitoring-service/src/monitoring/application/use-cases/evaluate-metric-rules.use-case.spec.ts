@@ -61,6 +61,7 @@ describe('EvaluateMetricRulesUseCase sample-aware duration', () => {
     targetId: 'target-1',
     assetId,
     monitoringType: 'NODE_EXPORTER',
+    addressSource: 'IP_ADDRESS',
     protocol: 'HTTP',
     port: 9100,
     path: '/metrics',

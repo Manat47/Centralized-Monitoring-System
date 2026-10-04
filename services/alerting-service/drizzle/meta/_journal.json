@@ -43,6 +43,13 @@
       "when": 1790929076546,
       "tag": "0005_notification_outbox",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1791095333558,
+      "tag": "0006_standalone_health_alerts",
+      "breakpoints": true
     }
   ]
 }

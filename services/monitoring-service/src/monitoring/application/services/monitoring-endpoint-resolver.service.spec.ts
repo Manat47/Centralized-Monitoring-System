@@ -1,11 +1,14 @@
 import { BadRequestException } from '@nestjs/common';
 
 import { MonitoringTarget } from '../../domain/entities/monitoring-target.entity';
-import type { AssetReader } from '../../domain/ports/asset-reader.port';
+import type {
+  AssetReader,
+  AssetSnapshot,
+} from '../../domain/ports/asset-reader.port';
 import { MonitoringEndpointResolver } from './monitoring-endpoint-resolver.service';
 
 describe('MonitoringEndpointResolver', () => {
-  const asset = {
+  const asset: AssetSnapshot = {
     assetId: 'asset-001',
     name: 'server-01',
     assetType: 'SERVER' as const,

@@ -40,7 +40,7 @@ export interface Alert {
   alertType: AlertType;
   dedupKey: string;
   ruleId: string | null;
-  assetId: string;
+  assetId: string | null;
   metricType: string;
   severity: AlertSeverity;
   status: AlertStatus;

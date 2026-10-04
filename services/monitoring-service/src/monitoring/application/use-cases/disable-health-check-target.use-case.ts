@@ -89,18 +89,16 @@ export class DisableHealthCheckTargetUseCase {
     });
 
     const updatedData = updatedTarget.toObject();
-    if (updatedData.assetId !== null) {
-      await this.alertEventPublisher.publish({
-        eventId: randomUUID(),
-        eventType: 'HEALTH_CHECK_TARGET_STATE_CHANGED',
-        healthCheckTargetId,
-        assetId: updatedData.assetId,
-        url: updatedData.url,
-        checkIntervalSeconds: updatedData.checkIntervalSeconds,
-        state: 'PAUSED',
-        occurredAt: updatedData.updatedAt,
-      });
-    }
+    await this.alertEventPublisher.publish({
+      eventId: randomUUID(),
+      eventType: 'HEALTH_CHECK_TARGET_STATE_CHANGED',
+      healthCheckTargetId,
+      assetId: updatedData.assetId,
+      url: updatedData.url,
+      checkIntervalSeconds: updatedData.checkIntervalSeconds,
+      state: 'PAUSED',
+      occurredAt: updatedData.updatedAt,
+    });
 
     return updatedTarget;
   }

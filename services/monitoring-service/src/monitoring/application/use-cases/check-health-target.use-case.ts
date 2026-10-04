@@ -119,7 +119,7 @@ export class CheckHealthTargetUseCase {
 
     await this.healthCheckTargetRepository.update(target);
 
-    if (transition && data.assetId !== null) {
+    if (transition) {
       await this.alertEventPublisher.publish({
         eventId: randomUUID(),
         eventType:
