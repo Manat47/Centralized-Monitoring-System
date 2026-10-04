@@ -50,9 +50,15 @@ function suggestedHealthUrl(asset: Asset | undefined): string | null {
   }
 }
 
-export function CreateHealthCheckDialog({ buttonLabel = "New Health Check" }: { buttonLabel?: string }) {
+export function CreateHealthCheckDialog({
+  initialAssetId = "",
+  buttonLabel = "New Health Check",
+}: {
+  initialAssetId?: string;
+  buttonLabel?: string;
+}) {
   const [open, setOpen] = useState(false);
-  const [assetId, setAssetId] = useState("");
+  const [assetId, setAssetId] = useState(initialAssetId);
   const [name, setName] = useState("");
   const [url, setUrl] = useState("");
   const [interval, setInterval] = useState(30);
@@ -70,7 +76,7 @@ export function CreateHealthCheckDialog({ buttonLabel = "New Health Check" }: { 
   );
 
   function reset() {
-    setAssetId("");
+    setAssetId(initialAssetId);
     setName("");
     setUrl("");
     setInterval(30);
@@ -80,6 +86,9 @@ export function CreateHealthCheckDialog({ buttonLabel = "New Health Check" }: { 
 
   function handleOpenChange(value: boolean) {
     setOpen(value);
+    if (value && selectedAsset && !url) {
+      setUrl(suggestedHealthUrl(selectedAsset) ?? "");
+    }
     if (!value) reset();
   }
 
