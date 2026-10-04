@@ -177,6 +177,7 @@ services:
       - ../services/monitoring-service/.env
     environment:
       PORT: 3001
+      INTERNAL_SERVICE_SECRET: ${INTERNAL_SERVICE_SECRET}
       DATABASE_URL: postgresql://${MONITORING_DB_USER}:${MONITORING_DB_PASSWORD}@monitoring-db:5432/${MONITORING_DB_NAME}
       ASSET_SERVICE_URL: http://asset-service:3000
       ALERTING_SERVICE_URL: http://alerting-service:3002
@@ -232,6 +233,7 @@ services:
       - ../services/alerting-service/.env
     environment:
       PORT: 3002
+      INTERNAL_SERVICE_SECRET: ${INTERNAL_SERVICE_SECRET}
       DATABASE_URL: postgresql://${ALERTING_DB_USER}:${ALERTING_DB_PASSWORD}@alerting-db:5432/${ALERTING_DB_NAME}
       RABBITMQ_URL: amqp://${RABBITMQ_USER}:${RABBITMQ_PASSWORD}@rabbitmq:5672
       RABBITMQ_ALERT_QUEUE: alert_events
