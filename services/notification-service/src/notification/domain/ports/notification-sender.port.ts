@@ -13,6 +13,26 @@ export interface SendNotificationInput {
   occurredAt: Date;
 }
 
+export type NotificationChannel = 'email' | 'line' | 'slack' | 'webhook';
+
+export interface SendResult {
+  success: boolean;
+  isTransientError: boolean;
+  errorMessage?: string;
+}
+
+export interface SendChannelNotificationInput {
+  destination: string;
+  secretToken?: string | null;
+  alert: Omit<SendNotificationInput, 'recipientEmail'>;
+}
+
+// Kept separate from the existing sender until routing is introduced in Phase 2.
+export interface NotificationSenderPort {
+  readonly channel: NotificationChannel;
+  sendAlert(input: SendChannelNotificationInput): Promise<SendResult>;
+}
+
 export interface SendUserInvitationInput {
   recipientEmail: string;
   displayName: string;

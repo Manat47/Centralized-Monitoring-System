@@ -2,7 +2,10 @@ import { ConfigService } from '@nestjs/config';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import { Pool } from 'pg';
 
-import * as schema from './schema/notification-recipients.schema';
+import * as recipientSchema from './schema/notification-recipients.schema';
+import * as settingsSchema from './schema/notification-settings.schema';
+
+const schema = { ...recipientSchema, ...settingsSchema };
 
 export const DRIZZLE_DB = Symbol('DRIZZLE_DB');
 

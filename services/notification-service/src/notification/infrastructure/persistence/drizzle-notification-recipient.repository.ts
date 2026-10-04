@@ -1,4 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
+import { and, eq, isNotNull } from 'drizzle-orm';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 
 import { DRIZZLE_DB } from '../../../database/database.provider';
@@ -22,6 +23,12 @@ export class DrizzleNotificationRecipientRepository implements NotificationRecip
     const rows = await this.db
       .select()
       .from(notificationRecipients)
+      .where(
+        and(
+          eq(notificationRecipients.channel, 'email'),
+          isNotNull(notificationRecipients.email),
+        ),
+      )
       .orderBy(notificationRecipients.email);
 
     return rows.map((row) => this.toDomain(row));
@@ -29,7 +36,9 @@ export class DrizzleNotificationRecipientRepository implements NotificationRecip
 
   async replaceAll(recipients: NotificationRecipient[]): Promise<void> {
     await this.db.transaction(async (tx) => {
-      await tx.delete(notificationRecipients);
+      await tx
+        .delete(notificationRecipients)
+        .where(eq(notificationRecipients.channel, 'email'));
 
       if (recipients.length === 0) {
         return;
@@ -42,6 +51,9 @@ export class DrizzleNotificationRecipientRepository implements NotificationRecip
           return {
             recipientId: data.recipientId,
             email: data.email,
+            channel: 'email' as const,
+            name: data.email,
+            destination: data.email,
             createdAt: data.createdAt,
             updatedAt: data.updatedAt,
           };
@@ -51,6 +63,10 @@ export class DrizzleNotificationRecipientRepository implements NotificationRecip
   }
 
   private toDomain(row: NotificationRecipientRow): NotificationRecipient {
+    if (!row.email) {
+      throw new Error('Email recipient is missing an email address');
+    }
+
     return NotificationRecipient.restore({
       recipientId: row.recipientId,
       email: row.email,

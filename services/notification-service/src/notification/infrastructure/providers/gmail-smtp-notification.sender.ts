@@ -4,13 +4,19 @@ import * as nodemailer from 'nodemailer';
 
 import type {
   NotificationSender,
+  NotificationSenderPort,
+  SendChannelNotificationInput,
   SendNotificationInput,
+  SendResult,
   SendUserInvitationInput,
 } from '../../domain/ports/notification-sender.port';
 import { buildAlertEmail } from './alert-email.template';
 
 @Injectable()
-export class GmailSmtpNotificationSender implements NotificationSender {
+export class GmailSmtpNotificationSender
+  implements NotificationSender, NotificationSenderPort
+{
+  readonly channel = 'email' as const;
   private readonly transporter: nodemailer.Transporter;
   private readonly senderEmail: string;
 
@@ -46,6 +52,25 @@ export class GmailSmtpNotificationSender implements NotificationSender {
       text: email.text,
       html: email.html,
     });
+  }
+
+  async sendAlert(input: SendChannelNotificationInput): Promise<SendResult> {
+    try {
+      await this.send({ ...input.alert, recipientEmail: input.destination });
+      return { success: true, isTransientError: false };
+    } catch (error: unknown) {
+      const responseCode =
+        typeof error === 'object' && error !== null && 'responseCode' in error
+          ? error.responseCode
+          : undefined;
+      const status =
+        typeof responseCode === 'number' ? responseCode : undefined;
+      return {
+        success: false,
+        isTransientError: status === undefined || status < 500,
+        errorMessage: status ? `SMTP ${status}` : 'SMTP request failed',
+      };
+    }
   }
 
   async sendTest(recipientEmail: string): Promise<void> {
