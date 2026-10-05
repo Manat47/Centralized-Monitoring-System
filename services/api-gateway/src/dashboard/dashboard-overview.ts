@@ -49,7 +49,10 @@ export interface LatestHealthCheckResponse {
 
 export interface HealthCheckTargetResponse {
   healthCheckTargetId: string;
-  assetId: string;
+  assetId: string | null;
+  name: string;
+  url: string;
+  expectedStatus: number;
   checkIntervalSeconds: number;
   enabled: boolean;
   archivedAt: string | null;
@@ -59,7 +62,9 @@ export interface HealthCheckTargetResponse {
 
 export interface AlertResponse {
   alertId: string;
-  assetId: string;
+  assetId: string | null;
+  sourceType: 'METRIC_RULE' | 'HEALTH_CHECK';
+  sourceId: string;
   severity: 'WARNING' | 'CRITICAL';
   status: 'TRIGGERED' | 'ACKNOWLEDGED' | 'RESOLVED' | 'CLOSED';
   message: string;
@@ -103,8 +108,21 @@ export interface DashboardAssetOverview {
     cpuUsagePercent: number | null;
     memoryUsagePercent: number | null;
     timestamp: string | null;
+    fresh: boolean;
   } | null;
   updatedAt: string;
+}
+
+export interface StandaloneSyntheticCheckOverview {
+  healthCheckTargetId: string;
+  name: string;
+  url: string;
+  status: HealthStatus;
+  expectedStatus: number;
+  actualStatus: number | null;
+  lastCheckedAt: string | null;
+  activeAlerts: number;
+  highestAlertSeverity: 'WARNING' | 'CRITICAL' | null;
 }
 
 export interface DashboardOverviewInput {
@@ -227,9 +245,8 @@ function getHealthChecks(
     if (!isFresh(latest.timestamp, target.checkIntervalSeconds, now)) {
       stale += 1;
     } else if (
-      latest.statusCode !== null &&
-      latest.statusCode >= 200 &&
-      latest.statusCode < 300
+      latest.error === null &&
+      latest.statusCode === target.expectedStatus
     ) {
       available += 1;
     } else {
@@ -368,20 +385,63 @@ export function buildDashboardOverview(input: DashboardOverviewInput) {
   }
 
   for (const target of input.healthCheckTargets.filter(
-    (item) => !item.archivedAt,
+    (item) => !item.archivedAt && item.assetId !== null,
   )) {
+    if (target.assetId === null) continue;
     const targets = healthByAsset.get(target.assetId) ?? [];
     targets.push(target);
     healthByAsset.set(target.assetId, targets);
   }
 
   for (const alert of input.alerts.filter(
-    (item) => item.status === 'TRIGGERED' || item.status === 'ACKNOWLEDGED',
+    (item) =>
+      item.assetId !== null &&
+      (item.status === 'TRIGGERED' || item.status === 'ACKNOWLEDGED'),
   )) {
+    if (alert.assetId === null) continue;
     const alerts = alertsByAsset.get(alert.assetId) ?? [];
     alerts.push(alert);
     alertsByAsset.set(alert.assetId, alerts);
   }
+
+  const standaloneAlerts = input.alerts.filter(
+    (alert) =>
+      alert.assetId === null &&
+      (alert.status === 'TRIGGERED' || alert.status === 'ACKNOWLEDGED'),
+  );
+  const standaloneAlertsByTarget = new Map<string, AlertResponse[]>();
+  for (const alert of standaloneAlerts) {
+    if (alert.sourceType !== 'HEALTH_CHECK') continue;
+    const related = standaloneAlertsByTarget.get(alert.sourceId) ?? [];
+    related.push(alert);
+    standaloneAlertsByTarget.set(alert.sourceId, related);
+  }
+  const standaloneChecks: StandaloneSyntheticCheckOverview[] =
+    input.healthCheckTargets
+      .filter((target) => target.assetId === null && !target.archivedAt)
+      .map((target) => {
+        const health = getHealthChecks([target], now);
+        const relatedAlerts =
+          standaloneAlertsByTarget.get(target.healthCheckTargetId) ?? [];
+
+        return {
+          healthCheckTargetId: target.healthCheckTargetId,
+          name: target.name.trim() || target.url,
+          url: target.url,
+          status: health?.status ?? 'UNKNOWN',
+          expectedStatus: target.expectedStatus,
+          actualStatus: target.latest?.statusCode ?? null,
+          lastCheckedAt: health?.lastCheckedAt ?? target.lastCheckedAt,
+          activeAlerts: relatedAlerts.length,
+          highestAlertSeverity: relatedAlerts.some(
+            (alert) => alert.severity === 'CRITICAL',
+          )
+            ? 'CRITICAL'
+            : relatedAlerts.length > 0
+              ? 'WARNING'
+              : null,
+        };
+      });
 
   const assets: DashboardAssetOverview[] = input.assets.map((asset) => {
     const assetAlerts = (alertsByAsset.get(asset.assetId) ?? []).sort(
@@ -406,6 +466,12 @@ export function buildDashboardOverview(input: DashboardOverviewInput) {
       ? getHealthChecks(healthByAsset.get(asset.assetId) ?? [], now)
       : null;
     const metricSummary = metricsByAsset.get(asset.assetId);
+    const metricTimestamp = metricSummary?.timestamp ?? null;
+    const metricsFresh =
+      metricTimestamp !== null &&
+      monitoringTarget !== undefined &&
+      telemetry?.status === 'FRESH' &&
+      isFresh(metricTimestamp, monitoringTarget.scrapeIntervalSeconds, now);
     const overall = getOverallStatus(
       asset,
       assetAlerts,
@@ -439,7 +505,8 @@ export function buildDashboardOverview(input: DashboardOverviewInput) {
         : {
             cpuUsagePercent: metricSummary?.cpuUsagePercent ?? null,
             memoryUsagePercent: metricSummary?.memoryUsagePercent ?? null,
-            timestamp: metricSummary?.timestamp ?? null,
+            timestamp: metricTimestamp,
+            fresh: metricsFresh,
           },
       updatedAt: latestTimestamp([
         asset.updatedAt,
@@ -457,6 +524,16 @@ export function buildDashboardOverview(input: DashboardOverviewInput) {
   return {
     assets: {
       total: assets.length,
+      monitored: assets.filter(
+        (asset) =>
+          asset.lifecycleStatus === 'ACTIVATE' &&
+          ((asset.telemetry !== null &&
+            asset.telemetry.status !== 'NOT_CONFIGURED' &&
+            asset.telemetry.status !== 'PAUSED') ||
+            (asset.healthChecks !== null &&
+              asset.healthChecks.status !== 'NOT_CONFIGURED' &&
+              asset.healthChecks.status !== 'PAUSED')),
+      ).length,
       ok: count('OK'),
       warning: count('WARNING'),
       critical: count('CRITICAL'),
@@ -469,7 +546,11 @@ export function buildDashboardOverview(input: DashboardOverviewInput) {
         (alert) =>
           alert.status === 'TRIGGERED' || alert.status === 'ACKNOWLEDGED',
       ).length,
+      firing: input.alerts.filter((alert) => alert.status === 'TRIGGERED')
+        .length,
     },
     assetOverview: assets,
+    standaloneChecks,
+    standaloneAlerts,
   };
 }

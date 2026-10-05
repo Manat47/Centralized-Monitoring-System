@@ -2,6 +2,7 @@ import { DashboardHeader } from "@/app/features/dashboard/components/dashboard-h
 import { DashboardSummaryCards } from "@/app/features/dashboard/components/dashboard-summary-cards";
 import { InfrastructureStatusGrid } from "@/app/features/dashboard/components/infrastructure-status-grid";
 import { NeedsAttention } from "@/app/features/dashboard/components/needs-attention";
+import { StandaloneSyntheticChecks } from "@/app/features/dashboard/components/standalone-synthetic-checks";
 import FadeContent from "@/app/features/react-bits/fade-content";
 
 export default function DashboardPage() {
@@ -13,6 +14,8 @@ export default function DashboardPage() {
         <DashboardSummaryCards />
 
         <InfrastructureStatusGrid />
+
+        <StandaloneSyntheticChecks />
 
         <NeedsAttention />
       </section>

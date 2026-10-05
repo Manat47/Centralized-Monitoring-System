@@ -19,12 +19,34 @@ interface AlertListResponse {
 
 @Injectable()
 export class DashboardService {
+  private lastSuccessfulSummary: ReturnType<
+    typeof buildDashboardOverview
+  > | null = null;
+  private lastSuccessfulAt: string | null = null;
+
   constructor(
     private readonly httpService: HttpService,
     private readonly configService: ConfigService,
   ) {}
 
   async getSummary() {
+    try {
+      return await this.loadSummary();
+    } catch (error) {
+      if (this.lastSuccessfulSummary && this.lastSuccessfulAt) {
+        return {
+          ...this.lastSuccessfulSummary,
+          dataQuality: {
+            stale: true,
+            updatedAt: this.lastSuccessfulAt,
+          },
+        };
+      }
+      throw error;
+    }
+  }
+
+  private async loadSummary() {
     const assetServiceUrl =
       this.configService.get<string>('ASSET_SERVICE_URL') ??
       'http://localhost:3000';
@@ -51,13 +73,23 @@ export class DashboardService {
         this.getAllAlerts(alertingServiceUrl, 'ACKNOWLEDGED'),
       ]);
 
-    return buildDashboardOverview({
+    const summary = buildDashboardOverview({
       assets,
       monitoringTargets: targets,
       healthCheckTargets: healthTargets,
       alerts: [...triggered, ...acknowledged],
       metrics,
     });
+    this.lastSuccessfulSummary = summary;
+    this.lastSuccessfulAt = new Date().toISOString();
+
+    return {
+      ...summary,
+      dataQuality: {
+        stale: false,
+        updatedAt: this.lastSuccessfulAt,
+      },
+    };
   }
 
   private async get<T>(url: string): Promise<T> {

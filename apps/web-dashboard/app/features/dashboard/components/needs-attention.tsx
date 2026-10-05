@@ -1,12 +1,19 @@
 "use client";
 
 import Link from "next/link";
-import { AlertTriangle, ArrowRight } from "lucide-react";
+import { useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { AlertTriangle, ArrowRight, Check, Eye, LoaderCircle } from "lucide-react";
 
+import { useAcknowledgeAlert } from "@/app/features/alerts/api/use-alert-actions";
 import { useAlerts } from "@/app/features/alerts/api/use-alerts";
 import { useAssets } from "@/app/features/assets/api/use-assets";
+import { useAuth } from "@/app/features/auth/components/auth-provider";
+import { useHealthCheckTargets } from "@/app/features/health-checks/api/use-health-check-targets";
+import { useMonitoringTargets } from "@/app/features/monitoring-targets/api/use-monitoring-targets";
+import { HostInspectionDrawer } from "@/app/features/monitoring-targets/components/host-inspection-drawer";
 import { Badge } from "@/components/ui/badge";
-import { buttonVariants } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -83,6 +90,10 @@ function NeedsAttentionSkeleton() {
 }
 
 export function NeedsAttention() {
+  const [selectedAssetId, setSelectedAssetId] = useState<string | null>(null);
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
+  const acknowledgeMutation = useAcknowledgeAlert();
   const {
     data: alertsData,
     isLoading,
@@ -95,6 +106,10 @@ export function NeedsAttention() {
   });
 
   const { data: assets } = useAssets();
+  const healthTargets = useHealthCheckTargets(selectedAssetId !== null);
+  const monitoringTargets = useMonitoringTargets(false, selectedAssetId !== null);
+  const selectedAsset = assets?.find((asset) => asset.assetId === selectedAssetId) ?? null;
+  const canAcknowledge = user?.role === "ADMIN" || user?.role === "OPERATOR";
 
   const assetNames = new Map(
     (assets ?? []).map((asset) => [asset.assetId, asset.name]),
@@ -123,16 +138,17 @@ export function NeedsAttention() {
   const alerts = alertsData?.items ?? [];
 
   return (
+    <>
     <Card className="border-slate-200 bg-white shadow-none">
       <CardHeader className="flex flex-row items-center justify-between border-b border-slate-100 px-5 py-4">
         <div>
           <CardTitle className="flex items-center gap-2 text-sm font-semibold text-slate-900">
             <AlertTriangle className="size-4 text-amber-600" />
-            Needs Attention
+            Top 5 Unacknowledged Alerts
           </CardTitle>
 
           <p className="mt-1 text-xs text-slate-500">
-            Unacknowledged alerts requiring operator attention
+            Most recent firing alerts requiring operator attention
           </p>
         </div>
 
@@ -167,7 +183,7 @@ export function NeedsAttention() {
             </p>
           </div>
         ) : (
-          <Table>
+          <div className="overflow-x-auto"><Table className="min-w-[760px]">
             <TableHeader>
               <TableRow className="bg-slate-50/70 hover:bg-slate-50/70">
                 <TableHead className="w-28 text-xs">Severity</TableHead>
@@ -181,6 +197,7 @@ export function NeedsAttention() {
                 <TableHead className="w-28 text-right text-xs">
                   Triggered
                 </TableHead>
+                <TableHead className="w-44 text-right text-xs">Actions</TableHead>
               </TableRow>
             </TableHeader>
 
@@ -208,13 +225,13 @@ export function NeedsAttention() {
 
                   <TableCell>
                     <div>
-                      <p className="text-sm font-medium text-slate-900 transition-colors duration-150 group-hover:text-slate-950">
+                      <Link href={`/alerts/${alert.alertId}`} className="text-sm font-medium text-blue-700 hover:underline">
                         {alert.assetId
                           ? (assetNames.get(alert.assetId) ?? alert.assetId)
                           : typeof alert.context?.url === "string"
                             ? alert.context.url
                             : alert.sourceId}
-                      </p>
+                      </Link>
                     </div>
                   </TableCell>
 
@@ -231,12 +248,33 @@ export function NeedsAttention() {
                   <TableCell className="text-right text-xs text-slate-500">
                     {formatTriggeredAt(alert.triggeredAt)}
                   </TableCell>
+                  <TableCell className="text-right">
+                    <div className="flex justify-end gap-1">
+                      {alert.assetId ? (
+                        <Button type="button" variant="outline" size="sm" onClick={() => setSelectedAssetId(alert.assetId)}><Eye className="size-3.5" /> Inspect</Button>
+                      ) : alert.sourceType === "HEALTH_CHECK" ? (
+                        <Button variant="outline" size="sm" render={<Link href={`/health-checks/${alert.sourceId}`} />}><Eye className="size-3.5" /> View check</Button>
+                      ) : null}
+                      {canAcknowledge && <Button type="button" size="sm" disabled={acknowledgeMutation.isPending} onClick={() => acknowledgeMutation.mutate(alert.alertId, { onSuccess: () => { void queryClient.invalidateQueries({ queryKey: ["dashboard-summary"] }); } })}>
+                        {acknowledgeMutation.isPending && acknowledgeMutation.variables === alert.alertId ? <LoaderCircle className="size-3.5 animate-spin" /> : <Check className="size-3.5" />} Acknowledge
+                      </Button>}
+                    </div>
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>
-          </Table>
+          </Table></div>
         )}
+        {acknowledgeMutation.isError && <p role="alert" className="px-5 py-2 text-xs text-rose-700">{acknowledgeMutation.error instanceof Error ? acknowledgeMutation.error.message : "Could not acknowledge alert"}</p>}
       </CardContent>
     </Card>
+    <HostInspectionDrawer
+      key={selectedAsset?.assetId ?? "closed"}
+      asset={selectedAsset}
+      healthChecks={(healthTargets.data ?? []).filter((target) => target.assetId === selectedAssetId)}
+      hasMetricTarget={(monitoringTargets.data ?? []).some((target) => target.assetId === selectedAssetId && target.monitoringType === "NODE_EXPORTER" && target.monitoringEnabled && !target.archivedAt)}
+      onClose={() => setSelectedAssetId(null)}
+    />
+    </>
   );
 }

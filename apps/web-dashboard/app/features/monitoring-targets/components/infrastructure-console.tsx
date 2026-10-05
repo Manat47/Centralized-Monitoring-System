@@ -10,6 +10,8 @@ import { AssetActions } from "@/app/features/assets/components/asset-actions";
 import { CreateAssetDialog } from "@/app/features/assets/components/create-asset-dialog";
 import type { Asset } from "@/app/features/assets/types/asset";
 import { useHealthCheckTargets } from "@/app/features/health-checks/api/use-health-check-targets";
+import { useDashboardSummary } from "@/app/features/dashboard/api/use-dashboard-summary";
+import type { AssetOverallStatus } from "@/app/features/dashboard/types/dashboard-summary";
 import { getHealthResultStatus } from "@/app/features/health-checks/components/health-check-status";
 import type { HealthCheckTarget } from "@/app/features/health-checks/types/health-check";
 import { Badge } from "@/components/ui/badge";
@@ -27,6 +29,15 @@ import { HostInspectionDrawer } from "./host-inspection-drawer";
 type StatusFilter = "ALL" | "ACTIVATE" | "INACTIVATE" | "DEACTIVATE";
 type TypeFilter = "ALL" | "SERVER" | "APPLICATION";
 type SortOrder = "HEALTH" | "NAME_ASC" | "NAME_DESC" | "SERVER_FIRST" | "APP_FIRST";
+const overallStatuses: AssetOverallStatus[] = ["OK", "WARNING", "CRITICAL", "NO_DATA", "NOT_MONITORED", "INACTIVE"];
+const overallBadges: Record<AssetOverallStatus, { label: string; className: string }> = {
+  OK: { label: "OK", className: "border-emerald-200 bg-emerald-50 text-emerald-700" },
+  WARNING: { label: "Warning", className: "border-amber-200 bg-amber-50 text-amber-700" },
+  CRITICAL: { label: "Critical", className: "border-rose-200 bg-rose-50 text-rose-700" },
+  NO_DATA: { label: "No data", className: "border-slate-200 bg-slate-100 text-slate-600" },
+  NOT_MONITORED: { label: "Not monitored", className: "border-slate-200 bg-slate-100 text-slate-600" },
+  INACTIVE: { label: "Inactive", className: "border-slate-200 bg-slate-100 text-slate-600" },
+};
 
 function statusFor(asset: Asset, checks: HealthCheckTarget[]) {
   if (asset.status === "DEACTIVATE") return { label: "Deactivated", className: "border-slate-200 bg-slate-100 text-slate-600" };
@@ -81,6 +92,10 @@ export function InfrastructureConsole() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const selectedHostId = searchParams.get("inspectHost");
+  const overallParam = searchParams.get("overall");
+  const overallFilter = overallParam?.split(",").filter(
+    (value): value is AssetOverallStatus => overallStatuses.includes(value as AssetOverallStatus),
+  ) ?? [];
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("ALL");
   const [typeFilter, setTypeFilter] = useState<TypeFilter>("ALL");
@@ -88,6 +103,7 @@ export function InfrastructureConsole() {
   const assetsQuery = useAssets();
   const targetsQuery = useMonitoringTargets();
   const healthQuery = useHealthCheckTargets();
+  const overviewQuery = useDashboardSummary(overallFilter.length > 0);
   const assets = useMemo(() => assetsQuery.data ?? [], [assetsQuery.data]);
   const healthTargets = healthQuery.data ?? [];
   const healthByAsset = useMemo(() => {
@@ -106,13 +122,19 @@ export function InfrastructureConsole() {
       .map((target) => target.assetId),
   ), [targetsQuery.data]);
   const selectedAsset = assets.find((asset) => asset.assetId === selectedHostId) ?? null;
-  const filteredAssets = useMemo(() => {
+  const overviewByAsset = new Map(
+    (overviewQuery.data?.assetOverview ?? []).map((item) => [item.assetId, item.overallStatus]),
+  );
+  const filteredAssets = (() => {
     const term = search.trim().toLowerCase();
-    return assets.filter((asset) =>
-      (typeFilter === "ALL" || asset.targetType === typeFilter) &&
-      (statusFilter === "ALL" || asset.status === statusFilter) &&
-      (!term || [asset.name, asset.hostname, asset.ipAddress, asset.endpoint].some((value) => value?.toLowerCase().includes(term))),
-    ).sort((a, b) => {
+    const selectedStatuses = new Set(overallFilter);
+    return assets.filter((asset) => {
+      const overallStatus = overviewByAsset.get(asset.assetId);
+      return (typeFilter === "ALL" || asset.targetType === typeFilter) &&
+        (statusFilter === "ALL" || asset.status === statusFilter) &&
+        (selectedStatuses.size === 0 || (overallStatus !== undefined && selectedStatuses.has(overallStatus))) &&
+        (!term || [asset.name, asset.hostname, asset.ipAddress, asset.endpoint].some((value) => value?.toLowerCase().includes(term)));
+    }).sort((a, b) => {
       const byName = a.name.localeCompare(b.name, undefined, { sensitivity: "base", numeric: true });
       const byId = a.assetId.localeCompare(b.assetId);
       if (sortOrder === "HEALTH") return healthRank(a, healthByAsset.get(a.assetId) ?? []) - healthRank(b, healthByAsset.get(b.assetId) ?? []) || byName || byId;
@@ -120,12 +142,18 @@ export function InfrastructureConsole() {
       if (sortOrder === "NAME_DESC") return -byName || byId;
       return typeRank(a, sortOrder) - typeRank(b, sortOrder) || byName || byId;
     });
-  }, [assets, healthByAsset, search, sortOrder, statusFilter, typeFilter]);
+  })();
 
   function inspect(assetId: string | null) {
     const params = new URLSearchParams(searchParams.toString());
     if (assetId) params.set("inspectHost", assetId);
     else params.delete("inspectHost");
+    router.replace(`/infrastructure${params.size ? `?${params.toString()}` : ""}`, { scroll: false });
+  }
+
+  function clearOverallFilter() {
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete("overall");
     router.replace(`/infrastructure${params.size ? `?${params.toString()}` : ""}`, { scroll: false });
   }
 
@@ -160,6 +188,7 @@ export function InfrastructureConsole() {
         ))}
       </div>
       <div className="flex flex-wrap items-center gap-3 border-b border-slate-200 px-4 py-4">
+        {overallFilter.length > 0 && <div className="flex w-full items-center gap-2 text-xs text-blue-700"><span>Dashboard status: {overallFilter.join(", ")}{overviewQuery.data?.dataQuality?.stale ? " (last successful snapshot)" : ""}</span><button type="button" onClick={clearOverallFilter} className="font-medium underline">Clear</button></div>}
         <div className="relative w-full sm:w-72"><Search className="absolute top-2.5 left-3 size-4 text-slate-400" /><Input aria-label="Search hosts" placeholder="Search by name or IP" value={search} onChange={(event) => setSearch(event.target.value)} className="pl-9" /></div>
         <Select value={sortOrder} onValueChange={(value) => { if (value === "HEALTH" || value === "NAME_ASC" || value === "NAME_DESC" || value === "SERVER_FIRST" || value === "APP_FIRST") setSortOrder(value); }}>
           <SelectTrigger aria-label="Sort infrastructure" className="w-full bg-white sm:w-60"><SelectValue>{sortOrder === "HEALTH" ? "Health Status (Issues First)" : sortOrder === "NAME_ASC" ? "Name (A-Z)" : sortOrder === "NAME_DESC" ? "Name (Z-A)" : sortOrder === "SERVER_FIRST" ? "Type (Servers First)" : "Type (Apps First)"}</SelectValue></SelectTrigger>
@@ -169,12 +198,15 @@ export function InfrastructureConsole() {
         <span className="ml-auto text-xs text-slate-500">{filteredAssets.length} of {assets.length} assets</span>
       </div>
 
-      {assetsQuery.isLoading ? <p className="px-5 py-14 text-center text-sm text-slate-500">Loading infrastructure...</p> : assetsQuery.isError ? <p role="alert" className="px-5 py-14 text-center text-sm text-rose-600">Could not load assets.</p> : <div className="overflow-x-auto"><Table className="min-w-[920px]"><TableHeader><TableRow className="bg-slate-50"><TableHead className="pl-4">Host name</TableHead><TableHead>IP address</TableHead><TableHead>Status</TableHead><TableHead>Uptime / check</TableHead><TableHead>CPU / Memory</TableHead><TableHead className="pr-4 text-right">Actions</TableHead></TableRow></TableHeader><TableBody>
+      {assetsQuery.isLoading || (overallFilter.length > 0 && overviewQuery.isLoading) ? <p className="px-5 py-14 text-center text-sm text-slate-500">Loading infrastructure...</p> : assetsQuery.isError || (overallFilter.length > 0 && overviewQuery.isError) ? <p role="alert" className="px-5 py-14 text-center text-sm text-rose-600">Could not load infrastructure status.</p> : <div className="overflow-x-auto"><Table className="min-w-[920px]"><TableHeader><TableRow className="bg-slate-50"><TableHead className="pl-4">Host name</TableHead><TableHead>IP address</TableHead><TableHead>Status</TableHead><TableHead>Uptime / check</TableHead><TableHead>CPU / Memory</TableHead><TableHead className="pr-4 text-right">Actions</TableHead></TableRow></TableHeader><TableBody>
         {filteredAssets.length === 0 ? <TableRow><TableCell colSpan={6} className="py-16 text-center text-sm text-slate-500">{assets.length ? "No assets match the current filters." : "No assets registered yet."}</TableCell></TableRow> : filteredAssets.map((asset) => {
           const checks = healthByAsset.get(asset.assetId) ?? [];
           const check = latestCheck(checks);
           const healthStatus = check ? check.enabled ? getHealthResultStatus(check) : "PAUSED" : null;
-          const assetStatus = statusFor(asset, checks);
+          const overviewStatus = overviewByAsset.get(asset.assetId);
+          const assetStatus = overallFilter.length > 0 && overviewStatus
+            ? overallBadges[overviewStatus]
+            : statusFor(asset, checks);
           const hasMetricTarget = metricAssetIds.has(asset.assetId);
           return <TableRow key={asset.assetId} tabIndex={0} aria-label={`Inspect ${asset.name}`} aria-selected={selectedHostId === asset.assetId} className={`cursor-pointer focus-visible:outline-blue-500 ${selectedHostId === asset.assetId ? "bg-blue-50 hover:bg-blue-100" : "hover:bg-blue-50/50 focus-visible:bg-blue-50"}`} onClick={() => inspect(asset.assetId)} onKeyDown={(event) => onRowKeyDown(event, asset.assetId)}>
             <TableCell className="pl-4"><span className="flex items-center gap-2 font-medium text-slate-900">{asset.targetType === "SERVER" ? <Server className="size-4 shrink-0 text-slate-500" /> : asset.targetType === "APPLICATION" ? <Globe className="size-4 shrink-0 text-indigo-600" /> : <Activity className="size-4 shrink-0 text-slate-500" />}{asset.name}<Badge variant="outline" className={asset.targetType === "APPLICATION" ? "border-indigo-200 bg-indigo-50 text-[10px] text-indigo-700" : "border-slate-200 bg-slate-100 text-[10px] text-slate-600"}>{asset.targetType === "APPLICATION" ? "APP" : asset.targetType}</Badge></span><span className="ml-6 text-xs text-slate-500">{asset.environment}</span></TableCell>

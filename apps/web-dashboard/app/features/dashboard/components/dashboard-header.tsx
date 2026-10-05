@@ -25,7 +25,7 @@ export function DashboardHeader() {
   const queryClient = useQueryClient();
   const fetchingCount = useIsFetching();
 
-  const { dataUpdatedAt } = useDashboardSummary();
+  const { dataUpdatedAt, data } = useDashboardSummary();
 
   const isFetching = fetchingCount > 0;
 
@@ -54,11 +54,12 @@ export function DashboardHeader() {
         <p className="mt-1 text-sm text-slate-500">
           Overview of monitored infrastructure and active operational issues
         </p>
+        {data?.dataQuality?.stale && <p role="status" className="mt-2 text-xs font-medium text-amber-700">Showing the last available snapshot from {new Date(data.dataQuality.updatedAt).toLocaleString()}; a monitoring service is currently unavailable.</p>}
       </div>
 
       <div className="flex items-center gap-3">
         <p className="text-xs text-slate-500">
-          Updated {formatUpdatedAt(dataUpdatedAt)}
+          Updated {formatUpdatedAt(data?.dataQuality?.updatedAt ? Date.parse(data.dataQuality.updatedAt) : dataUpdatedAt)}
         </p>
 
         <Button

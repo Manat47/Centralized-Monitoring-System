@@ -34,7 +34,8 @@ export function ServiceStatusIndicator() {
         render={
           <button
             type="button"
-            aria-label="View platform service status"
+            aria-label="View monitoring platform service status"
+            title="Status of internal monitoring services. Monitored assets are shown on the Dashboard."
             className={
               healthy
                 ? "inline-flex h-7 cursor-pointer items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-3 text-xs font-medium text-emerald-700 transition-colors hover:bg-emerald-100"
@@ -49,7 +50,7 @@ export function ServiceStatusIndicator() {
           <CircleAlert className="size-3.5" />
         )}
 
-        {healthy ? "Platform Healthy" : "Platform Degraded"}
+        {healthy ? "Platform Services: Healthy" : "Platform Services: Degraded"}
 
         <ChevronDown className="size-3" />
       </DropdownMenuTrigger>

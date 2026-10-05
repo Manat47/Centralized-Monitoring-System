@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo, useState } from "react";
 import { Search } from "lucide-react";
 
@@ -10,14 +11,17 @@ import { useDashboardSummary } from "../api/use-dashboard-summary";
 import type { AssetOverallStatus } from "../types/dashboard-summary";
 import { InfrastructureStatusCard } from "./infrastructure-status-card";
 
-type StatusFilter = "ALL" | AssetOverallStatus;
+type StatusFilter = "ISSUES" | "ALL" | AssetOverallStatus;
 
 const filters: Array<{ value: StatusFilter; label: string }> = [
+  { value: "ISSUES", label: "Issues" },
   { value: "ALL", label: "All" },
   { value: "CRITICAL", label: "Critical" },
   { value: "WARNING", label: "Warning" },
   { value: "NO_DATA", label: "No data" },
+  { value: "NOT_MONITORED", label: "Not monitored" },
   { value: "OK", label: "OK" },
+  { value: "INACTIVE", label: "Inactive" },
 ];
 
 const statusOrder: Record<AssetOverallStatus, number> = {
@@ -31,20 +35,12 @@ const statusOrder: Record<AssetOverallStatus, number> = {
 
 function InfrastructureStatusSkeleton() {
   return (
-    <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
-      {Array.from({ length: 8 }).map((_, index) => (
+    <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+      {Array.from({ length: 6 }).map((_, index) => (
         <div
           key={index}
-          className="min-h-52 animate-pulse border border-slate-200 bg-white p-4"
-        >
-          <div className="flex justify-between gap-4">
-            <div className="h-4 w-28 rounded bg-slate-100" />
-            <div className="h-5 w-16 rounded bg-slate-100" />
-          </div>
-          <div className="mt-4 h-8 rounded bg-slate-50" />
-          <div className="mt-4 h-20 rounded bg-slate-50" />
-          <div className="mt-4 h-8 rounded bg-slate-50" />
-        </div>
+          className="h-32 animate-pulse rounded-lg border border-slate-200 bg-white p-3"
+        />
       ))}
     </div>
   );
@@ -52,7 +48,7 @@ function InfrastructureStatusSkeleton() {
 
 export function InfrastructureStatusGrid() {
   const { data, isLoading, isError, error } = useDashboardSummary();
-  const [filter, setFilter] = useState<StatusFilter>("ALL");
+  const [filter, setFilter] = useState<StatusFilter>("ISSUES");
   const [search, setSearch] = useState("");
 
   const assets = useMemo(() => {
@@ -62,8 +58,8 @@ export function InfrastructureStatusGrid() {
       .filter((asset) => {
         const matchesFilter =
           filter === "ALL" ||
-          asset.overallStatus === filter ||
-          (filter === "NO_DATA" && asset.overallStatus === "NOT_MONITORED");
+          (filter === "ISSUES" && ["CRITICAL", "WARNING", "NO_DATA"].includes(asset.overallStatus)) ||
+          asset.overallStatus === filter;
         const matchesSearch =
           normalizedSearch.length === 0 ||
           asset.name.toLowerCase().includes(normalizedSearch) ||
@@ -80,6 +76,7 @@ export function InfrastructureStatusGrid() {
           : left.name.localeCompare(right.name);
       });
   }, [data?.assetOverview, filter, search]);
+  const visibleAssets = filter === "ISSUES" ? assets.slice(0, 8) : assets;
 
   return (
     <section
@@ -92,10 +89,10 @@ export function InfrastructureStatusGrid() {
             id="infrastructure-status-heading"
             className="text-sm font-semibold text-slate-950"
           >
-            Infrastructure Status
+            {filter === "ISSUES" ? "Top Issues" : "Infrastructure Status"}
           </h2>
           <p className="mt-1 text-xs text-slate-500">
-            Current operational signals across registered assets
+            {filter === "ISSUES" ? "Assets requiring attention, ordered by severity" : "Current operational signals across registered assets"}
           </p>
         </div>
 
@@ -124,7 +121,10 @@ export function InfrastructureStatusGrid() {
             <Search className="pointer-events-none absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-slate-400" />
             <Input
               value={search}
-              onChange={(event) => setSearch(event.target.value)}
+              onChange={(event) => {
+                setSearch(event.target.value);
+                if (filter === "ISSUES") setFilter("ALL");
+              }}
               placeholder="Search assets"
               aria-label="Search assets"
               className="h-9 bg-white pl-9 text-xs"
@@ -145,19 +145,23 @@ export function InfrastructureStatusGrid() {
           </p>
         </div>
       ) : assets.length === 0 ? (
-        <div className="border border-slate-200 bg-white px-5 py-10 text-center">
-          <p className="text-sm font-medium text-slate-900">No assets found</p>
+        <div className="rounded-lg border border-slate-200 bg-white px-5 py-8 text-center">
+          <p className="text-sm font-medium text-slate-900">{filter === "ISSUES" ? "No current issues" : "No assets found"}</p>
           <p className="mt-1 text-xs text-slate-500">
-            Adjust the status filter or search term.
+            {filter === "ISSUES" ? "All monitored assets are outside the issue states." : "Adjust the status filter or search term."}
           </p>
         </div>
       ) : (
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
-          {assets.map((asset) => (
+        <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+          {visibleAssets.map((asset) => (
             <InfrastructureStatusCard key={asset.assetId} asset={asset} />
           ))}
         </div>
       )}
+      <div className="flex items-center justify-between text-xs text-slate-500">
+        <span>{!isLoading && !isError ? `Showing ${visibleAssets.length} of ${assets.length} matching assets` : ""}</span>
+        <Link href="/infrastructure" className="font-medium text-blue-700 hover:underline">View all infrastructure</Link>
+      </div>
     </section>
   );
 }

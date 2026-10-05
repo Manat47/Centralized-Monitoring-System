@@ -5,7 +5,7 @@ import { DashboardController } from './dashboard.controller';
 import { DashboardService } from './dashboard.service';
 
 @Module({
-  imports: [HttpModule],
+  imports: [HttpModule.register({ timeout: 5_000 })],
   controllers: [DashboardController],
   providers: [DashboardService],
 })

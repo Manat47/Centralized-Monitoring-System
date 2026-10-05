@@ -58,13 +58,19 @@ export interface DashboardAssetOverview {
     cpuUsagePercent: number | null;
     memoryUsagePercent: number | null;
     timestamp: string | null;
+    fresh: boolean;
   } | null;
   updatedAt: string;
 }
 
 export interface DashboardSummary {
+  dataQuality: {
+    stale: boolean;
+    updatedAt: string;
+  };
   assets: {
     total: number;
+    monitored: number;
     ok: number;
     warning: number;
     critical: number;
@@ -74,6 +80,27 @@ export interface DashboardSummary {
   };
   alerts: {
     active: number;
+    firing: number;
   };
   assetOverview: DashboardAssetOverview[];
+  standaloneChecks: Array<{
+    healthCheckTargetId: string;
+    name: string;
+    url: string;
+    status: DashboardHealthStatus;
+    expectedStatus: number;
+    actualStatus: number | null;
+    lastCheckedAt: string | null;
+    activeAlerts: number;
+    highestAlertSeverity: "WARNING" | "CRITICAL" | null;
+  }>;
+  standaloneAlerts: Array<{
+    alertId: string;
+    sourceId: string;
+    sourceType: "METRIC_RULE" | "HEALTH_CHECK";
+    severity: "WARNING" | "CRITICAL";
+    status: "TRIGGERED" | "ACKNOWLEDGED";
+    message: string;
+    triggeredAt: string;
+  }>;
 }

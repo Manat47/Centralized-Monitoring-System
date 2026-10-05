@@ -4,6 +4,7 @@ import Link from "next/link";
 
 import {
   AlertTriangle,
+  BellRing,
   CircleAlert,
   CircleCheck,
   CircleDashed,
@@ -33,7 +34,7 @@ export function DashboardSummaryCards() {
   if (isLoading) {
     return (
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-        {Array.from({ length: 5 }).map((_, index) => (
+        {Array.from({ length: 7 }).map((_, index) => (
           <SummaryCardSkeleton key={index} />
         ))}
       </div>
@@ -55,20 +56,28 @@ export function DashboardSummaryCards() {
     );
   }
 
-  const noSignal = data.assets.noData + data.assets.notMonitored;
   const cards = [
     {
-      title: "Total Assets",
-      href: "/infrastructure?view=inventory&status=ALL",
-      value: data.assets.total,
-      description: `${data.assets.inactive} inactive`,
+      title: "Monitored Assets",
+      href: "/infrastructure",
+      value: data.assets.monitored,
+      description: `${data.assets.total} total · ${data.assets.inactive} inactive`,
       icon: Server,
       iconClassName: "bg-blue-50 text-blue-700",
       valueClassName: "text-slate-950",
     },
     {
-      title: "OK",
-      href: "/infrastructure?view=inventory&overall=OK",
+      title: "Firing Alerts",
+      href: "/alerts",
+      value: data.alerts.firing,
+      description: `${data.alerts.active} active incl. acknowledged`,
+      icon: BellRing,
+      iconClassName: "bg-rose-50 text-rose-700",
+      valueClassName: "text-rose-700",
+    },
+    {
+      title: "OK Assets",
+      href: "/infrastructure?overall=OK",
       value: data.assets.ok,
       description: "Signals operating normally",
       icon: CircleCheck,
@@ -76,8 +85,8 @@ export function DashboardSummaryCards() {
       valueClassName: "text-emerald-700",
     },
     {
-      title: "Warning",
-      href: "/infrastructure?view=inventory&overall=WARNING",
+      title: "Warning Assets",
+      href: "/infrastructure?overall=WARNING",
       value: data.assets.warning,
       description: "Investigation recommended",
       icon: AlertTriangle,
@@ -85,8 +94,8 @@ export function DashboardSummaryCards() {
       valueClassName: "text-amber-700",
     },
     {
-      title: "Critical",
-      href: "/infrastructure?view=inventory&overall=CRITICAL",
+      title: "Critical Assets",
+      href: "/infrastructure?overall=CRITICAL",
       value: data.assets.critical,
       description: "Immediate attention required",
       icon: CircleAlert,
@@ -94,10 +103,19 @@ export function DashboardSummaryCards() {
       valueClassName: "text-rose-700",
     },
     {
-      title: "No Data",
-      href: "/infrastructure?view=inventory&overall=NO_DATA,NOT_MONITORED",
-      value: noSignal,
-      description: `${data.assets.notMonitored} not monitored`,
+      title: "No Data Assets",
+      href: "/infrastructure?overall=NO_DATA",
+      value: data.assets.noData,
+      description: "Expected telemetry is missing",
+      icon: CircleDashed,
+      iconClassName: "bg-slate-100 text-slate-600",
+      valueClassName: "text-slate-700",
+    },
+    {
+      title: "Not Monitored",
+      href: "/infrastructure?overall=NOT_MONITORED",
+      value: data.assets.notMonitored,
+      description: "No running monitoring target",
       icon: CircleDashed,
       iconClassName: "bg-slate-100 text-slate-600",
       valueClassName: "text-slate-700",
@@ -105,7 +123,7 @@ export function DashboardSummaryCards() {
   ];
 
   return (
-    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 2xl:grid-cols-7">
       {cards.map((card, index) => {
         const Icon = card.icon;
 
