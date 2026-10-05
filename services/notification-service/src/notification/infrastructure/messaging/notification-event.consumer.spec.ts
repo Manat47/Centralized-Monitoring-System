@@ -72,6 +72,36 @@ describe('NotificationEventConsumer', () => {
     expect(sendToQueue).not.toHaveBeenCalled();
   });
 
+  it('routes a log finding event through the same delivery handler', async () => {
+    sendNotification.execute.mockResolvedValue({
+      mode: 'broadcast',
+      recipientCount: 1,
+      sentCount: 1,
+      failedCount: 0,
+      deliveries: [],
+    });
+    const logEvent = {
+      eventId: 'event-1',
+      eventType: 'log_finding_alert' as const,
+      severity: 'high' as const,
+      title: 'Database errors',
+      service: 'billing',
+      ruleId: 'rule-1',
+      fingerprint: 'fingerprint-1',
+      matchCount: 3,
+      countOverflow: false,
+      timeWindowSeconds: 60,
+      snippet: 'Connection refused',
+      deepLink: '/explorer',
+      timestamp: '2026-10-05T00:00:00.000Z',
+      isSummary: false,
+    };
+
+    await consumer.handleLogFinding(logEvent, context);
+    expect(executeMock).toHaveBeenCalledWith(logEvent);
+    expect(ack).toHaveBeenCalledWith(message);
+  });
+
   it('persists the original RabbitMQ message in the DLQ before acknowledging total failure', async () => {
     sendNotification.execute.mockResolvedValue({
       mode: 'fallback',

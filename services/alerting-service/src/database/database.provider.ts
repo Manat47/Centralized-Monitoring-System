@@ -2,7 +2,10 @@ import { ConfigService } from '@nestjs/config';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import { Pool } from 'pg';
 
-import * as schema from './schema/alerts.schema';
+import * as alertSchema from './schema/alerts.schema';
+import * as logFindingSchema from './schema/log-finding.schema';
+
+const schema = { ...alertSchema, ...logFindingSchema };
 
 export const DRIZZLE_DB = Symbol('DRIZZLE_DB');
 

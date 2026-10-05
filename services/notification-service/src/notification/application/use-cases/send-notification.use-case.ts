@@ -13,6 +13,23 @@ export class SendNotificationUseCase {
   async execute(
     event: NotificationEvent,
   ): Promise<NotificationExecutionReport> {
+    if (event.eventType === 'log_finding_alert') {
+      return this.executionRouter.execute({
+        alertId: event.eventId,
+        assetId: null,
+        sourceId: event.ruleId,
+        severity:
+          event.severity === 'critical' || event.severity === 'high'
+            ? 'CRITICAL'
+            : 'WARNING',
+        status: 'TRIGGERED',
+        alertType: 'LOG_FINDING',
+        metricType: 'LOG_FINDING',
+        title: event.isSummary ? `${event.title} (summary)` : event.title,
+        message: `${event.countOverflow ? '> 10,000' : event.matchCount} matching logs in ${event.timeWindowSeconds}s from ${event.service}.\n${event.snippet}\nOpen: ${event.deepLink}`,
+        occurredAt: new Date(event.timestamp),
+      });
+    }
     let title: string;
 
     if (event.eventType === 'ALERT_TRIGGERED') {

@@ -31,6 +31,7 @@ import { EvaluateStaleHealthChecksUseCase } from './application/use-cases/evalua
 import { AlertEvaluationScheduler } from './infrastructure/schedulers/alert-evaluation.scheduler';
 import { QueryAssetAlertImpactUseCase } from './application/use-cases/query-asset-alert-impact.use-case';
 import { NotificationOutboxDispatcher } from './infrastructure/publishers/notification-outbox.dispatcher';
+import { LogFindingEventPublisher } from '../log-finding/log-finding-event.publisher';
 
 @Module({
   imports: [
@@ -114,6 +115,7 @@ import { NotificationOutboxDispatcher } from './infrastructure/publishers/notifi
     EvaluateStaleHealthChecksUseCase,
     AlertEvaluationScheduler,
     NotificationOutboxDispatcher,
+    LogFindingEventPublisher,
     {
       provide: ALERT_REPOSITORY,
       useClass: DrizzleAlertRepository,

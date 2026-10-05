@@ -65,4 +65,35 @@ describe('SendNotificationUseCase', () => {
       }),
     );
   });
+
+  it('maps a log finding into the existing multi-channel router', async () => {
+    await useCase.execute({
+      eventId: 'event-1',
+      eventType: 'log_finding_alert',
+      severity: 'high',
+      title: 'Database errors',
+      service: 'billing',
+      ruleId: 'rule-1',
+      fingerprint: 'fingerprint-1',
+      matchCount: 5,
+      countOverflow: false,
+      timeWindowSeconds: 60,
+      snippet: 'Connection refused',
+      deepLink: '/explorer',
+      timestamp: '2026-10-05T00:00:00.000Z',
+      isSummary: false,
+    });
+
+    expect(executeMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        alertId: 'event-1',
+        sourceId: 'rule-1',
+        alertType: 'LOG_FINDING',
+        severity: 'CRITICAL',
+        title: 'Database errors',
+      }),
+    );
+    const calls = executeMock.mock.calls as Array<[{ message: string }]>;
+    expect(calls[0][0].message).toContain('Connection refused');
+  });
 });

@@ -8,6 +8,7 @@ import type { UserInvitationEvent } from '../../application/contracts/user-invit
 import { SendUserInvitationUseCase } from '../../application/use-cases/send-user-invitation.use-case';
 
 export const NOTIFICATION_EVENT_PATTERN = 'notification.alert.changed';
+export const LOG_FINDING_EVENT_PATTERN = 'notification.log.finding';
 export const USER_INVITATION_EVENT_PATTERN = 'notification.user.invited';
 export const NOTIFICATION_DEAD_LETTER_QUEUE =
   process.env.RABBITMQ_NOTIFICATION_DLQ ?? 'notification_events_dead_letter';
@@ -43,11 +44,20 @@ export class NotificationEventConsumer {
       });
       await channel.waitForConfirms();
       this.logger.error(
-        `All notification channels failed for alert ${event.alertId}; sent to ${NOTIFICATION_DEAD_LETTER_QUEUE}`,
+        `All notification channels failed for alert ${event.eventType === 'log_finding_alert' ? event.eventId : event.alertId}; sent to ${NOTIFICATION_DEAD_LETTER_QUEUE}`,
       );
     }
 
     channel.ack(message);
+  }
+
+  @EventPattern(LOG_FINDING_EVENT_PATTERN)
+  async handleLogFinding(
+    @Payload()
+    event: Extract<NotificationEvent, { eventType: 'log_finding_alert' }>,
+    @Ctx() context: RmqContext,
+  ): Promise<void> {
+    await this.handle(event, context);
   }
 
   @EventPattern(USER_INVITATION_EVENT_PATTERN)

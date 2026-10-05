@@ -92,6 +92,15 @@ async function bootstrap() {
   );
 
   app.use(
+    '/api/log-finding-rules',
+    createProxyMiddleware({
+      target: `${alertingServiceUrl}/log-finding-rules`,
+      changeOrigin: true,
+      headers: { 'x-internal-service-secret': internalServiceSecret },
+    }),
+  );
+
+  app.use(
     '/api/assets',
     createProxyMiddleware({
       target: `${assetServiceUrl}/assets`,

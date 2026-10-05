@@ -13,6 +13,7 @@ import {
 } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
 import type { NotificationEvent } from '../../alerting/domain/port/notification-event-publisher.port';
+import type { LogFindingAlertEvent } from '../../log-finding/log-finding-event';
 
 export const alertStatusEnum = pgEnum('alert_status', [
   'TRIGGERED',
@@ -104,7 +105,9 @@ export const notificationOutbox = pgTable(
   'notification_outbox',
   {
     eventId: uuid('event_id').primaryKey(),
-    payload: jsonb('payload').$type<NotificationEvent>().notNull(),
+    payload: jsonb('payload')
+      .$type<NotificationEvent | LogFindingAlertEvent>()
+      .notNull(),
     createdAt: timestamp('created_at', { withTimezone: true })
       .defaultNow()
       .notNull(),

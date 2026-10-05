@@ -15,6 +15,7 @@ import {
   ScrollText,
   Server,
   Radar,
+  ScanSearch,
   Users,
 } from "lucide-react";
 
@@ -79,6 +80,11 @@ const navigationGroups: NavigationGroup[] = [
         href: "/explorer/rules",
         label: "Rules & Findings",
         icon: Bell,
+      },
+      {
+        href: "/explorer/finding-rules",
+        label: "Log Finding Alerts",
+        icon: ScanSearch,
       },
       {
         href: "/projects",
