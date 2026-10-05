@@ -36,7 +36,16 @@ export const metricRuleSeverityEnum = pgEnum('metric_rule_severity', [
 
 export const metricRuleEvaluationStatusEnum = pgEnum(
   'metric_rule_evaluation_status',
-  ['NORMAL', 'VIOLATING', 'ALERTED', 'RECOVERED'],
+  [
+    'NORMAL',
+    'VIOLATING',
+    'ALERTED',
+    'RECOVERED',
+    'WARNING',
+    'CRITICAL',
+    'NO_DATA',
+    'INACTIVE',
+  ],
 );
 
 export const monitoringTypeEnum = pgEnum('monitoring_type', [
@@ -191,17 +200,18 @@ export const metricRules = pgTable(
 
     metricType: metricRuleTypeEnum('metric_type').notNull(),
 
-    operator: metricRuleOperatorEnum('operator')
-      .default('GREATER_THAN_OR_EQUAL')
+    operator: varchar('comparison_operator', { length: 2 })
+      .default('>=')
       .notNull(),
-
-    thresholdValue: integer('threshold_value').notNull(),
-
-    durationSeconds: integer('duration_seconds').default(300).notNull(),
-
-    severity: metricRuleSeverityEnum('severity').notNull(),
-
-    enabled: boolean('enabled').default(true).notNull(),
+    warningThreshold: real('warning_threshold').notNull(),
+    warningDurationSeconds: integer('warning_duration_seconds')
+      .default(30)
+      .notNull(),
+    criticalThreshold: real('critical_threshold').notNull(),
+    criticalDurationSeconds: integer('critical_duration_seconds')
+      .default(60)
+      .notNull(),
+    enabled: boolean('is_enabled').default(true).notNull(),
 
     archivedAt: timestamp('archived_at', { withTimezone: true }),
 
@@ -218,15 +228,8 @@ export const metricRules = pgTable(
       .notNull(),
   },
   (table) => [
-    uniqueIndex('metric_rules_active_configuration_unique')
-      .on(
-        table.assetId,
-        table.metricType,
-        table.operator,
-        table.thresholdValue,
-        table.durationSeconds,
-        table.severity,
-      )
+    uniqueIndex('metric_rules_active_asset_metric_unique')
+      .on(table.assetId, table.metricType)
       .where(sql`${table.archivedAt} is null`),
   ],
 );
@@ -250,6 +253,8 @@ export const metricRuleEvaluationStates = pgTable(
     violatedSince: timestamp('violated_since', {
       withTimezone: true,
     }),
+    criticalSince: timestamp('critical_since', { withTimezone: true }),
+    activeAlertSeverity: metricRuleSeverityEnum('active_alert_severity'),
 
     lastEvaluatedAt: timestamp('last_evaluated_at', {
       withTimezone: true,

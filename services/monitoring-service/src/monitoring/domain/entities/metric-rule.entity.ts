@@ -1,85 +1,77 @@
 export enum MetricRuleType {
-  // ชุดประเภทของ Metric ที่สามารถสร้าง Rule ได้
   CPU_USAGE = 'CPU_USAGE',
   MEMORY_USAGE = 'MEMORY_USAGE',
   DISK_USAGE = 'DISK_USAGE',
 }
 
 export enum MetricRuleOperator {
-  // ชุดตัวดำเนินการสำหรับเปรียบเทียบค่า Metric กับ Threshold
-  GREATER_THAN = 'GREATER_THAN',
-  GREATER_THAN_OR_EQUAL = 'GREATER_THAN_OR_EQUAL',
+  GREATER_THAN = '>',
+  GREATER_THAN_OR_EQUAL = '>=',
+  LESS_THAN = '<',
+  LESS_THAN_OR_EQUAL = '<=',
 }
 
 export enum MetricRuleSeverity {
-  // ชุดระดับความรุนแรงของ Rule
   WARNING = 'WARNING',
   CRITICAL = 'CRITICAL',
 }
 
 export interface MetricRuleProps {
-  // โครงสร้างข้อมูลทั้งหมดที่อยู่ภายใน class MetricRule
-  ruleId: string; // รหัสประจำกฎ
-  assetId: string; // รหัส Asset ที่กฎนี้ผูกอยู่
-  metricType: MetricRuleType; // ประเภท Metric ที่ต้องการตรวจ
-  operator: MetricRuleOperator; // ตัวดำเนินการสำหรับเปรียบเทียบ
-  thresholdValue: number; // ค่าขีดจำกัดของกฎ
-  durationSeconds: number; // ระยะเวลาในการตรวจ (วินาที)
-  severity: MetricRuleSeverity; // ระดับความรุนแรง
-  enabled: boolean; // สถานะการใช้งาน
+  ruleId: string;
+  assetId: string;
+  metricType: MetricRuleType;
+  operator: MetricRuleOperator;
+  warningThreshold: number;
+  warningDurationSeconds: number;
+  criticalThreshold: number;
+  criticalDurationSeconds: number;
+  enabled: boolean;
   archivedAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
 }
 
 export interface CreateMetricRuleProps {
-  // ข้อมูลที่ผู้ใช้ต้องส่งเข้ามาตอนสร้างกฎใหม่
-  assetId: string; // ต้องระบุว่ากฎนี้ใช้กับ Asset ตัวไหน
-  metricType: MetricRuleType; // ต้องระบุว่าจะตรวจ CPU, Memory หรือ Disk
-  operator?: MetricRuleOperator; // ตัวดำเนินการสำหรับเปรียบเทียบ (ถ้าไม่ระบุจะใช้ GREATER_THAN_OR_EQUAL เป็นค่าเริ่มต้น)
-  thresholdValue: number; // ค่าขีดจำกัดของกฎ
-  durationSeconds?: number; // ระยะเวลาในการตรวจ (วินาที) (ถ้าไม่ระบุจะใช้ 300 วินาทีเป็นค่าเริ่มต้น)
-  severity: MetricRuleSeverity; // ระดับความรุนแรงของกฎ
+  assetId: string;
+  metricType: MetricRuleType;
+  operator?: MetricRuleOperator;
+  warningThreshold: number;
+  warningDurationSeconds?: number;
+  criticalThreshold: number;
+  criticalDurationSeconds?: number;
 }
 
 export class MetricRule {
-  // Domain Entity ของ MetricRule
   private constructor(private readonly props: MetricRuleProps) {}
 
   static create(ruleId: string, input: CreateMetricRuleProps): MetricRule {
-    // Factory Method ที่ class เตรียมไว้ เป็นฟังก์ชันสำหรับสร้าง MetricRule ใหม่จากข้อมูลที่ผู้ใช้ส่งเข้ามา
-    const now = new Date(); // เก็บเวลาปัจจุบันเพื่อใช้เป็น createdAt และ updatedAt
-
+    const now = new Date();
     const rule = new MetricRule({
-      // สร้าง MetricRule ใหม่จากภายใน class
       ruleId,
       assetId: input.assetId,
       metricType: input.metricType,
       operator: input.operator ?? MetricRuleOperator.GREATER_THAN_OR_EQUAL,
-      thresholdValue: input.thresholdValue,
-      durationSeconds: input.durationSeconds ?? 300,
-      severity: input.severity,
+      warningThreshold: input.warningThreshold,
+      warningDurationSeconds: input.warningDurationSeconds ?? 30,
+      criticalThreshold: input.criticalThreshold,
+      criticalDurationSeconds: input.criticalDurationSeconds ?? 60,
       enabled: true,
       archivedAt: null,
       createdAt: now,
       updatedAt: now,
     });
-
-    rule.validate(); // ตรวจสอบ Business Rules ของ Entity
-
+    rule.validate();
     return rule;
   }
 
   static restore(props: MetricRuleProps): MetricRule {
-    // ฟังก์ชันสำหรับสร้าง MetricRule จากข้อมูลที่ดึงมาจากฐานข้อมูล (เช่นจาก Repository) โดยไม่สร้างค่า Default ใหม่
     const rule = new MetricRule(props);
     rule.validate();
     return rule;
   }
 
   disable(): void {
-    // ฟังก์ชันสำหรับปิดการใช้งาน MetricRule
-    this.props.enabled = false; // เปลี่ยนสถานะกฎเป็นปิดใช้งาน
+    this.props.enabled = false;
     this.props.updatedAt = new Date();
   }
 
@@ -87,74 +79,86 @@ export class MetricRule {
     if (this.props.archivedAt) {
       throw new Error('Archived metric rule cannot be enabled');
     }
-    // ฟังก์ชันสำหรับเปิดการใช้งาน MetricRule
-    this.props.enabled = true; // เปลี่ยนสถานะกฎเป็นเปิดใช้งาน
+    this.props.enabled = true;
     this.props.updatedAt = new Date();
   }
 
   updateConfiguration(input: {
     metricType: MetricRuleType;
     operator: MetricRuleOperator;
-    thresholdValue: number;
-    durationSeconds: number;
-    severity: MetricRuleSeverity;
+    warningThreshold: number;
+    warningDurationSeconds: number;
+    criticalThreshold: number;
+    criticalDurationSeconds: number;
   }): void {
     if (this.props.archivedAt) {
       throw new Error('Archived metric rule cannot be updated');
     }
-
-    this.props.metricType = input.metricType;
-    this.props.operator = input.operator;
-    this.props.thresholdValue = input.thresholdValue;
-    this.props.durationSeconds = input.durationSeconds;
-    this.props.severity = input.severity;
-    this.props.updatedAt = new Date();
-    this.validate();
+    const next = { ...this.props, ...input };
+    MetricRule.validateProps(next);
+    Object.assign(this.props, input, { updatedAt: new Date() });
   }
 
   archive(): void {
     if (this.props.archivedAt) {
       throw new Error('Metric rule is already archived');
     }
-
     const now = new Date();
     this.props.enabled = false;
     this.props.archivedAt = now;
     this.props.updatedAt = now;
   }
 
-  matches(value: number): boolean {
-    // ใช้ตรวจว่าค่า Metric ที่รับเข้ามาตรงกับเงื่อนไขของRuleหรือไม่
-    if (this.props.operator === MetricRuleOperator.GREATER_THAN) {
-      // ตรวจว่า Operator ของกฎเป็น GREATER_THAN หรือไม่
-      return value > this.props.thresholdValue; // เปรียบเทียบว่าค่าจริงมากกว่า Threshold หรือไม่
+  matches(value: number, threshold: number): boolean {
+    switch (this.props.operator) {
+      case MetricRuleOperator.GREATER_THAN:
+        return value > threshold;
+      case MetricRuleOperator.GREATER_THAN_OR_EQUAL:
+        return value >= threshold;
+      case MetricRuleOperator.LESS_THAN:
+        return value < threshold;
+      case MetricRuleOperator.LESS_THAN_OR_EQUAL:
+        return value <= threshold;
     }
-
-    return value >= this.props.thresholdValue; // ถ้า Operator ไม่ใช่ GREATER_THAN โค้ดจะถือว่าเป็น GREATER_THAN_OR_EQUAL
   }
 
   toObject(): MetricRuleProps {
-    // ใช้แปลง Entity กลับเป็น Plain Object เพื่อส่งต่อไปยัง Repository หรือใช้ในส่วนอื่น ๆ ของระบบ
-    return {
-      ...this.props,
-    };
+    return { ...this.props };
   }
 
   private validate(): void {
-    // ฟังก์ชันสำหรับตรวจสอบ Business Rules ของ Entity
-    if (!this.props.assetId.trim()) {
-      // ตรวจสอบว่า Asset ID ไม่ใช่ค่าว่าง
-      throw new Error('Asset ID is required');
-    }
+    MetricRule.validateProps(this.props);
+  }
 
-    if (this.props.thresholdValue < 0 || this.props.thresholdValue > 100) {
-      // ตรวจสอบว่า Threshold Value อยู่ระหว่าง 0 ถึง 100 หรือไม่
-      throw new Error('Threshold value must be between 0 and 100');
+  private static validateProps(props: MetricRuleProps): void {
+    if (!props.assetId.trim()) throw new Error('Asset ID is required');
+    if (!Object.values(MetricRuleType).includes(props.metricType)) {
+      throw new Error('Invalid metric type');
     }
-
-    if (this.props.durationSeconds < 0) {
-      // ตรวจสอบว่า Duration Seconds ไม่ใช่ค่าลบ
-      throw new Error('Duration seconds must be greater than or equal to 0');
+    if (!Object.values(MetricRuleOperator).includes(props.operator)) {
+      throw new Error('Invalid comparison operator');
+    }
+    for (const threshold of [props.warningThreshold, props.criticalThreshold]) {
+      if (!Number.isFinite(threshold) || threshold < 0 || threshold > 100) {
+        throw new Error('Threshold must be between 0 and 100');
+      }
+    }
+    for (const duration of [
+      props.warningDurationSeconds,
+      props.criticalDurationSeconds,
+    ]) {
+      if (!Number.isInteger(duration) || duration < 10) {
+        throw new Error('Duration seconds must be at least 10');
+      }
+    }
+    const increasing =
+      props.operator === MetricRuleOperator.GREATER_THAN ||
+      props.operator === MetricRuleOperator.GREATER_THAN_OR_EQUAL;
+    if (increasing && props.warningThreshold >= props.criticalThreshold) {
+      throw new Error('Warning threshold must be below critical threshold');
+    }
+    if (!increasing && props.warningThreshold <= props.criticalThreshold) {
+      throw new Error('Warning threshold must be above critical threshold');
     }
   }
 }

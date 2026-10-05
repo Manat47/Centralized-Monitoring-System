@@ -9,7 +9,6 @@ import {
 
 import {
   MetricRule,
-  MetricRuleSeverity,
   MetricRuleType,
 } from '../../domain/entities/metric-rule.entity';
 import { MonitoringTarget } from '../../domain/entities/monitoring-target.entity';
@@ -53,9 +52,10 @@ describe('EvaluateMetricRulesUseCase sample-aware duration', () => {
   const rule = MetricRule.create('rule-1', {
     assetId,
     metricType: MetricRuleType.CPU_USAGE,
-    thresholdValue: 50,
-    durationSeconds: 30,
-    severity: MetricRuleSeverity.WARNING,
+    warningThreshold: 50,
+    warningDurationSeconds: 30,
+    criticalThreshold: 90,
+    criticalDurationSeconds: 60,
   });
   const target = MonitoringTarget.restore({
     targetId: 'target-1',
@@ -210,6 +210,42 @@ describe('EvaluateMetricRulesUseCase sample-aware duration', () => {
       status: 'VIOLATING',
       violatedSince: resumedSampleAt,
       lastSampleAt: resumedSampleAt,
+    });
+  });
+
+  it('escalates one rule from warning to critical and resolves once when normal', async () => {
+    const readings: Array<[string, number]> = [
+      ['2026-08-25T10:00:00.000Z', 95],
+      ['2026-08-25T10:00:30.000Z', 95],
+      ['2026-08-25T10:01:00.000Z', 95],
+      ['2026-08-25T10:01:15.000Z', 20],
+      ['2026-08-25T10:01:30.000Z', 20],
+    ];
+    for (const [time, value] of readings) {
+      const sampleAt = new Date(time);
+      jest.setSystemTime(sampleAt);
+      queryMetricsSummaryUseCase.execute.mockResolvedValue(
+        cpuSummary(sampleAt, value),
+      );
+      await useCase.execute();
+    }
+
+    expect(
+      publishAlertEvent.mock.calls.map(([event]) => event.eventType),
+    ).toEqual([
+      'METRIC_THRESHOLD_EXCEEDED',
+      'METRIC_THRESHOLD_EXCEEDED',
+      'METRIC_THRESHOLD_RECOVERED',
+    ]);
+    expect(
+      publishAlertEvent.mock.calls.map(([event]) =>
+        'severity' in event ? event.severity : null,
+      ),
+    ).toEqual(['WARNING', 'CRITICAL', 'CRITICAL']);
+    expect(updateState.mock.calls.at(-1)?.[0].toObject()).toMatchObject({
+      status: 'NORMAL',
+      activeAlertSeverity: null,
+      lastActualValue: 20,
     });
   });
 });

@@ -1,6 +1,5 @@
 import {
   MetricRule,
-  MetricRuleSeverity,
   MetricRuleType,
 } from '../../domain/entities/metric-rule.entity';
 import { MetricRuleEvaluationState } from '../../domain/entities/metric-rule-evaluation-state.entity';
@@ -19,8 +18,8 @@ describe('MonitoringTargetMetricLifecycleService', () => {
     const rule = MetricRule.create('rule-001', {
       assetId: 'asset-001',
       metricType: MetricRuleType.CPU_USAGE,
-      thresholdValue: 80,
-      severity: MetricRuleSeverity.WARNING,
+      warningThreshold: 80,
+      criticalThreshold: 95,
     });
     const evaluation = MetricRuleEvaluationState.create('state-001', {
       ruleId: 'rule-001',
@@ -80,8 +79,8 @@ describe('MonitoringTargetMetricLifecycleService', () => {
     const rule = MetricRule.create('rule-002', {
       assetId: 'asset-002',
       metricType: MetricRuleType.MEMORY_USAGE,
-      thresholdValue: 85,
-      severity: MetricRuleSeverity.CRITICAL,
+      warningThreshold: 75,
+      criticalThreshold: 85,
     });
     const metricRuleRepository = {
       findByAssetId: jest

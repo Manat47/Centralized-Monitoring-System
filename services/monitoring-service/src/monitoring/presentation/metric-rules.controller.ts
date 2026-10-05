@@ -66,6 +66,10 @@ export class MetricRulesController {
       evaluation: evaluation
         ? {
             ...evaluation,
+            status:
+              evaluation.status === 'ALERTED' && evaluation.activeAlertSeverity
+                ? evaluation.activeAlertSeverity
+                : evaluation.status,
             dataStatus:
               evaluation.lastEvaluatedAt === null
                 ? 'UNKNOWN'
@@ -93,6 +97,10 @@ export class MetricRulesController {
       evaluation: evaluation
         ? {
             ...evaluation,
+            status:
+              evaluation.status === 'ALERTED' && evaluation.activeAlertSeverity
+                ? evaluation.activeAlertSeverity
+                : evaluation.status,
             dataStatus:
               evaluation.lastEvaluatedAt === null
                 ? 'UNKNOWN'

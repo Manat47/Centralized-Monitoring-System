@@ -2,7 +2,11 @@ export type MetricRuleEvaluationStatus = // ใช้กำหนดว่าค
   | 'NORMAL' // สถานะปกติ ค่า Metric ยังไม่ผิดกฎ
   | 'VIOLATING' // ค่า Metric ผิดกฎแล้ว แต่ยังไม่เกินต่อเนื่องครบ Duration ยังไม่เกิด Alert
   | 'ALERTED' // ค่า Metric ผิดกฎต่อเนื่องครบ Duration และระบบสร้าง Alert ไปแล้ว
-  | 'RECOVERED'; // ค่า Metric เคยผิดกฎหรือเคย Alert แต่ตอนนี้กลับมาปกติแล้ว
+  | 'RECOVERED'
+  | 'WARNING'
+  | 'CRITICAL'
+  | 'NO_DATA'
+  | 'INACTIVE';
 
 export interface MetricRuleEvaluationStateProps {
   // โครงสร้างข้อมูลทั้งหมดภายใน Enyiti class
@@ -11,6 +15,8 @@ export interface MetricRuleEvaluationStateProps {
   assetId: string; // Asset ที่กำลังถูกตรวจ
   status: MetricRuleEvaluationStatus; // สถานะปัจจุบันของการประเมิน
   violatedSince: Date | null; // เก็บเวลาที่ Metric เริ่มผิดกฎต่อเนื่อง
+  criticalSince?: Date | null;
+  activeAlertSeverity?: 'WARNING' | 'CRITICAL' | null;
   lastEvaluatedAt: Date | null; // เวลาที่ประเมิน Rule ล่าสุด
   lastSampleAt: Date | null; // เวลาของ Metric sample ล่าสุดที่นำมาตรวจ
   lastActualValue: number | null; // ค่า Metric ล่าสุดที่นำมาตรวจ
@@ -42,6 +48,8 @@ export class MetricRuleEvaluationState {
       assetId: input.assetId, // Asset ที่กำลังถูกตรวจ
       status: 'NORMAL',
       violatedSince: null, // ยังไม่มีการละเมิดกฎ
+      criticalSince: null,
+      activeAlertSeverity: null,
       lastEvaluatedAt: null, // ยังไม่มีการประเมิน Rule
       lastSampleAt: null, // ยังไม่มี Metric sample ที่นำมาตรวจ
       lastActualValue: null, // ยังไม่มีค่า Metric ล่าสุด
@@ -104,9 +112,80 @@ export class MetricRuleEvaluationState {
     this.props.updatedAt = new Date();
   }
 
+  markMetricNoData(evaluatedAt: Date): void {
+    this.props.status = 'NO_DATA';
+    this.props.violatedSince = null;
+    this.props.criticalSince = null;
+    this.props.lastActualValue = null;
+    this.props.lastEvaluatedAt = evaluatedAt;
+    this.props.updatedAt = evaluatedAt;
+  }
+
+  markInactive(evaluatedAt: Date): void {
+    this.props.status = 'INACTIVE';
+    this.props.violatedSince = null;
+    this.props.criticalSince = null;
+    this.props.activeAlertSeverity = null;
+    this.props.lastActualValue = null;
+    this.props.lastEvaluatedAt = null;
+    this.props.updatedAt = evaluatedAt;
+  }
+
+  evaluateTiers(input: {
+    evaluatedAt: Date;
+    sampleAt: Date;
+    actualValue: number;
+    warningMatches: boolean;
+    criticalMatches: boolean;
+    warningDurationSeconds: number;
+    criticalDurationSeconds: number;
+  }): { triggered: 'WARNING' | 'CRITICAL' | null; recovered: boolean } {
+    const previous = this.props.activeAlertSeverity ?? null;
+    this.props.violatedSince = input.warningMatches
+      ? (this.props.violatedSince ?? input.sampleAt)
+      : null;
+    this.props.criticalSince = input.criticalMatches
+      ? (this.props.criticalSince ?? input.sampleAt)
+      : null;
+
+    const elapsed = (since: Date | null | undefined) =>
+      since ? (input.sampleAt.getTime() - since.getTime()) / 1000 : -1;
+    let next: 'WARNING' | 'CRITICAL' | null = null;
+    if (
+      input.criticalMatches &&
+      elapsed(this.props.criticalSince) >= input.criticalDurationSeconds
+    ) {
+      next = 'CRITICAL';
+    } else if (
+      input.warningMatches &&
+      elapsed(this.props.violatedSince) >= input.warningDurationSeconds
+    ) {
+      next = 'WARNING';
+    } else if (input.warningMatches) {
+      next = previous;
+    }
+
+    this.props.status = next ?? (input.warningMatches ? 'VIOLATING' : 'NORMAL');
+    this.props.activeAlertSeverity = next;
+    this.props.lastEvaluatedAt = input.evaluatedAt;
+    this.props.lastSampleAt = input.sampleAt;
+    this.props.lastActualValue = input.actualValue;
+    if (next && next !== previous)
+      this.props.lastTriggeredAt = input.evaluatedAt;
+    if (!next && previous) this.props.recoveredAt = input.evaluatedAt;
+    this.props.updatedAt = input.evaluatedAt;
+
+    return {
+      triggered: next && next !== previous ? next : null,
+      recovered: previous !== null && next === null,
+    };
+  }
+
   markSourceUnavailable(evaluatedAt: Date): void {
     this.props.status = 'NORMAL';
     this.props.violatedSince = null;
+    this.props.criticalSince = null;
+    this.props.activeAlertSeverity = null;
     this.props.lastEvaluatedAt = evaluatedAt;
     this.props.lastSampleAt = null;
     this.props.lastActualValue = null;
@@ -117,6 +196,8 @@ export class MetricRuleEvaluationState {
   reset(evaluatedAt: Date = new Date()): void {
     this.props.status = 'NORMAL';
     this.props.violatedSince = null;
+    this.props.criticalSince = null;
+    this.props.activeAlertSeverity = null;
     this.props.lastEvaluatedAt = null;
     this.props.lastSampleAt = null;
     this.props.lastActualValue = null;

@@ -81,6 +81,16 @@ export class ProcessAlertEventUseCase {
       await this.alertRepository.findActiveByDedupKey(dedupKey);
 
     if (existingAlert) {
+      if (existingAlert.toObject().severity !== event.severity) {
+        existingAlert.updateMetricSeverity({
+          severity: event.severity,
+          thresholdValue: event.thresholdValue,
+          actualValue: event.actualValue,
+          message: event.message,
+          occurredAt: new Date(event.occurredAt),
+        });
+        return this.alertRepository.update(existingAlert);
+      }
       return existingAlert;
     }
 

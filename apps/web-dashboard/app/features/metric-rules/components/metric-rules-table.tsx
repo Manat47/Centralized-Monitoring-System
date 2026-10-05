@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState, type FormEvent } from "react";
+import { useMemo, useState } from "react";
 import { Menu as MenuPrimitive } from "@base-ui/react/menu";
 import {
   Archive,
@@ -20,16 +20,7 @@ import { useAssets } from "@/app/features/assets/api/use-assets";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -52,16 +43,14 @@ import {
   useArchiveMetricRule,
   useDisableMetricRule,
   useEnableMetricRule,
-  useUpdateMetricRule,
 } from "../api/use-metric-rule-actions";
 import { useMetricRules } from "../api/use-metric-rules";
 import type {
   MetricRule,
-  MetricRuleOperator,
   MetricRuleSeverity,
   MetricRuleType,
-  UpdateMetricRuleInput,
 } from "../types/metric-rule";
+import { EditMetricRuleDialog } from "./edit-metric-rule-dialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -82,8 +71,8 @@ const metricLabels: Record<MetricRuleType, string> = {
 
 function formatDuration(seconds: number) {
   if (seconds === 0) return "Immediately";
-  if (seconds % 60 === 0) return `${seconds / 60} min`;
-  return `${seconds} sec`;
+  if (seconds % 60 === 0) return `${seconds / 60}m`;
+  return `${seconds}s`;
 }
 
 function formatRelativeDate(value: string | null | undefined) {
@@ -99,6 +88,7 @@ function formatRelativeDate(value: string | null | undefined) {
 }
 
 function evaluationLabel(rule: MetricRule) {
+  if (!rule.enabled || rule.archivedAt) return "Inactive";
   if (!rule.evaluation || rule.evaluation.dataStatus === "UNKNOWN")
     return "Unknown";
   if (rule.evaluation.dataStatus === "NO_DATA") return "No data";
@@ -106,15 +96,19 @@ function evaluationLabel(rule: MetricRule) {
     NORMAL: "Normal",
     VIOLATING: "Pending",
     ALERTED: "Alerting",
-    RECOVERED: "Recovered",
+    RECOVERED: "Normal",
+    WARNING: "Warning",
+    CRITICAL: "Critical",
+    NO_DATA: "No data",
+    INACTIVE: "Inactive",
   }[rule.evaluation.status];
 }
 
 function evaluationStyle(rule: MetricRule) {
   const label = evaluationLabel(rule);
-  if (label === "Alerting") return "border-rose-200 bg-rose-50 text-rose-700";
-  if (label === "Pending") return "border-amber-200 bg-amber-50 text-amber-700";
-  if (label === "Normal" || label === "Recovered")
+  if (label === "Critical" || label === "Alerting") return "border-rose-200 bg-rose-50 text-rose-700";
+  if (label === "Warning" || label === "Pending") return "border-amber-200 bg-amber-50 text-amber-700";
+  if (label === "Normal")
     return "border-emerald-200 bg-emerald-50 text-emerald-700";
   return "border-slate-200 bg-slate-100 text-slate-600";
 }
@@ -156,7 +150,7 @@ export function MetricRulesTable({ selectedRuleId }: { selectedRuleId?: string }
       return (
         matchesRecord &&
         (metric === "ALL" || rule.metricType === metric) &&
-        (severity === "ALL" || rule.severity === severity) &&
+        (severity === "ALL" || rule.evaluation?.status === severity) &&
         (evaluation === "ALL" || evaluationLabel(rule) === evaluation) &&
         (!query ||
           name.toLowerCase().includes(query) ||
@@ -373,22 +367,24 @@ export function MetricRulesTable({ selectedRuleId }: { selectedRuleId?: string }
                       </TableCell>
                       <TableCell>{metricLabels[rule.metricType]}</TableCell>
                       <TableCell className="font-mono text-xs">
-                        {rule.operator === "GREATER_THAN" ? ">" : ">="}{" "}
-                        {rule.thresholdValue}% for{" "}
-                        {formatDuration(rule.durationSeconds)}
+                        Warn: {rule.operator} {rule.warningThreshold}% ({formatDuration(rule.warningDurationSeconds)})
+                        <span className="mx-1 text-slate-400">|</span>
+                        Crit: {rule.operator} {rule.criticalThreshold}% ({formatDuration(rule.criticalDurationSeconds)})
                       </TableCell>
                       <TableCell>
                         <Badge
                           variant="outline"
                           className={
-                            rule.severity === "CRITICAL"
+                            rule.enabled && !rule.archivedAt && rule.evaluation?.status === "CRITICAL"
                               ? "border-rose-200 bg-rose-50 text-rose-700"
-                              : "border-amber-200 bg-amber-50 text-amber-700"
+                              : rule.enabled && !rule.archivedAt && rule.evaluation?.status === "WARNING"
+                                ? "border-amber-200 bg-amber-50 text-amber-700"
+                                : "border-slate-200 bg-slate-100 text-slate-600"
                           }
                         >
-                          {rule.severity === "CRITICAL"
+                          {rule.enabled && !rule.archivedAt && rule.evaluation?.status === "CRITICAL"
                             ? "Critical"
-                            : "Warning"}
+                            : rule.enabled && !rule.archivedAt && rule.evaluation?.status === "WARNING" ? "Warning" : "—"}
                         </Badge>
                       </TableCell>
                       <TableCell>
@@ -417,13 +413,23 @@ export function MetricRulesTable({ selectedRuleId }: { selectedRuleId?: string }
                           {evaluationLabel(rule)}
                         </Badge>
                       </TableCell>
-                      <TableCell>
-                        {rule.evaluation?.lastActualValue == null
+                      <TableCell className={
+                        rule.evaluation?.dataStatus !== "AVAILABLE" || !rule.enabled || rule.archivedAt
+                          ? "text-slate-500"
+                          : rule.evaluation.status === "CRITICAL"
+                            ? "font-medium text-rose-700"
+                            : rule.evaluation.status === "WARNING"
+                              ? "font-medium text-amber-700"
+                              : "font-medium text-emerald-700"
+                      }>
+                        {!rule.enabled || rule.evaluation?.dataStatus !== "AVAILABLE" || rule.evaluation?.lastActualValue == null
                           ? "-"
                           : `${rule.evaluation.lastActualValue.toFixed(1)}%`}
                       </TableCell>
                       <TableCell>
-                        {formatRelativeDate(rule.evaluation?.lastEvaluatedAt)}
+                        {!rule.enabled || rule.evaluation?.dataStatus !== "AVAILABLE"
+                          ? "-"
+                          : formatRelativeDate(rule.evaluation?.lastEvaluatedAt)}
                       </TableCell>
                       <TableCell className="pr-4 text-right">
                         <AdminOnly>
@@ -627,239 +633,5 @@ function MenuLink({
       <Icon className="size-4" />
       {label}
     </MenuPrimitive.Item>
-  );
-}
-
-type EditMetricRuleForm = Omit<
-  UpdateMetricRuleInput,
-  "thresholdValue" | "durationSeconds"
-> & {
-  thresholdValue: string;
-  durationSeconds: string;
-};
-
-function EditMetricRuleDialog({
-  rule,
-  onClose,
-}: {
-  rule: MetricRule | null;
-  onClose: () => void;
-}) {
-  const [form, setForm] = useState<EditMetricRuleForm>(() => ({
-    metricType: rule?.metricType ?? "CPU_USAGE",
-    operator: rule?.operator ?? "GREATER_THAN_OR_EQUAL",
-    thresholdValue: String(rule?.thresholdValue ?? 80),
-    durationSeconds: String(rule?.durationSeconds ?? 300),
-    severity: rule?.severity ?? "WARNING",
-  }));
-  const mutation = useUpdateMetricRule();
-  async function submit(event: FormEvent) {
-    event.preventDefault();
-    if (!rule) return;
-    try {
-      await mutation.mutateAsync({
-        ruleId: rule.ruleId,
-        input: {
-          ...form,
-          thresholdValue: Number(form.thresholdValue),
-          durationSeconds: Number(form.durationSeconds),
-        },
-      });
-      onClose();
-    } catch {}
-  }
-  return (
-    <Dialog
-      open={Boolean(rule)}
-      onOpenChange={(open) => {
-        if (!open) {
-          mutation.reset();
-          onClose();
-        }
-      }}
-    >
-      <DialogContent className="sm:max-w-2xl">
-        <DialogHeader>
-          <DialogTitle>Edit metric rule</DialogTitle>
-          <DialogDescription>
-            Changing the condition resolves any active alert for this rule and
-            starts evaluation fresh.
-          </DialogDescription>
-        </DialogHeader>
-        <form onSubmit={submit} className="space-y-5">
-          <div className="grid gap-4 sm:grid-cols-[1fr_1.15fr_0.8fr]">
-            <div className="grid gap-2">
-              <Label>Metric</Label>
-              <Select
-                value={form.metricType}
-                onValueChange={(value) =>
-                  setForm((current) => ({
-                    ...current,
-                    metricType: (value ?? "CPU_USAGE") as MetricRuleType,
-                  }))
-                }
-              >
-                <SelectTrigger className="h-10 w-full">
-                  <SelectValue>
-                    {form.metricType === "CPU_USAGE"
-                      ? "CPU Usage"
-                      : form.metricType === "MEMORY_USAGE"
-                        ? "Memory Usage"
-                        : "Disk Usage"}
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent
-                  alignItemWithTrigger={false}
-                  sideOffset={6}
-                  className="duration-150"
-                >
-                  <SelectItem value="CPU_USAGE">CPU Usage</SelectItem>
-                  <SelectItem value="MEMORY_USAGE">Memory Usage</SelectItem>
-                  <SelectItem value="DISK_USAGE">Disk Usage</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="grid gap-2">
-              <Label>Operator</Label>
-              <Select
-                value={form.operator}
-                onValueChange={(value) =>
-                  setForm((current) => ({
-                    ...current,
-                    operator: (value ??
-                      "GREATER_THAN_OR_EQUAL") as MetricRuleOperator,
-                  }))
-                }
-              >
-                <SelectTrigger className="h-10 w-full">
-                  <SelectValue>
-                    {form.operator === "GREATER_THAN"
-                      ? "Greater than (>)"
-                      : "Greater than or equal (>=)"}
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent
-                  alignItemWithTrigger={false}
-                  sideOffset={6}
-                  className="duration-150"
-                >
-                  <SelectItem value="GREATER_THAN">
-                    Greater than (&gt;)
-                  </SelectItem>
-                  <SelectItem value="GREATER_THAN_OR_EQUAL">
-                    Greater than or equal (&gt;=)
-                  </SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="edit-rule-threshold">Threshold (%)</Label>
-              <Input
-                id="edit-rule-threshold"
-                type="number"
-                min={0}
-                max={100}
-                value={form.thresholdValue}
-                className="
-  h-8
-  focus-visible:border-blue-500
-  focus-visible:ring-2
-  focus-visible:ring-blue-500/20
-"
-                onChange={(event) =>
-                  setForm((current) => ({
-                    ...current,
-                    thresholdValue: event.target.value,
-                  }))
-                }
-              />
-            </div>
-          </div>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="grid gap-2">
-              <Label htmlFor="edit-rule-duration">Duration (seconds)</Label>
-              <Input
-                id="edit-rule-duration"
-                type="number"
-                min={0}
-                value={form.durationSeconds}
-                className="
-  h-8
-  focus-visible:border-blue-500
-  focus-visible:ring-2
-  focus-visible:ring-blue-500/20
-"
-                onChange={(event) =>
-                  setForm((current) => ({
-                    ...current,
-                    durationSeconds: event.target.value,
-                  }))
-                }
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label>Severity</Label>
-              <Select
-                onValueChange={(value) =>
-                  setForm((current) => ({
-                    ...current,
-                    severity: (value ?? "WARNING") as MetricRuleSeverity,
-                  }))
-                }
-              >
-                <SelectTrigger className="h-10 w-full">
-                  <SelectValue>
-                    {form.severity === "CRITICAL" ? "Critical" : "Warning"}
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent
-                  alignItemWithTrigger={false}
-                  sideOffset={6}
-                  className="duration-150"
-                >
-                  <SelectItem value="WARNING">Warning</SelectItem>
-                  <SelectItem value="CRITICAL">Critical</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-          {mutation.isError && (
-            <p className="text-sm text-rose-600">
-              {mutation.error instanceof Error
-                ? mutation.error.message
-                : "Failed to update metric rule"}
-            </p>
-          )}
-          <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              disabled={mutation.isPending}
-              onClick={onClose}
-            >
-              Cancel
-            </Button>
-            <Button
-              type="submit"
-              disabled={mutation.isPending}
-              aria-busy={mutation.isPending}
-              className="
-    min-w-[7.5rem]
-    bg-blue-600 text-white
-    shadow-sm shadow-blue-950/5
-    transition-[background-color,box-shadow,transform] duration-150
-    hover:bg-blue-700 hover:shadow
-    active:scale-[0.99] active:bg-blue-800
-  "
-            >
-              {mutation.isPending && (
-                <LoaderCircle className="size-4 animate-spin" />
-              )}
-              {mutation.isPending ? "Saving..." : "Save changes"}
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
   );
 }

@@ -127,6 +127,13 @@
       "when": 1790947268717,
       "tag": "0017_large_night_nurse",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1791176405896,
+      "tag": "0018_multi_tier_metric_rules",
+      "breakpoints": true
     }
   ]
 }

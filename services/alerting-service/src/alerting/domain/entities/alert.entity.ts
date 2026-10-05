@@ -111,6 +111,27 @@ export class Alert {
     return new Alert(props);
   }
 
+  updateMetricSeverity(input: {
+    severity: AlertSeverity;
+    thresholdValue: number;
+    actualValue: number;
+    message: string;
+    occurredAt: Date;
+  }): void {
+    if (
+      this.props.sourceType !== 'METRIC_RULE' ||
+      (this.props.status !== 'TRIGGERED' &&
+        this.props.status !== 'ACKNOWLEDGED')
+    ) {
+      return;
+    }
+    this.props.severity = input.severity;
+    this.props.thresholdValue = input.thresholdValue;
+    this.props.actualValue = input.actualValue;
+    this.props.message = input.message;
+    this.props.updatedAt = input.occurredAt;
+  }
+
   resolve(
     actualValue: number | null,
     resolvedAt: Date,

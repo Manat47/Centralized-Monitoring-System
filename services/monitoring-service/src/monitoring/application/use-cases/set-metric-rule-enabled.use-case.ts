@@ -101,6 +101,11 @@ export class SetMetricRuleEnabledUseCase {
         await this.stateRepository.update(state);
       }
     } else {
+      const state = await this.stateRepository.findByRuleId(ruleId);
+      if (state) {
+        state.markInactive(occurredAt);
+        await this.stateRepository.update(state);
+      }
       await this.alertEventPublisher.publish({
         eventId: randomUUID(),
         eventType: 'METRIC_RULE_STATE_CHANGED',

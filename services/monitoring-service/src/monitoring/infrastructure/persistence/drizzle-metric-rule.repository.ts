@@ -12,7 +12,6 @@ import type {
 import { MetricRuleEvaluationState } from '../../domain/entities/metric-rule-evaluation-state.entity';
 import {
   MetricRuleOperator,
-  MetricRuleSeverity,
   MetricRuleType,
 } from '../../domain/entities/metric-rule.entity';
 
@@ -35,9 +34,10 @@ export class DrizzleMetricRuleRepository implements MetricRuleRepository {
         assetId: data.assetId,
         metricType: data.metricType,
         operator: data.operator,
-        thresholdValue: data.thresholdValue,
-        durationSeconds: data.durationSeconds,
-        severity: data.severity,
+        warningThreshold: data.warningThreshold,
+        warningDurationSeconds: data.warningDurationSeconds,
+        criticalThreshold: data.criticalThreshold,
+        criticalDurationSeconds: data.criticalDurationSeconds,
         enabled: data.enabled,
         archivedAt: data.archivedAt,
         createdAt: data.createdAt,
@@ -138,9 +138,10 @@ export class DrizzleMetricRuleRepository implements MetricRuleRepository {
       .set({
         metricType: data.metricType,
         operator: data.operator,
-        thresholdValue: data.thresholdValue,
-        durationSeconds: data.durationSeconds,
-        severity: data.severity,
+        warningThreshold: data.warningThreshold,
+        warningDurationSeconds: data.warningDurationSeconds,
+        criticalThreshold: data.criticalThreshold,
+        criticalDurationSeconds: data.criticalDurationSeconds,
         enabled: data.enabled,
         archivedAt: data.archivedAt,
         updatedAt: data.updatedAt,
@@ -163,10 +164,6 @@ export class DrizzleMetricRuleRepository implements MetricRuleRepository {
     const conditions = [
       eq(schema.metricRules.assetId, data.assetId),
       eq(schema.metricRules.metricType, data.metricType),
-      eq(schema.metricRules.operator, data.operator),
-      eq(schema.metricRules.thresholdValue, data.thresholdValue),
-      eq(schema.metricRules.durationSeconds, data.durationSeconds),
-      eq(schema.metricRules.severity, data.severity),
       isNull(schema.metricRules.archivedAt),
     ];
 
@@ -189,9 +186,10 @@ export class DrizzleMetricRuleRepository implements MetricRuleRepository {
       assetId: row.assetId,
       metricType: this.toMetricRuleType(row.metricType),
       operator: this.toMetricRuleOperator(row.operator),
-      thresholdValue: row.thresholdValue,
-      durationSeconds: row.durationSeconds,
-      severity: this.toMetricRuleSeverity(row.severity),
+      warningThreshold: row.warningThreshold,
+      warningDurationSeconds: row.warningDurationSeconds,
+      criticalThreshold: row.criticalThreshold,
+      criticalDurationSeconds: row.criticalDurationSeconds,
       enabled: row.enabled,
       archivedAt: row.archivedAt,
       createdAt: row.createdAt,
@@ -213,21 +211,16 @@ export class DrizzleMetricRuleRepository implements MetricRuleRepository {
     value: MetricRuleRow['operator'],
   ): MetricRuleOperator {
     switch (value) {
-      case 'GREATER_THAN':
+      case '>':
         return MetricRuleOperator.GREATER_THAN;
-      case 'GREATER_THAN_OR_EQUAL':
+      case '>=':
         return MetricRuleOperator.GREATER_THAN_OR_EQUAL;
-    }
-  }
-
-  private toMetricRuleSeverity(
-    value: MetricRuleRow['severity'],
-  ): MetricRuleSeverity {
-    switch (value) {
-      case 'WARNING':
-        return MetricRuleSeverity.WARNING;
-      case 'CRITICAL':
-        return MetricRuleSeverity.CRITICAL;
+      case '<':
+        return MetricRuleOperator.LESS_THAN;
+      case '<=':
+        return MetricRuleOperator.LESS_THAN_OR_EQUAL;
+      default:
+        throw new Error(`Unsupported metric rule operator: ${value}`);
     }
   }
 }

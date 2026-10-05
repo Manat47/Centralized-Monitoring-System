@@ -336,6 +336,8 @@ export class DrizzleAlertRepository implements AlertRepository {
       .update(alerts)
       .set({
         status: data.status,
+        severity: data.severity,
+        thresholdValue: data.thresholdValue,
         acknowledgedAt: data.acknowledgedAt,
         actualValue: data.actualValue,
         actualText: data.actualText,

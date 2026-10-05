@@ -1,13 +1,17 @@
 export type MetricRuleType = "CPU_USAGE" | "MEMORY_USAGE" | "DISK_USAGE";
 
-export type MetricRuleOperator = "GREATER_THAN" | "GREATER_THAN_OR_EQUAL";
+export type MetricRuleOperator = ">" | ">=" | "<" | "<=";
 
 export type MetricRuleSeverity = "WARNING" | "CRITICAL";
 export type MetricRuleEvaluationStatus =
   | "NORMAL"
   | "VIOLATING"
   | "ALERTED"
-  | "RECOVERED";
+  | "RECOVERED"
+  | "WARNING"
+  | "CRITICAL"
+  | "NO_DATA"
+  | "INACTIVE";
 
 export interface MetricRuleEvaluation {
   stateId: string;
@@ -29,9 +33,10 @@ export interface MetricRule {
   assetId: string;
   metricType: MetricRuleType;
   operator: MetricRuleOperator;
-  thresholdValue: number;
-  durationSeconds: number;
-  severity: MetricRuleSeverity;
+  warningThreshold: number;
+  warningDurationSeconds: number;
+  criticalThreshold: number;
+  criticalDurationSeconds: number;
   enabled: boolean;
   archivedAt: string | null;
   evaluation: MetricRuleEvaluation | null;
@@ -46,7 +51,8 @@ export interface CreateMetricRuleInput {
   assetId: string;
   metricType: MetricRuleType;
   operator?: MetricRuleOperator;
-  thresholdValue: number;
-  durationSeconds?: number;
-  severity: MetricRuleSeverity;
+  warningThreshold: number;
+  warningDurationSeconds?: number;
+  criticalThreshold: number;
+  criticalDurationSeconds?: number;
 }

@@ -1,7 +1,14 @@
-import { IsEnum, IsInt, IsOptional, IsUUID, Max, Min } from 'class-validator';
+import {
+  IsEnum,
+  IsInt,
+  IsNumber,
+  IsOptional,
+  IsUUID,
+  Max,
+  Min,
+} from 'class-validator';
 import {
   MetricRuleOperator,
-  MetricRuleSeverity,
   MetricRuleType,
 } from '../../domain/entities/metric-rule.entity';
 
@@ -16,16 +23,23 @@ export class CreateMetricRuleDto {
   @IsEnum(MetricRuleOperator)
   operator?: MetricRuleOperator;
 
-  @IsInt()
+  @IsNumber()
   @Min(0)
   @Max(100)
-  thresholdValue!: number;
+  warningThreshold!: number;
 
   @IsOptional()
   @IsInt()
-  @Min(0)
-  durationSeconds?: number;
+  @Min(10)
+  warningDurationSeconds?: number;
 
-  @IsEnum(MetricRuleSeverity)
-  severity!: MetricRuleSeverity;
+  @IsNumber()
+  @Min(0)
+  @Max(100)
+  criticalThreshold!: number;
+
+  @IsOptional()
+  @IsInt()
+  @Min(10)
+  criticalDurationSeconds?: number;
 }

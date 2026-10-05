@@ -101,6 +101,46 @@ describe('ProcessAlertEventUseCase', () => {
     expect(alertRepository.createWithNotification.mock.calls).toHaveLength(0);
   });
 
+  it('updates the same active alert when its metric rule escalates to critical', async () => {
+    const ruleId = randomUUID();
+    const existingAlert = Alert.create(randomUUID(), {
+      ruleId,
+      assetId: randomUUID(),
+      metricType: 'CPU_USAGE',
+      severity: 'WARNING',
+      thresholdValue: 35,
+      actualValue: 40,
+      message: 'Warning threshold',
+      triggeredAt: new Date('2026-07-14T10:00:00.000Z'),
+    });
+    alertRepository.findActiveByDedupKey.mockResolvedValue(existingAlert);
+    alertRepository.update.mockImplementation((alert) =>
+      Promise.resolve(alert),
+    );
+
+    const result = await useCase.execute({
+      eventId: randomUUID(),
+      eventType: 'METRIC_THRESHOLD_EXCEEDED',
+      ruleId,
+      assetId: existingAlert.toObject().assetId!,
+      metricType: 'CPU_USAGE',
+      severity: 'CRITICAL',
+      thresholdValue: 80,
+      actualValue: 85,
+      occurredAt: '2026-07-14T10:01:00.000Z',
+      message: 'Critical threshold',
+    });
+
+    expect(result?.toObject()).toMatchObject({
+      alertId: existingAlert.toObject().alertId,
+      severity: 'CRITICAL',
+      thresholdValue: 80,
+      status: 'TRIGGERED',
+    });
+    expect(alertRepository.update.mock.calls).toHaveLength(1);
+    expect(alertRepository.createWithNotification.mock.calls).toHaveLength(0);
+  });
+
   it('resolves an active metric alert', async () => {
     const ruleId = randomUUID();
     const existingAlert = Alert.create(randomUUID(), {

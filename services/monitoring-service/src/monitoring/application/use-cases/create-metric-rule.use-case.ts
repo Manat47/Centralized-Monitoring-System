@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   Inject,
   Injectable,
   NotFoundException,
@@ -91,11 +92,18 @@ export class CreateMetricRuleUseCase {
 
     const ruleId = randomUUID();
 
-    const rule = MetricRule.create(ruleId, ruleData);
+    let rule: MetricRule;
+    try {
+      rule = MetricRule.create(ruleId, ruleData);
+    } catch (error) {
+      throw new BadRequestException(
+        error instanceof Error ? error.message : 'Invalid metric rule',
+      );
+    }
 
     if (await this.metricRuleRepository.findDuplicate(rule)) {
-      throw new BadRequestException(
-        'An active metric rule with the same configuration already exists',
+      throw new ConflictException(
+        'A metric rule for this metric type already exists on this asset.',
       );
     }
 
@@ -104,8 +112,8 @@ export class CreateMetricRuleUseCase {
       createdRule = await this.metricRuleRepository.create(rule);
     } catch (error) {
       if (this.isDuplicateViolation(error)) {
-        throw new BadRequestException(
-          'An active metric rule with the same configuration already exists',
+        throw new ConflictException(
+          'A metric rule for this metric type already exists on this asset.',
         );
       }
       throw error;

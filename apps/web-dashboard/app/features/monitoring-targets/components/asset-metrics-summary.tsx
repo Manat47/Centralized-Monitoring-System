@@ -40,11 +40,10 @@ export function AssetMetricsSummary({ assetId: selectedAssetId }: { assetId?: st
           rule.metricType === metricType &&
           rule.enabled,
       )
-      .map((rule) => ({
-        id: rule.ruleId,
-        value: rule.thresholdValue,
-        severity: rule.severity,
-      }));
+      .flatMap((rule) => [
+        { id: `${rule.ruleId}-warning`, value: rule.warningThreshold, severity: "WARNING" as const },
+        { id: `${rule.ruleId}-critical`, value: rule.criticalThreshold, severity: "CRITICAL" as const },
+      ]);
 
   const selectedRange = Number(rangeMinutes);
 

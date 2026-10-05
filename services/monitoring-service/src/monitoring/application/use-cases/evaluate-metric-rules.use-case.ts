@@ -182,7 +182,7 @@ export class EvaluateMetricRulesUseCase {
       state = await this.stateRepository.create(state);
     }
 
-    const previousStatus = state.toObject().status;
+    const previousSeverity = state.toObject().activeAlertSeverity ?? null;
 
     const end = now;
 
@@ -198,7 +198,7 @@ export class EvaluateMetricRulesUseCase {
     const sample = this.getMetricSample(data.metricType, summary);
 
     if (sample === null) {
-      state.markNoData(now);
+      state.markMetricNoData(now);
       await this.stateRepository.update(state);
 
       return {
@@ -216,87 +216,65 @@ export class EvaluateMetricRulesUseCase {
 
     const { value: actualValue, sampleAt } = sample;
 
-    const isViolating = rule.matches(actualValue);
-
-    if (!isViolating) {
-      state.markNormal(now, sampleAt, actualValue);
-      await this.stateRepository.update(state);
-
-      if (previousStatus === 'ALERTED') {
-        await this.alertEventPublisher.publish({
-          eventId: randomUUID(),
-          eventType: 'METRIC_THRESHOLD_RECOVERED',
-          ruleId: data.ruleId,
-          assetId: data.assetId,
-          metricType: data.metricType,
-          severity: data.severity,
-          thresholdValue: data.thresholdValue,
-          actualValue,
-          occurredAt: now,
-          message:
-            `${formatMetricName(data.metricType)} recovered on ${assetName}: ` +
-            `${actualValue.toFixed(1)}% is below the ${data.thresholdValue}% threshold`,
-        });
-      }
-
-      return {
-        triggeredEvent: null,
-        recovered: previousStatus === 'ALERTED',
-      };
-    }
-
-    state.markViolating(now, sampleAt, actualValue);
-
-    const shouldTriggerAlert = state.shouldTriggerAlert(
+    const transition = state.evaluateTiers({
+      evaluatedAt: now,
       sampleAt,
-      data.durationSeconds,
-    );
-
-    if (!shouldTriggerAlert) {
-      await this.stateRepository.update(state);
-
-      return {
-        triggeredEvent: null,
-        recovered: false,
-      };
+      actualValue,
+      warningMatches: rule.matches(actualValue, data.warningThreshold),
+      criticalMatches: rule.matches(actualValue, data.criticalThreshold),
+      warningDurationSeconds: data.warningDurationSeconds,
+      criticalDurationSeconds: data.criticalDurationSeconds,
+    });
+    if (transition.recovered) {
+      await this.alertEventPublisher.publish({
+        eventId: randomUUID(),
+        eventType: 'METRIC_THRESHOLD_RECOVERED',
+        ruleId: data.ruleId,
+        assetId: data.assetId,
+        metricType: data.metricType,
+        severity: previousSeverity ?? 'WARNING',
+        thresholdValue: data.warningThreshold,
+        actualValue,
+        occurredAt: now,
+        message: `${formatMetricName(data.metricType)} recovered on ${assetName}: ${actualValue.toFixed(1)}%`,
+      });
     }
 
+    if (!transition.triggered) {
+      await this.stateRepository.update(state);
+      return { triggeredEvent: null, recovered: transition.recovered };
+    }
+
+    const thresholdValue =
+      transition.triggered === 'CRITICAL'
+        ? data.criticalThreshold
+        : data.warningThreshold;
+    const message = `${formatMetricName(data.metricType)} ${transition.triggered.toLowerCase()} threshold on ${assetName}: ${actualValue.toFixed(1)}% ${data.operator} ${thresholdValue}%`;
     const event: MetricRuleViolation = {
       ruleId: data.ruleId,
       assetId: data.assetId,
       metricType: data.metricType,
-      severity: data.severity,
-      thresholdValue: data.thresholdValue,
+      severity: transition.triggered,
+      thresholdValue,
       actualValue,
-      message:
-        `${data.metricType} threshold exceeded for asset ${data.assetId}: ` +
-        `${actualValue}% >= ${data.thresholdValue}% for ${data.durationSeconds}s`,
+      message,
       evaluatedAt: now,
     };
-
-    state.markAlerted(now);
-
-    await this.stateRepository.update(state);
-
     const alertEvent: AlertEvent = {
       eventId: randomUUID(),
       eventType: 'METRIC_THRESHOLD_EXCEEDED',
       ruleId: data.ruleId,
       assetId: data.assetId,
       metricType: data.metricType,
-      severity: data.severity,
-      thresholdValue: data.thresholdValue,
+      severity: transition.triggered,
+      thresholdValue,
       actualValue,
       occurredAt: now,
-      message: event.message,
+      message,
     };
-
     await this.alertEventPublisher.publish(alertEvent);
-
-    return {
-      triggeredEvent: event,
-      recovered: false,
-    };
+    await this.stateRepository.update(state);
+    return { triggeredEvent: event, recovered: false };
   }
 
   private getMetricSample(

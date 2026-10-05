@@ -3,7 +3,6 @@ import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { HealthCheckTarget } from '../../domain/entities/health-check-target.entity';
 import {
   MetricRule,
-  MetricRuleSeverity,
   MetricRuleType,
 } from '../../domain/entities/metric-rule.entity';
 import { MonitoringTarget } from '../../domain/entities/monitoring-target.entity';
@@ -53,9 +52,10 @@ describe('QueryAssetLifecycleImpactUseCase', () => {
     const rule = MetricRule.create('rule-1', {
       assetId: 'asset-1',
       metricType: MetricRuleType.CPU_USAGE,
-      thresholdValue: 80,
-      durationSeconds: 60,
-      severity: MetricRuleSeverity.WARNING,
+      warningThreshold: 80,
+      warningDurationSeconds: 60,
+      criticalThreshold: 95,
+      criticalDurationSeconds: 120,
     });
 
     monitoringRepository.findAllByAssetId.mockResolvedValue([monitoringTarget]);

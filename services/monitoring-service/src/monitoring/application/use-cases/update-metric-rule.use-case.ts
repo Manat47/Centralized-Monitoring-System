@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   Inject,
   Injectable,
   NotFoundException,
@@ -9,7 +10,6 @@ import { randomUUID } from 'node:crypto';
 import {
   MetricRule,
   type MetricRuleOperator,
-  type MetricRuleSeverity,
   type MetricRuleType,
 } from '../../domain/entities/metric-rule.entity';
 import {
@@ -33,9 +33,10 @@ import {
 export interface UpdateMetricRuleInput {
   metricType?: MetricRuleType;
   operator?: MetricRuleOperator;
-  thresholdValue?: number;
-  durationSeconds?: number;
-  severity?: MetricRuleSeverity;
+  warningThreshold?: number;
+  warningDurationSeconds?: number;
+  criticalThreshold?: number;
+  criticalDurationSeconds?: number;
   actorUserId: string;
   actorRole: UserRole;
   actorEmail?: string | null;
@@ -70,9 +71,12 @@ export class UpdateMetricRuleUseCase {
       rule.updateConfiguration({
         metricType: input.metricType ?? before.metricType,
         operator: input.operator ?? before.operator,
-        thresholdValue: input.thresholdValue ?? before.thresholdValue,
-        durationSeconds: input.durationSeconds ?? before.durationSeconds,
-        severity: input.severity ?? before.severity,
+        warningThreshold: input.warningThreshold ?? before.warningThreshold,
+        warningDurationSeconds:
+          input.warningDurationSeconds ?? before.warningDurationSeconds,
+        criticalThreshold: input.criticalThreshold ?? before.criticalThreshold,
+        criticalDurationSeconds:
+          input.criticalDurationSeconds ?? before.criticalDurationSeconds,
       });
     } catch (error) {
       throw new BadRequestException(
@@ -81,8 +85,8 @@ export class UpdateMetricRuleUseCase {
     }
 
     if (await this.repository.findDuplicate(rule, ruleId)) {
-      throw new BadRequestException(
-        'An active metric rule with the same configuration already exists',
+      throw new ConflictException(
+        'A metric rule for this metric type already exists on this asset.',
       );
     }
 
@@ -91,8 +95,8 @@ export class UpdateMetricRuleUseCase {
       updated = await this.repository.update(rule);
     } catch (error) {
       if (this.isDuplicateViolation(error)) {
-        throw new BadRequestException(
-          'An active metric rule with the same configuration already exists',
+        throw new ConflictException(
+          'A metric rule for this metric type already exists on this asset.',
         );
       }
       throw error;
