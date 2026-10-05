@@ -8,6 +8,7 @@ import {
   CircleAlert,
   CircleCheck,
   CircleDashed,
+  Globe,
   Server,
 } from "lucide-react";
 
@@ -33,8 +34,8 @@ export function DashboardSummaryCards() {
 
   if (isLoading) {
     return (
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-        {Array.from({ length: 7 }).map((_, index) => (
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        {Array.from({ length: 8 }).map((_, index) => (
           <SummaryCardSkeleton key={index} />
         ))}
       </div>
@@ -56,18 +57,36 @@ export function DashboardSummaryCards() {
     );
   }
 
+  const servers = data.assetOverview.filter((asset) => asset.targetType === "SERVER" && asset.telemetry?.status !== "NOT_CONFIGURED");
+  const applicationAssets = data.assetOverview.filter((asset) => asset.targetType !== "SERVER" && (asset.healthChecks?.total ?? 0) > 0);
+  const statusCounts = (assets: typeof data.assetOverview) => ({
+    ok: assets.filter((asset) => asset.overallStatus === "OK").length,
+    warning: assets.filter((asset) => asset.overallStatus === "WARNING").length,
+    critical: assets.filter((asset) => asset.overallStatus === "CRITICAL").length,
+  });
+  const serverStatus = statusCounts(servers);
+  const appStatus = statusCounts(applicationAssets);
   const cards = [
     {
-      title: "Monitored Assets",
+      title: "Monitored Servers (Hosts)",
       href: "/infrastructure",
-      value: data.assets.monitored,
-      description: `${data.assets.total} total · ${data.assets.inactive} inactive`,
+      value: servers.length,
+      description: `${serverStatus.ok} OK · ${serverStatus.warning} warning · ${serverStatus.critical} critical`,
       icon: Server,
       iconClassName: "bg-blue-50 text-blue-700",
       valueClassName: "text-slate-950",
     },
     {
-      title: "Firing Alerts",
+      title: "Monitored Applications (Synthetic)",
+      href: "/health-checks",
+      value: applicationAssets.reduce((sum, asset) => sum + (asset.healthChecks?.total ?? 0), 0) + data.standaloneChecks.length,
+      description: `${appStatus.ok} OK · ${appStatus.warning} warning · ${appStatus.critical} critical · ${data.standaloneChecks.length} standalone`,
+      icon: Globe,
+      iconClassName: "bg-indigo-50 text-indigo-700",
+      valueClassName: "text-slate-950",
+    },
+    {
+      title: "Active Firing Alerts",
       href: "/alerts",
       value: data.alerts.firing,
       description: `${data.alerts.active} active incl. acknowledged`,
@@ -123,7 +142,7 @@ export function DashboardSummaryCards() {
   ];
 
   return (
-    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 2xl:grid-cols-7">
+    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 2xl:grid-cols-8">
       {cards.map((card, index) => {
         const Icon = card.icon;
 

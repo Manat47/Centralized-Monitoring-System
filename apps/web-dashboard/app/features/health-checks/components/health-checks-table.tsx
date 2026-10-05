@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useMemo, useState, type FormEvent } from "react";
+import { useMemo, useState, type FormEvent } from "react";
 import Link from "next/link";
 import { Menu as MenuPrimitive } from "@base-ui/react/menu";
 import {
@@ -47,6 +47,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 import {
   useArchiveHealthCheckTarget,
@@ -90,6 +91,13 @@ function formatRelativeDate(value: string | null | undefined): string {
 
 function displayName(target: HealthCheckTarget): string {
   return target.name?.trim() || target.url;
+}
+
+function errorLabel(error: string): string {
+  if (/timed?\s*out|timeout|aborted/i.test(error)) return "Timeout 5000ms";
+  const status = error.match(/\b[45]\d\d\b/);
+  if (status) return `${status[0]} ${status[0].startsWith("5") ? "Server Error" : "Client Error"}`;
+  return "Fetch Failed";
 }
 
 const resultStyles: Record<HealthResultStatus, string> = {
@@ -333,13 +341,7 @@ export function HealthChecksTable() {
                     !target.archivedAt && asset?.status !== "DEACTIVATE";
 
                   return (
-                    <Fragment key={target.healthCheckTargetId}>
-                      <TableRow
-                        className={cn(
-                          "transition-colors duration-150",
-                          target.latest?.error && "border-b-0",
-                        )}
-                      >
+                      <TableRow key={target.healthCheckTargetId} className="transition-colors duration-150">
                         <TableCell className="pl-4 font-medium text-slate-900">
                           <span className="block">{displayName(target)}</span>
                           <span className="block text-xs font-normal text-slate-500">{asset?.name ?? (target.assetId ? "Unknown asset" : "Standalone")}</span>
@@ -372,6 +374,7 @@ export function HealthChecksTable() {
                           >
                             {resultLabels[result]}
                           </Badge>
+                          {target.latest?.error && <Tooltip><TooltipTrigger render={<button type="button" aria-label={`Full error for ${displayName(target)}`} className="ml-1 rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500" />}><Badge variant="outline" className="border-rose-200 bg-rose-50 text-rose-700">{errorLabel(target.latest.error)}</Badge></TooltipTrigger><TooltipContent side="top" className="max-h-64 max-w-sm overflow-y-auto break-words font-normal">{target.latest.error}</TooltipContent></Tooltip>}
                         </TableCell>
                         <TableCell className="font-mono text-xs">
                           {target.latest?.statusCode ?? "—"}
@@ -464,17 +467,6 @@ export function HealthChecksTable() {
                           </AdminOnly>
                         </TableCell>
                       </TableRow>
-                      {target.latest?.error && (
-                        <TableRow className="bg-rose-50/70 hover:bg-rose-50/70">
-                          <TableCell
-                            colSpan={8}
-                            className="px-4 py-2 text-xs text-rose-700"
-                          >
-                            {target.latest.error}
-                          </TableCell>
-                        </TableRow>
-                      )}
-                    </Fragment>
                   );
                 })
               )}

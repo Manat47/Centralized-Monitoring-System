@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronDown, CircleAlert, CircleCheck } from "lucide-react";
+import { CircleAlert } from "lucide-react";
 
 import {
   DropdownMenu,
@@ -14,14 +14,13 @@ export function ServiceStatusIndicator() {
   const { data, isLoading, isError } = useSystemStatus();
 
   if (isLoading) {
-    return <div className="h-7 w-32 animate-pulse rounded-full bg-slate-100" />;
+    return <div className="size-4 animate-pulse rounded-full bg-slate-200" aria-label="Checking telemetry pipeline" />;
   }
 
   if (isError || !data) {
     return (
-      <div className="inline-flex h-7 items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 text-xs font-medium text-slate-500">
+      <div className="inline-flex size-6 items-center justify-center rounded-full text-slate-500" title="Telemetry Pipeline: Status unavailable" aria-label="Telemetry pipeline status unavailable">
         <CircleAlert className="size-3.5" />
-        Platform status unavailable
       </div>
     );
   }
@@ -34,25 +33,13 @@ export function ServiceStatusIndicator() {
         render={
           <button
             type="button"
-            aria-label="View monitoring platform service status"
-            title="Status of internal monitoring services. Monitored assets are shown on the Dashboard."
-            className={
-              healthy
-                ? "inline-flex h-7 cursor-pointer items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-3 text-xs font-medium text-emerald-700 transition-colors hover:bg-emerald-100"
-                : "inline-flex h-7 cursor-pointer items-center gap-1.5 rounded-full border border-rose-200 bg-rose-50 px-3 text-xs font-medium text-rose-700 transition-colors hover:bg-rose-100"
-            }
+            aria-label={healthy ? "Telemetry Pipeline: Operational. View platform services" : "Telemetry Pipeline: Degraded. View platform services"}
+            title={healthy ? "Telemetry Pipeline: Operational" : "Telemetry Pipeline: Degraded"}
+            className="inline-flex size-7 cursor-pointer items-center justify-center rounded-full transition-colors hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
           />
         }
       >
-        {healthy ? (
-          <CircleCheck className="size-3.5" />
-        ) : (
-          <CircleAlert className="size-3.5" />
-        )}
-
-        {healthy ? "Platform Services: Healthy" : "Platform Services: Degraded"}
-
-        <ChevronDown className="size-3" />
+        <span className={`size-2 rounded-full ${healthy ? "animate-pulse bg-emerald-500" : "bg-rose-500"}`} />
       </DropdownMenuTrigger>
 
       <DropdownMenuContent align="end" sideOffset={8} className="w-80 p-2">

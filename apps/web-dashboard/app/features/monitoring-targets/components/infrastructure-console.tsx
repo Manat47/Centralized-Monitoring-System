@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState, type KeyboardEvent } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { Activity, Globe, Search, Server } from "lucide-react";
 
@@ -89,7 +89,6 @@ function ResourceSnapshot({ assetId, enabled }: { assetId: string; enabled: bool
 }
 
 export function InfrastructureConsole() {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const selectedHostId = searchParams.get("inspectHost");
   const overallParam = searchParams.get("overall");
@@ -148,13 +147,13 @@ export function InfrastructureConsole() {
     const params = new URLSearchParams(searchParams.toString());
     if (assetId) params.set("inspectHost", assetId);
     else params.delete("inspectHost");
-    router.replace(`/infrastructure${params.size ? `?${params.toString()}` : ""}`, { scroll: false });
+    window.history.replaceState(null, "", `/infrastructure${params.size ? `?${params.toString()}` : ""}`);
   }
 
   function clearOverallFilter() {
     const params = new URLSearchParams(searchParams.toString());
     params.delete("overall");
-    router.replace(`/infrastructure${params.size ? `?${params.toString()}` : ""}`, { scroll: false });
+    window.history.replaceState(null, "", `/infrastructure${params.size ? `?${params.toString()}` : ""}`);
   }
 
   function onRowKeyDown(event: KeyboardEvent<HTMLTableRowElement>, assetId: string) {
@@ -221,6 +220,6 @@ export function InfrastructureConsole() {
     </CardContent></Card>
 
     {targetsQuery.isError && <p role="status" className="text-sm text-amber-700">Monitoring targets could not be loaded; resource snapshots may be unavailable.</p>}
-    <HostInspectionDrawer key={selectedAsset?.assetId ?? "closed"} asset={selectedAsset} healthChecks={selectedHealth} hasMetricTarget={selectedHasMetricTarget} onClose={() => inspect(null)} />
+    <HostInspectionDrawer asset={selectedAsset} healthChecks={selectedHealth} hasMetricTarget={selectedHasMetricTarget} notMonitored={selectedHostId !== null && overviewByAsset.get(selectedHostId) === "NOT_MONITORED"} onClose={() => inspect(null)} />
   </section>;
 }

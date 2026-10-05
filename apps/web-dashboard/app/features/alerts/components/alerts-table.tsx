@@ -8,6 +8,7 @@ import {
   LoaderCircle,
 } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 
 import { useAssets } from "@/app/features/assets/api/use-assets";
@@ -63,6 +64,7 @@ function formatValue(alert: Alert): string {
 }
 
 export function AlertsTable() {
+  const router = useRouter();
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState<"ALL" | AlertStatus>("ALL");
@@ -215,8 +217,12 @@ export function AlertsTable() {
               data?.items.map((alert) => (
                 <TableRow
                   key={alert.alertId}
+                  tabIndex={0}
+                  aria-label={`Open alert details: ${alert.message}`}
+                  onClick={() => router.push(`/alerts/${alert.alertId}`)}
+                  onKeyDown={(event) => { if (event.target === event.currentTarget && (event.key === "Enter" || event.key === " ")) { event.preventDefault(); router.push(`/alerts/${alert.alertId}`); } }}
                   className={cn(
-                    "transition-colors duration-150 hover:bg-slate-50/70",
+                    "cursor-pointer transition-colors duration-150 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-500",
                     alert.status === "TRIGGERED" &&
                       "bg-rose-50/30 hover:bg-rose-50/60",
                   )}
@@ -276,7 +282,7 @@ export function AlertsTable() {
                     {new Date(alert.triggeredAt).toLocaleString()}
                   </TableCell>
                   <TableCell>
-                    <div className="flex justify-end gap-1">
+                    <div className="flex justify-end gap-1" onClick={(event) => event.stopPropagation()}>
                       {alert.status === "TRIGGERED" && (
                         <Button
                           type="button"

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useDeferredValue, useState } from "react";
-import { ArrowUpRight, Eye, Search } from "lucide-react";
+import { ArrowUpRight, Copy, Eye, Search } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -192,6 +192,7 @@ function AuditDetailDialog({
   log: AuditLog | null;
   onOpenChange: (open: boolean) => void;
 }) {
+  const [copied, setCopied] = useState(false);
   if (!log) return null;
 
   const resourceHref = getResourceHref(log);
@@ -201,7 +202,7 @@ function AuditDetailDialog({
 
   return (
     <Dialog open onOpenChange={onOpenChange}>
-      <DialogContent className="duration-150 sm:max-w-2xl">
+      <DialogContent className="max-h-[85dvh] overflow-y-auto duration-150 sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>{formatLabel(log.action)}</DialogTitle>
           <DialogDescription>{formatDate(log.occurredAt)}</DialogDescription>
@@ -237,18 +238,16 @@ function AuditDetailDialog({
 
         {eventDetails.length > 0 && (
           <div className="space-y-3">
-            <h3 className="text-sm font-medium text-slate-900">
-              Event details
-            </h3>
+            <div className="flex items-center justify-between gap-2"><h3 className="text-sm font-medium text-slate-900">Event details</h3><Button type="button" variant="outline" size="sm" onClick={() => { void navigator.clipboard.writeText(JSON.stringify(log.metadata ?? {}, null, 2)).then(() => { setCopied(true); window.setTimeout(() => setCopied(false), 1500); }).catch(() => setCopied(false)); }}><Copy className="size-3.5" />{copied ? "Copied" : "Copy JSON"}</Button></div>
 
             <dl className="grid gap-x-8 gap-y-4 sm:grid-cols-2">
               {eventDetails.map(([key, value]) => (
-                <div key={key} className="min-w-0">
+                <div key={key} className="min-w-0 rounded-lg border border-slate-200 bg-slate-50 p-3">
                   <dt className="text-xs text-slate-500">
                     {formatMetadataLabel(key)}
                   </dt>
 
-                  <dd className="mt-1 break-words text-sm font-medium text-slate-900">
+                  <dd className="mt-1 whitespace-pre-wrap break-words font-mono text-xs text-slate-900">
                     {formatValue(value)}
                   </dd>
                 </div>
@@ -633,7 +632,11 @@ export function AuditLogsTable() {
                     data?.items.map((log) => (
                       <TableRow
                         key={log.auditLogId}
-                        className="transition-colors duration-150 hover:bg-slate-50/70"
+                        tabIndex={0}
+                        aria-label={`View audit event ${formatLabel(log.action)}`}
+                        onClick={() => setSelectedLog(log)}
+                        onKeyDown={(event) => { if (event.target === event.currentTarget && (event.key === "Enter" || event.key === " ")) { event.preventDefault(); setSelectedLog(log); } }}
+                        className="cursor-pointer transition-colors duration-150 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-500"
                       >
                         <TableCell className="whitespace-nowrap text-sm">
                           {formatDate(log.occurredAt)}
@@ -672,7 +675,7 @@ export function AuditLogsTable() {
                         <TableCell className="whitespace-nowrap text-sm text-muted-foreground">
                           {log.sourceService}
                         </TableCell>
-                        <TableCell>
+                        <TableCell onClick={(event) => event.stopPropagation()}>
                           <Button
                             type="button"
                             variant="ghost"

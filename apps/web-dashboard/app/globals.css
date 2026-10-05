@@ -6,6 +6,39 @@
 
 @custom-variant dark (&:is(.dark *));
 
+.host-drawer-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e1 transparent;
+  overscroll-behavior: contain;
+}
+
+input[role="switch"] {
+  appearance: none;
+  position: relative;
+  width: 2.25rem;
+  height: 1.25rem;
+  border-radius: 9999px;
+  background: #cbd5e1;
+  cursor: pointer;
+  transition: background-color 150ms ease;
+}
+
+input[role="switch"]:checked { background: #059669; }
+input[role="switch"]:disabled { cursor: not-allowed; opacity: 0.5; }
+input[role="switch"]::before {
+  content: "";
+  position: absolute;
+  top: 0.125rem;
+  left: 0.125rem;
+  width: 1rem;
+  height: 1rem;
+  border-radius: 9999px;
+  background: white;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 15%);
+  transition: transform 150ms ease;
+}
+input[role="switch"]:checked::before { transform: translateX(1rem); }
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);

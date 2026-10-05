@@ -12,6 +12,7 @@ import { availableFields, DEFAULT_FIELD_IDS } from "./fields";
 import { parseQuery, timeBounds } from "./query";
 
 const message = (cause: unknown) => cause instanceof Error ? cause.message : "Could not load records";
+const VISIBLE_FIELDS_KEY = "log_explorer_visible_fields";
 
 export function ExplorerPage() {
   const router = useRouter();
@@ -29,6 +30,17 @@ export function ExplorerPage() {
   const [autoRefresh, setAutoRefresh] = useState(false);
   const [refreshCount, setRefreshCount] = useState(0);
   const [selectedFields, setSelectedFields] = useState<string[]>(DEFAULT_FIELD_IDS);
+  useEffect(() => {
+    try {
+      const saved = JSON.parse(window.localStorage.getItem(VISIBLE_FIELDS_KEY) ?? "null");
+      if (Array.isArray(saved) && saved.every((field): field is string => typeof field === "string")) {
+        const timer = window.setTimeout(() => setSelectedFields(saved), 0);
+        return () => window.clearTimeout(timer);
+      }
+    } catch {
+      // Invalid or unavailable storage keeps the documented default columns.
+    }
+  }, []);
   const [pendingField, setPendingField] = useState<{ prefix: string; id: number } | null>(null);
   const [zoomHistory, setZoomHistory] = useState<string[]>([]);
 
@@ -90,6 +102,13 @@ export function ExplorerPage() {
     setPage(null); setRecords([]);
     updateUrl({ projectId: id });
   }
+  function toggleField(id: string) {
+    setSelectedFields((current) => {
+      const next = current.includes(id) ? current.filter((field) => field !== id) : [...current, id];
+      try { window.localStorage.setItem(VISIBLE_FIELDS_KEY, JSON.stringify(next)); } catch { /* Storage can be disabled. */ }
+      return next;
+    });
+  }
   function addFilter(field: string, value: string, exclude: boolean) {
     const searchableValue = /\s/.test(value) ? `"${value}"` : value;
     updateUrl({ q: [query, exclude ? "NOT" : "", `${field}:${searchableValue}`].filter(Boolean).join(" ") });
@@ -124,6 +143,6 @@ export function ExplorerPage() {
     <header className="flex flex-wrap items-end justify-between gap-2"><div><p className="text-xs font-semibold uppercase tracking-widest text-blue-700">Log & Events</p><h1 className="mt-1 text-2xl font-semibold text-slate-950">Log & Event Explorer</h1><p className="text-sm text-slate-500">Search customer-reported records by received time.</p></div><Link href={`/explorer/rules${projectId ? `?projectId=${encodeURIComponent(projectId)}` : ""}`} className="rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 hover:bg-slate-50">Rules & Findings</Link></header>
     <QueryConsole key={`${query}:${pendingField?.id ?? ""}`} projects={projects} projectId={projectId} time={time} query={query} initialDraft={pendingField ? [query, pendingField.prefix].filter(Boolean).join(" ") : query} autoRefresh={autoRefresh} loading={loading} onProject={selectProject} onTime={(next) => { setZoomHistory([]); updateUrl({ time: next }); }} onResetZoom={resetZoom} onQuery={submitQuery} onRefresh={() => setRefreshCount((count) => count + 1)} onAutoRefresh={setAutoRefresh} />
     {(projectError || parsed.error || error) && <p role="alert" className="rounded-md border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700">{projectError || parsed.error || error}</p>}
-    {projects.length === 0 && !projectError ? <p className="rounded-xl border border-slate-200 bg-white p-8 text-center text-sm text-slate-500">Choose or create a log project to explore records.</p> : <div className="grid gap-4 lg:grid-cols-[minmax(220px,260px)_minmax(0,1fr)]"><FieldFacets fields={fields} selected={selectedFields} onToggle={(id) => setSelectedFields((current) => current.includes(id) ? current.filter((field) => field !== id) : [...current, id])} onAddFilter={(prefix) => setPendingField((current) => ({ prefix, id: (current?.id ?? 0) + 1 }))} /><div className="min-w-0 space-y-4"><EventHistogram page={visiblePage} onZoom={zoom} /><LogStreamTable page={visiblePage} records={visible} fields={fields} selectedFields={selectedFields} loading={loading} onMore={() => void loadMore()} onFilter={addFilter} /></div></div>}
+    {projects.length === 0 && !projectError ? <p className="rounded-xl border border-slate-200 bg-white p-8 text-center text-sm text-slate-500">Choose or create a log project to explore records.</p> : <div className="grid gap-4 lg:grid-cols-[minmax(220px,260px)_minmax(0,1fr)]"><FieldFacets fields={fields} selected={selectedFields} onToggle={toggleField} onAddFilter={(prefix) => setPendingField((current) => ({ prefix, id: (current?.id ?? 0) + 1 }))} /><div className="min-w-0 space-y-4"><EventHistogram page={visiblePage} onZoom={zoom} /><LogStreamTable page={visiblePage} records={visible} fields={fields} selectedFields={selectedFields} loading={loading} onMore={() => void loadMore()} onFilter={addFilter} /></div></div>}
   </section>;
 }

@@ -7,13 +7,19 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { projectApi, type ActivityFinding, type ActivityRule, type ActivityRuleDraft, type FacetValue } from "./api";
+import { projectApi, type ActivityFinding, type ActivityRule, type ActivityRuleDraft, type FacetValue, type LogEvent } from "./api";
 
 const bangkok = (value: string) => new Intl.DateTimeFormat("en-GB", { dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Bangkok" }).format(new Date(value));
 const failure = (cause: unknown) => cause instanceof Error ? cause.message : "Request failed";
 const selectClass = "h-9 max-w-full rounded-lg border border-slate-200 bg-white px-3 text-sm";
 const sentenceClass = "flex flex-wrap items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-3 text-sm text-slate-800";
 const commonStatuses = [200, 201, 202, 204, 301, 302, 400, 401, 403, 404, 408, 409, 418, 422, 429, 500, 502, 503, 504];
+
+function matchesSample(record: LogEvent, draft: ActivityRuleDraft): boolean {
+  if (record.event_type !== draft.eventType) return false;
+  const values: Record<string, unknown> = { source: record.source, severity: record.severity, event_type: record.event_type, status_code: record.status_code, "client.ip": record.clientIp, user_id: record.user_id };
+  return String(values[draft.conditionField] ?? "").toLowerCase() === draft.conditionValue.toLowerCase();
+}
 
 export function ActivityRulesPanel({ projectId, isOwner }: { projectId: string; isOwner: boolean }) {
   const [rules, setRules] = useState<ActivityRule[]>([]);
@@ -26,7 +32,7 @@ export function ActivityRulesPanel({ projectId, isOwner }: { projectId: string; 
   const [busy, setBusy] = useState(false);
   const [refreshingFindings, setRefreshingFindings] = useState(false);
   const findingRequestInFlight = useRef(false);
-  const [preview, setPreview] = useState<{ matchingRecords: number; usableGroupRecords: number; signature: string } | null>(null);
+  const [preview, setPreview] = useState<{ matchingRecords: number; usableGroupRecords: number; signature: string; samples: string[] } | null>(null);
   const [draft, setDraft] = useState<ActivityRuleDraft>({ name: "", dataSource: "ACCEPTED_RECORDS", eventType: "", conditionField: "severity", conditionValue: "", groupBy: "project", threshold: 5, windowMinutes: 10 });
 
   const refreshAll = useCallback(async () => {
@@ -70,6 +76,19 @@ export function ActivityRulesPanel({ projectId, isOwner }: { projectId: string; 
     finally { setBusy(false); }
   }
   function create(event: FormEvent) { event.preventDefault(); void run(() => projectApi.createActivityRule(projectId, draft)); }
+  async function testRecentLogs() {
+    setError("");
+    try {
+      const result = await projectApi.previewActivityRule(projectId, draft);
+      const samples = draft.dataSource === "ACCEPTED_RECORDS"
+        ? (await projectApi.logs(projectId, new URLSearchParams({ limit: "100" }))).items
+            .filter((record) => matchesSample(record, draft))
+            .slice(0, 3)
+            .map((record) => record.message?.trim() || `${record.source}: ${record.event_type}`)
+        : [];
+      setPreview({ ...result, signature: JSON.stringify(draft), samples });
+    } catch (cause) { setError(failure(cause)); }
+  }
   const observed = eventTypes.find((item) => item.value === draft.eventType);
   const selectedSource = draft.conditionField === "source" ? draft.conditionValue : "";
   const statuses = [...new Set([...commonStatuses.map(String), ...statusCodes.map((item) => item.value)])].filter((value) => /^\d{3}$/.test(value)).sort((a, b) => Number(a) - Number(b));
@@ -141,11 +160,12 @@ export function ActivityRulesPanel({ projectId, isOwner }: { projectId: string; 
 
         <div className="flex flex-wrap items-center gap-2"><Label htmlFor="rule-name">Rule name</Label><Input id="rule-name" className="max-w-sm" value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} maxLength={100} required /></div>
         <p className="text-xs text-slate-500">{preview?.signature === JSON.stringify(draft) ? preview.matchingRecords + " recent items match the condition; " + preview.usableGroupRecords + " have the grouping field." : draft.dataSource === "LOG_API_REQUESTS" ? "Check recent Log API requests before saving." : observed ? observed.count + " records with this event type in the last 24 hours. Check the full condition before enabling." : "Waiting for data: this event type has not appeared in the last 24 hours."}</p>
-        <div className="flex gap-2"><Button type="button" variant="outline" disabled={busy} onClick={() => void projectApi.previewActivityRule(projectId, draft).then((result) => setPreview({ ...result, signature: JSON.stringify(draft) })).catch((cause) => setError(failure(cause)))}>Check recent data</Button><Button type="submit" disabled={busy} className="bg-blue-600 text-white hover:bg-blue-700">{busy ? "Saving..." : "Create rule"}</Button></div>
+        <div className="flex gap-2"><Button type="button" variant="outline" disabled={busy} onClick={() => void testRecentLogs()}>Test Rule against Sample Logs</Button><Button type="submit" disabled={busy} className="bg-blue-600 text-white hover:bg-blue-700">{busy ? "Saving..." : "Create rule"}</Button></div>
+        {preview?.signature === JSON.stringify(draft) && <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs text-slate-700"><p className="font-medium">Latest matching samples</p>{preview.samples.length ? <ul className="mt-2 space-y-1 font-mono">{preview.samples.map((sample, index) => <li key={index} className="truncate" title={sample}>{sample}</li>)}</ul> : <p className="mt-1 text-slate-500">{draft.dataSource === "LOG_API_REQUESTS" ? "The current API returns match counts for request logs, but not sample lines." : "No matching lines in the latest 100 accepted records."}</p>}</div>}
       </form>
       <p className="mt-3 text-xs text-slate-500">Enabled means listening for new data. Accepted-record rules count only records whose event timestamp is within 5 minutes of receive time and were received after the rule was enabled. Older records stay searchable but do not trigger a finding. Each group produces at most one finding per window. A record rule never verifies events inside the sender application.</p>
     </CardContent></Card>}
-    <Card className="border-slate-200 bg-white shadow-none"><CardHeader><CardTitle className="text-base">Detection rules</CardTitle></CardHeader><CardContent className="divide-y divide-slate-100 p-0">{rules.length === 0 ? <p className="p-4 text-sm text-slate-500">No rules configured.</p> : rules.map((rule) => <div key={rule.ruleId} className="flex flex-wrap items-center justify-between gap-3 p-4"><div><div className="flex flex-wrap items-center gap-2"><strong className="text-sm">{rule.name}</strong><Badge variant="outline">{rule.enabled ? "Enabled" : "Disabled"}</Badge>{rule.waitingForData && <Badge variant="outline" className="border-amber-200 bg-amber-50 text-amber-700">Waiting for data</Badge>}</div><p className="mt-1 text-xs text-slate-600">{rule.dataSource === "LOG_API_REQUESTS" ? "Server-observed Log API requests" : "Customer-reported accepted records"} · {rule.conditionField} = {rule.conditionValue}{rule.dataSource === "ACCEPTED_RECORDS" ? ` · ${rule.eventType}` : ""}</p><p className="mt-1 text-xs text-slate-500">{rule.threshold} items in {rule.windowMinutes} min · group: {rule.groupBy} · {rule.sampleCount ?? 0} recent matches</p></div>{isOwner && <Button type="button" size="sm" variant="outline" disabled={busy} onClick={() => void run(() => projectApi.setActivityRuleEnabled(projectId, rule.ruleId, !rule.enabled))}>{rule.enabled ? "Disable" : "Enable"}</Button>}</div>)}</CardContent></Card>
+    <Card className="border-slate-200 bg-white shadow-none"><CardHeader><CardTitle className="text-base">Detection rules</CardTitle></CardHeader><CardContent className="divide-y divide-slate-100 p-0">{rules.length === 0 ? <p className="p-4 text-sm text-slate-500">No rules configured.</p> : rules.map((rule) => <div key={rule.ruleId} className="flex flex-wrap items-center justify-between gap-3 p-4"><div><div className="flex flex-wrap items-center gap-2"><strong className="text-sm">{rule.name}</strong><Badge variant="outline">{rule.enabled ? "Enabled" : "Disabled"}</Badge>{rule.waitingForData && <Badge variant="outline" className="border-amber-200 bg-amber-50 text-amber-700">Waiting for data</Badge>}</div><p className="mt-1 text-xs text-slate-600">{rule.dataSource === "LOG_API_REQUESTS" ? "Server-observed Log API requests" : "Customer-reported accepted records"} · {rule.conditionField} = {rule.conditionValue}{rule.dataSource === "ACCEPTED_RECORDS" ? ` · ${rule.eventType}` : ""}</p><p className="mt-1 text-xs text-slate-500">{rule.threshold} items in {rule.windowMinutes} min · group: {rule.groupBy} · {rule.sampleCount ?? 0} recent matches</p></div>{isOwner && <button type="button" role="switch" aria-checked={rule.enabled} aria-label={`${rule.enabled ? "Disable" : "Enable"} ${rule.name}`} disabled={busy} onClick={() => void run(() => projectApi.setActivityRuleEnabled(projectId, rule.ruleId, !rule.enabled))} className="inline-flex items-center gap-2 text-xs font-medium disabled:opacity-50"><span className={`relative h-5 w-9 rounded-full transition-colors ${rule.enabled ? "bg-emerald-600" : "bg-slate-300"}`}><span className={`absolute top-0.5 left-0.5 size-4 rounded-full bg-white shadow-sm transition-transform ${rule.enabled ? "translate-x-4" : ""}`} /></span><span className={rule.enabled ? "text-emerald-700" : "text-slate-500"}>{rule.enabled ? "Active" : "Disabled"}</span></button>}</div>)}</CardContent></Card>
     <Card className="border-slate-200 bg-white shadow-none"><CardHeader className="flex flex-row flex-wrap items-start justify-between gap-3"><div><CardTitle className="text-base">Findings</CardTitle><p className="mt-1 text-sm text-slate-500">Each finding identifies the data source used by its rule. Updates every 15 seconds while this tab is visible.</p></div><Button type="button" variant="outline" disabled={refreshingFindings} onClick={() => void refreshFindings(true)}><RefreshCw className="mr-2 size-4" />{refreshingFindings ? "Refreshing..." : "Refresh Findings"}</Button></CardHeader><CardContent className="divide-y divide-slate-100 p-0">{findings.length === 0 ? <div className="flex items-center gap-2 p-4 text-sm text-slate-500"><ShieldCheck className="size-4" />No rule matches recorded.</div> : findings.map((item) => <div key={item.findingId} className="flex gap-3 p-4"><BellRing className="mt-1 size-4 text-rose-600" /><div><strong className="text-sm">{item.ruleName}</strong><p className="text-xs text-slate-600">{item.dataSource === "LOG_API_REQUESTS" ? "Server-observed Log API requests" : "Customer-reported accepted records"} · {item.conditionField} = {item.conditionValue}</p><p className="text-xs text-slate-600">{item.matchedCount} items · {item.groupBy}: {item.groupValue}</p><p className="text-xs text-slate-500">{bangkok(item.windowStart)} to {bangkok(item.triggeredAt)}</p></div></div>)}{nextOffset !== null && <div className="p-3 text-center"><Button type="button" size="sm" variant="outline" onClick={() => void projectApi.activityFindings(projectId, new URLSearchParams({ offset: String(nextOffset) })).then((result) => { setFindings((current) => [...current, ...result.items]); setNextOffset(result.nextOffset); }).catch((cause) => setError(failure(cause)))}>Load more</Button></div>}</CardContent></Card>
   </div>;
 }

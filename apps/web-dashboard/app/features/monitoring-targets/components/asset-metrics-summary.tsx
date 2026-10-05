@@ -1,7 +1,7 @@
 "use client";
 
 import { useParams } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import {
   Select,
@@ -11,6 +11,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useMetricRules } from "@/app/features/metric-rules/api/use-metric-rules";
+import { useAssets } from "@/app/features/assets/api/use-assets";
 import type { MetricRuleType } from "@/app/features/metric-rules/types/metric-rule";
 
 import { CpuUsageChart } from "./cpu-usage-chart";
@@ -20,17 +21,25 @@ import { NetworkRateChart } from "./network-rate-chart";
 import type { MetricThreshold } from "./metric-chart-utils";
 
 const TIME_RANGES = [
-  { label: "Last 30 minutes", value: "30" },
-  { label: "Last 1 hour", value: "60" },
-  { label: "Last 6 hours", value: "360" },
-  { label: "Last 24 hours", value: "1440" },
+  { label: "1 Hour", value: "60" },
+  { label: "24 Hours", value: "1440" },
+  { label: "7 Days", value: "10080" },
+  { label: "All Data", value: "all" },
 ] as const;
 
-export function AssetMetricsSummary({ assetId: selectedAssetId }: { assetId?: string } = {}) {
+export function AssetMetricsSummary({ assetId: selectedAssetId, assetCreatedAt }: { assetId?: string; assetCreatedAt?: string } = {}) {
   const params = useParams<{ assetId: string }>();
   const assetId = selectedAssetId ?? params.assetId;
   const [rangeMinutes, setRangeMinutes] = useState("60");
+  const [rangeAnchor, setRangeAnchor] = useState(() => Date.now());
+  useEffect(() => {
+    if (rangeMinutes !== "all") return;
+    const timer = window.setInterval(() => setRangeAnchor(Date.now()), 60_000);
+    return () => window.clearInterval(timer);
+  }, [rangeMinutes]);
   const metricRulesQuery = useMetricRules();
+  const assetsQuery = useAssets();
+  const createdAt = assetCreatedAt ?? assetsQuery.data?.find((asset) => asset.assetId === assetId)?.createdAt;
 
   const getThresholds = (metricType: MetricRuleType): MetricThreshold[] =>
     (metricRulesQuery.data ?? [])
@@ -45,7 +54,9 @@ export function AssetMetricsSummary({ assetId: selectedAssetId }: { assetId?: st
         { id: `${rule.ruleId}-critical`, value: rule.criticalThreshold, severity: "CRITICAL" as const },
       ]);
 
-  const selectedRange = Number(rangeMinutes);
+  const selectedRange = rangeMinutes === "all" && createdAt
+    ? Math.max(1, Math.ceil((rangeAnchor - Date.parse(createdAt)) / 60_000))
+    : rangeMinutes === "all" ? 60 : Number(rangeMinutes);
 
   return (
     <section className="space-y-6">

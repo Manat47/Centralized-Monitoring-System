@@ -58,19 +58,6 @@ function formatStatus(asset: Asset): string {
   }
 }
 
-function formatRuntimeState(asset: Asset): string {
-  switch (asset.status) {
-    case "ACTIVATE":
-      return "Running";
-
-    case "INACTIVATE":
-      return "Paused";
-
-    case "DEACTIVATE":
-      return "Retired";
-  }
-}
-
 function getStatusClass(asset: Asset): string {
   switch (asset.status) {
     case "ACTIVATE":
@@ -338,7 +325,7 @@ export function AssetDetail() {
         {activeTab === "overview" && <AssetOverview asset={asset} />}
 
         {activeTab === "metrics" && asset.targetType === "SERVER" && (
-          <AssetMetricsSummary />
+          <AssetMetricsSummary assetId={asset.assetId} assetCreatedAt={asset.createdAt} />
         )}
 
         {activeTab === "alerts" && (
