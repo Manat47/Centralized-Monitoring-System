@@ -220,7 +220,8 @@ export class EvaluateMetricRulesUseCase {
       evaluatedAt: now,
       sampleAt,
       actualValue,
-      warningMatches: rule.matches(actualValue, data.warningThreshold),
+      warningMatches:
+        data.warningEnabled && rule.matches(actualValue, data.warningThreshold),
       criticalMatches: rule.matches(actualValue, data.criticalThreshold),
       warningDurationSeconds: data.warningDurationSeconds,
       criticalDurationSeconds: data.criticalDurationSeconds,
@@ -233,7 +234,9 @@ export class EvaluateMetricRulesUseCase {
         assetId: data.assetId,
         metricType: data.metricType,
         severity: previousSeverity ?? 'WARNING',
-        thresholdValue: data.warningThreshold,
+        thresholdValue: data.warningEnabled
+          ? data.warningThreshold
+          : data.criticalThreshold,
         actualValue,
         occurredAt: now,
         message: `${formatMetricName(data.metricType)} recovered on ${assetName}: ${actualValue.toFixed(1)}%`,

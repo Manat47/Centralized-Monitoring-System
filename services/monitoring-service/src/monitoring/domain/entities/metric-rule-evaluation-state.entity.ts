@@ -141,7 +141,8 @@ export class MetricRuleEvaluationState {
     criticalDurationSeconds: number;
   }): { triggered: 'WARNING' | 'CRITICAL' | null; recovered: boolean } {
     const previous = this.props.activeAlertSeverity ?? null;
-    this.props.violatedSince = input.warningMatches
+    const violationMatches = input.warningMatches || input.criticalMatches;
+    this.props.violatedSince = violationMatches
       ? (this.props.violatedSince ?? input.sampleAt)
       : null;
     this.props.criticalSince = input.criticalMatches
@@ -161,11 +162,11 @@ export class MetricRuleEvaluationState {
       elapsed(this.props.violatedSince) >= input.warningDurationSeconds
     ) {
       next = 'WARNING';
-    } else if (input.warningMatches) {
+    } else if (violationMatches) {
       next = previous;
     }
 
-    this.props.status = next ?? (input.warningMatches ? 'VIOLATING' : 'NORMAL');
+    this.props.status = next ?? (violationMatches ? 'VIOLATING' : 'NORMAL');
     this.props.activeAlertSeverity = next;
     this.props.lastEvaluatedAt = input.evaluatedAt;
     this.props.lastSampleAt = input.sampleAt;

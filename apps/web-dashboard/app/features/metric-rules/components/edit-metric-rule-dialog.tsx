@@ -22,6 +22,7 @@ export function EditMetricRuleDialog({ rule, onClose }: { rule: MetricRule | nul
   const [form, setForm] = useState(() => ({
     metricType: rule?.metricType ?? "CPU_USAGE",
     operator: rule?.operator ?? ">=",
+    warningEnabled: rule?.warningEnabled ?? true,
     warningThreshold: String(rule?.warningThreshold ?? 35),
     warningDurationSeconds: String(rule?.warningDurationSeconds ?? 30),
     criticalThreshold: String(rule?.criticalThreshold ?? 80),
@@ -34,21 +35,29 @@ export function EditMetricRuleDialog({ rule, onClose }: { rule: MetricRule | nul
     .map((existing) => existing.metricType));
   const warning = Number(form.warningThreshold);
   const critical = Number(form.criticalThreshold);
-  const invalidHierarchy = form.warningThreshold !== "" && form.criticalThreshold !== "" &&
+  const invalidHierarchy = form.warningEnabled && form.warningThreshold !== "" && form.criticalThreshold !== "" &&
     ((form.operator === ">" || form.operator === ">=") ? warning >= critical : warning <= critical);
-  const invalidDurations = Number(form.warningDurationSeconds) < 10 || Number(form.criticalDurationSeconds) < 10;
+  const validThresholds = [form.criticalThreshold, ...(form.warningEnabled ? [form.warningThreshold] : [])].every(
+    (value) => value !== "" && Number.isFinite(Number(value)) && Number(value) >= 0 && Number(value) <= 100,
+  );
+  const validDurations = [form.criticalDurationSeconds, ...(form.warningEnabled ? [form.warningDurationSeconds] : [])].every(
+    (value) => value !== "" && Number.isInteger(Number(value)) && Number(value) >= 10,
+  );
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!rule || invalidHierarchy || invalidDurations || configured.has(form.metricType)) return;
+    if (!rule || !validThresholds || !validDurations || invalidHierarchy || configured.has(form.metricType)) return;
     try {
       await mutation.mutateAsync({
         ruleId: rule.ruleId,
         input: {
           metricType: form.metricType,
           operator: form.operator,
-          warningThreshold: warning,
-          warningDurationSeconds: Number(form.warningDurationSeconds),
+          warningEnabled: form.warningEnabled,
+          ...(form.warningEnabled ? {
+            warningThreshold: warning,
+            warningDurationSeconds: Number(form.warningDurationSeconds),
+          } : {}),
           criticalThreshold: critical,
           criticalDurationSeconds: Number(form.criticalDurationSeconds),
         },
@@ -84,8 +93,11 @@ export function EditMetricRuleDialog({ rule, onClose }: { rule: MetricRule | nul
             </Select>
           </div>
         </div>
+        <Button type="button" variant="outline" size="sm" onClick={() => setForm((current) => ({ ...current, warningEnabled: !current.warningEnabled }))}>
+          {form.warningEnabled ? "Remove Warning Tier" : "+ Add Warning Tier"}
+        </Button>
         <div className="grid gap-4 sm:grid-cols-2">
-          {(["warning", "critical"] as const).map((tier) => {
+          {(["warning", "critical"] as const).filter((tier) => tier === "critical" || form.warningEnabled).map((tier) => {
             const thresholdKey = tier === "warning" ? "warningThreshold" : "criticalThreshold";
             const durationKey = tier === "warning" ? "warningDurationSeconds" : "criticalDurationSeconds";
             return <div key={tier} className={tier === "warning" ? "space-y-3 rounded-lg border border-amber-200 bg-amber-50/50 p-4" : "space-y-3 rounded-lg border border-rose-200 bg-rose-50/50 p-4"}>
@@ -107,7 +119,7 @@ export function EditMetricRuleDialog({ rule, onClose }: { rule: MetricRule | nul
         {mutation.isError && <p className="text-sm text-rose-600">{mutation.error instanceof Error ? mutation.error.message : "Failed to update metric rule"}</p>}
         <DialogFooter>
           <Button type="button" variant="outline" disabled={mutation.isPending} onClick={onClose}>Cancel</Button>
-          <Button type="submit" disabled={mutation.isPending || invalidHierarchy || invalidDurations || configured.has(form.metricType)} className="bg-blue-600 text-white hover:bg-blue-700">
+          <Button type="submit" disabled={mutation.isPending || !validThresholds || !validDurations || invalidHierarchy || configured.has(form.metricType)} className="bg-blue-600 text-white hover:bg-blue-700">
             {mutation.isPending && <LoaderCircle className="size-4 animate-spin" />}
             {mutation.isPending ? "Saving..." : "Save changes"}
           </Button>

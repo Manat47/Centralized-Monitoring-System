@@ -17,6 +17,7 @@ describe('MetricRule multi-tier invariant', () => {
     expect(rule.toObject()).toMatchObject({
       operator: '>=',
       warningThreshold: 35,
+      warningEnabled: true,
       warningDurationSeconds: 30,
       criticalThreshold: 80,
       criticalDurationSeconds: 60,
@@ -43,6 +44,27 @@ describe('MetricRule multi-tier invariant', () => {
     ).toThrow('Warning threshold must be below critical threshold');
   });
 
+  it('creates a critical-only rule without a warning threshold', () => {
+    const rule = MetricRule.create('rule-critical-only', {
+      assetId: base.assetId,
+      metricType: base.metricType,
+      warningEnabled: false,
+      criticalThreshold: 80,
+    });
+    expect(rule.toObject()).toMatchObject({
+      warningEnabled: false,
+      warningThreshold: 80,
+      criticalThreshold: 80,
+    });
+    expect(() =>
+      MetricRule.create('rule-missing-warning', {
+        assetId: base.assetId,
+        metricType: base.metricType,
+        criticalThreshold: 80,
+      }),
+    ).toThrow('Warning threshold is required when Warning is enabled');
+  });
+
   it('requires decreasing threshold order for < and <=', () => {
     const rule = MetricRule.create('rule-3', {
       ...base,
@@ -60,6 +82,18 @@ describe('MetricRule multi-tier invariant', () => {
     ).toThrow('Warning threshold must be above critical threshold');
   });
 
+  it('accepts a decreasing <= pair and includes the threshold boundary', () => {
+    const rule = MetricRule.create('rule-less-than-or-equal', {
+      ...base,
+      operator: MetricRuleOperator.LESS_THAN_OR_EQUAL,
+      warningThreshold: 90,
+      criticalThreshold: 80,
+    });
+    expect(rule.matches(90, 90)).toBe(true);
+    expect(rule.matches(81, 80)).toBe(false);
+    expect(rule.matches(80, 80)).toBe(true);
+  });
+
   it('rejects out-of-range values and durations below ten seconds', () => {
     expect(() =>
       MetricRule.create('rule-5', { ...base, warningThreshold: -1 }),
@@ -75,6 +109,7 @@ describe('MetricRule multi-tier invariant', () => {
       rule.updateConfiguration({
         metricType: MetricRuleType.CPU_USAGE,
         operator: MetricRuleOperator.GREATER_THAN_OR_EQUAL,
+        warningEnabled: true,
         warningThreshold: 90,
         warningDurationSeconds: 30,
         criticalThreshold: 80,

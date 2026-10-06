@@ -34,6 +34,7 @@ export class DrizzleMetricRuleRepository implements MetricRuleRepository {
         assetId: data.assetId,
         metricType: data.metricType,
         operator: data.operator,
+        warningEnabled: data.warningEnabled,
         warningThreshold: data.warningThreshold,
         warningDurationSeconds: data.warningDurationSeconds,
         criticalThreshold: data.criticalThreshold,
@@ -138,6 +139,7 @@ export class DrizzleMetricRuleRepository implements MetricRuleRepository {
       .set({
         metricType: data.metricType,
         operator: data.operator,
+        warningEnabled: data.warningEnabled,
         warningThreshold: data.warningThreshold,
         warningDurationSeconds: data.warningDurationSeconds,
         criticalThreshold: data.criticalThreshold,
@@ -186,6 +188,7 @@ export class DrizzleMetricRuleRepository implements MetricRuleRepository {
       assetId: row.assetId,
       metricType: this.toMetricRuleType(row.metricType),
       operator: this.toMetricRuleOperator(row.operator),
+      warningEnabled: row.warningEnabled,
       warningThreshold: row.warningThreshold,
       warningDurationSeconds: row.warningDurationSeconds,
       criticalThreshold: row.criticalThreshold,

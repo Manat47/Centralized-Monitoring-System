@@ -204,6 +204,7 @@ export const metricRules = pgTable(
       .default('>=')
       .notNull(),
     warningThreshold: real('warning_threshold').notNull(),
+    warningEnabled: boolean('warning_enabled').default(true).notNull(),
     warningDurationSeconds: integer('warning_duration_seconds')
       .default(30)
       .notNull(),

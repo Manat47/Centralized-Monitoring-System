@@ -1,4 +1,5 @@
 import {
+  IsBoolean,
   IsEnum,
   IsInt,
   IsNumber,
@@ -23,10 +24,15 @@ export class CreateMetricRuleDto {
   @IsEnum(MetricRuleOperator)
   operator?: MetricRuleOperator;
 
+  @IsOptional()
+  @IsBoolean()
+  warningEnabled?: boolean;
+
+  @IsOptional()
   @IsNumber()
   @Min(0)
   @Max(100)
-  warningThreshold!: number;
+  warningThreshold?: number;
 
   @IsOptional()
   @IsInt()

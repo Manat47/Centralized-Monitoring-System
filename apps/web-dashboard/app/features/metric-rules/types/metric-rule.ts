@@ -33,6 +33,7 @@ export interface MetricRule {
   assetId: string;
   metricType: MetricRuleType;
   operator: MetricRuleOperator;
+  warningEnabled: boolean;
   warningThreshold: number;
   warningDurationSeconds: number;
   criticalThreshold: number;
@@ -51,7 +52,8 @@ export interface CreateMetricRuleInput {
   assetId: string;
   metricType: MetricRuleType;
   operator?: MetricRuleOperator;
-  warningThreshold: number;
+  warningEnabled?: boolean;
+  warningThreshold?: number;
   warningDurationSeconds?: number;
   criticalThreshold: number;
   criticalDurationSeconds?: number;
