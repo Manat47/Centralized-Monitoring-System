@@ -59,19 +59,12 @@ export function DashboardSummaryCards() {
 
   const servers = data.assetOverview.filter((asset) => asset.targetType === "SERVER" && asset.telemetry?.status !== "NOT_CONFIGURED");
   const applicationAssets = data.assetOverview.filter((asset) => asset.targetType !== "SERVER" && (asset.healthChecks?.total ?? 0) > 0);
-  const statusCounts = (assets: typeof data.assetOverview) => ({
-    ok: assets.filter((asset) => asset.overallStatus === "OK").length,
-    warning: assets.filter((asset) => asset.overallStatus === "WARNING").length,
-    critical: assets.filter((asset) => asset.overallStatus === "CRITICAL").length,
-  });
-  const serverStatus = statusCounts(servers);
-  const appStatus = statusCounts(applicationAssets);
   const cards = [
     {
       title: "Monitored Servers (Hosts)",
       href: "/infrastructure",
       value: servers.length,
-      description: `${serverStatus.ok} OK · ${serverStatus.warning} warning · ${serverStatus.critical} critical`,
+      description: null,
       icon: Server,
       iconClassName: "bg-blue-50 text-blue-700",
       valueClassName: "text-slate-950",
@@ -80,7 +73,7 @@ export function DashboardSummaryCards() {
       title: "Monitored Applications (Synthetic)",
       href: "/health-checks",
       value: applicationAssets.reduce((sum, asset) => sum + (asset.healthChecks?.total ?? 0), 0) + data.standaloneChecks.length,
-      description: `${appStatus.ok} OK · ${appStatus.warning} warning · ${appStatus.critical} critical · ${data.standaloneChecks.length} standalone`,
+      description: null,
       icon: Globe,
       iconClassName: "bg-indigo-50 text-indigo-700",
       valueClassName: "text-slate-950",
@@ -172,9 +165,11 @@ export function DashboardSummaryCards() {
                   delay={index * 0.05}
                 />
               </p>
-              <p className="mt-1 truncate text-xs text-slate-500">
-                {card.description}
-              </p>
+              {card.description && (
+                <p className="mt-1 truncate text-xs text-slate-500">
+                  {card.description}
+                </p>
+              )}
             </CardContent>
           </Card>
           </Link>

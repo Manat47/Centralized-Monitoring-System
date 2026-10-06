@@ -319,7 +319,7 @@ export function MultiChannelSettingsForm() {
 
       <div className="flex justify-end gap-2">
         <Button type="button" variant="outline" disabled={!draft || saveMutation.isPending} onClick={() => { setDraft(null); setFeedback(null); }}>Discard</Button>
-        <Button type="button" disabled={!draft || saveMutation.isPending} onClick={save}>
+        <Button type="button" className="bg-blue-600 text-white hover:bg-blue-700 dark:bg-blue-600 dark:text-white dark:hover:bg-blue-700" disabled={!draft || saveMutation.isPending} onClick={save}>
           {saveMutation.isPending && <LoaderCircle className="size-4 animate-spin" />}
           Save Changes
         </Button>

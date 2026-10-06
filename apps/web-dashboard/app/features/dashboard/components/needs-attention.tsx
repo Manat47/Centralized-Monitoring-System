@@ -255,7 +255,7 @@ export function NeedsAttention() {
                       ) : alert.sourceType === "HEALTH_CHECK" ? (
                         <Button variant="outline" size="sm" nativeButton={false} render={<Link href={`/health-checks/${alert.sourceId}`} />}><Eye className="size-3.5" /> View check</Button>
                       ) : null}
-                      {canAcknowledge && <Button type="button" size="sm" disabled={acknowledgeMutation.isPending} onClick={() => acknowledgeMutation.mutate(alert.alertId, { onSuccess: () => { void queryClient.invalidateQueries({ queryKey: ["dashboard-summary"] }); } })}>
+                      {canAcknowledge && <Button type="button" size="sm" className="bg-blue-600 text-white hover:bg-blue-700 dark:bg-blue-600 dark:text-white dark:hover:bg-blue-700" disabled={acknowledgeMutation.isPending} onClick={() => acknowledgeMutation.mutate(alert.alertId, { onSuccess: () => { void queryClient.invalidateQueries({ queryKey: ["dashboard-summary"] }); } })}>
                         {acknowledgeMutation.isPending && acknowledgeMutation.variables === alert.alertId ? <LoaderCircle className="size-3.5 animate-spin" /> : <Check className="size-3.5" />} Acknowledge
                       </Button>}
                     </div>

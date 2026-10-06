@@ -14,7 +14,6 @@ import type { HealthCheckTarget } from "@/app/features/health-checks/types/healt
 import { useMetricRules } from "@/app/features/metric-rules/api/use-metric-rules";
 import { getAlerts } from "@/app/features/alerts/api/get-alerts";
 import type { MetricRuleType } from "@/app/features/metric-rules/types/metric-rule";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -112,10 +111,8 @@ function HostInspectionContent({ asset, healthChecks, hasMetricTarget, notMonito
           <DialogDescription className="mt-1 flex flex-wrap items-center gap-1">
             {asset.ipAddress ?? asset.hostname ?? asset.endpoint ?? "No address"}
             {asset.ipAddress && <CopyIpButton ipAddress={asset.ipAddress} />}
-            <span aria-hidden="true">·</span> <Badge variant="outline" className={isServer ? "border-slate-200 bg-slate-100 text-slate-700" : "border-indigo-200 bg-indigo-50 text-indigo-700"}>Type: {asset.targetType}</Badge>
           </DialogDescription>
         </div>
-        <Badge variant="outline" className={`ml-auto ${asset.status === "ACTIVATE" ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-slate-200 bg-slate-100 text-slate-600"}`}>Status: {asset.status === "ACTIVATE" ? "ACTIVE" : asset.status === "INACTIVATE" ? "INACTIVE" : "DEACTIVATED"}</Badge>
       </div>
       <div className="flex flex-wrap items-center gap-2 pt-4">
         <Select value={rangeMinutes} onValueChange={(value) => { if (value) setRangeMinutes(value); }}>
