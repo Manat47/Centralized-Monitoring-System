@@ -1,0 +1,1 @@
+ALTER TABLE "metric_rules" ADD COLUMN "warning_enabled" boolean DEFAULT true NOT NULL;

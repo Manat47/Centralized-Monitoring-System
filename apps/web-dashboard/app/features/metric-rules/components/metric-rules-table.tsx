@@ -367,7 +367,9 @@ export function MetricRulesTable({ selectedRuleId }: { selectedRuleId?: string }
                       </TableCell>
                       <TableCell>{metricLabels[rule.metricType]}</TableCell>
                       <TableCell className="font-mono text-xs">
-                        Warn: {rule.operator} {rule.warningThreshold}% ({formatDuration(rule.warningDurationSeconds)})
+                        {rule.warningEnabled !== false
+                          ? <>Warn: {rule.operator} {rule.warningThreshold}% ({formatDuration(rule.warningDurationSeconds)})</>
+                          : "Warn: Off"}
                         <span className="mx-1 text-slate-400">|</span>
                         Crit: {rule.operator} {rule.criticalThreshold}% ({formatDuration(rule.criticalDurationSeconds)})
                       </TableCell>

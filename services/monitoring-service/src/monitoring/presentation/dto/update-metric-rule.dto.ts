@@ -1,4 +1,12 @@
-import { IsEnum, IsInt, IsNumber, IsOptional, Max, Min } from 'class-validator';
+import {
+  IsBoolean,
+  IsEnum,
+  IsInt,
+  IsNumber,
+  IsOptional,
+  Max,
+  Min,
+} from 'class-validator';
 
 import {
   MetricRuleOperator,
@@ -13,6 +21,10 @@ export class UpdateMetricRuleDto {
   @IsOptional()
   @IsEnum(MetricRuleOperator)
   operator?: MetricRuleOperator;
+
+  @IsOptional()
+  @IsBoolean()
+  warningEnabled?: boolean;
 
   @IsOptional()
   @IsNumber()

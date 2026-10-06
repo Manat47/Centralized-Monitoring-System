@@ -33,6 +33,7 @@ import {
 export interface UpdateMetricRuleInput {
   metricType?: MetricRuleType;
   operator?: MetricRuleOperator;
+  warningEnabled?: boolean;
   warningThreshold?: number;
   warningDurationSeconds?: number;
   criticalThreshold?: number;
@@ -71,6 +72,7 @@ export class UpdateMetricRuleUseCase {
       rule.updateConfiguration({
         metricType: input.metricType ?? before.metricType,
         operator: input.operator ?? before.operator,
+        warningEnabled: input.warningEnabled ?? before.warningEnabled,
         warningThreshold: input.warningThreshold ?? before.warningThreshold,
         warningDurationSeconds:
           input.warningDurationSeconds ?? before.warningDurationSeconds,

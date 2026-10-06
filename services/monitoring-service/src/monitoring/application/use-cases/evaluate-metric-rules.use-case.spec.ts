@@ -248,4 +248,41 @@ describe('EvaluateMetricRulesUseCase sample-aware duration', () => {
       lastActualValue: 20,
     });
   });
+
+  it('never emits Warning for a critical-only rule and resolves after recovery', async () => {
+    ruleRepository.findEnabled.mockResolvedValue([
+      MetricRule.create('critical-only', {
+        assetId,
+        metricType: MetricRuleType.CPU_USAGE,
+        warningEnabled: false,
+        criticalThreshold: 80,
+        criticalDurationSeconds: 60,
+      }),
+    ]);
+
+    const readings: Array<[string, number]> = [
+      ['2026-08-25T10:00:00.000Z', 70],
+      ['2026-08-25T10:00:30.000Z', 70],
+      ['2026-08-25T10:00:45.000Z', 95],
+      ['2026-08-25T10:01:45.000Z', 95],
+      ['2026-08-25T10:02:00.000Z', 20],
+    ];
+    for (const [time, value] of readings) {
+      const sampleAt = new Date(time);
+      jest.setSystemTime(sampleAt);
+      queryMetricsSummaryUseCase.execute.mockResolvedValue(
+        cpuSummary(sampleAt, value),
+      );
+      await useCase.execute();
+    }
+
+    expect(
+      publishAlertEvent.mock.calls.map(([event]) => event.eventType),
+    ).toEqual(['METRIC_THRESHOLD_EXCEEDED', 'METRIC_THRESHOLD_RECOVERED']);
+    expect(
+      publishAlertEvent.mock.calls.map(([event]) =>
+        'severity' in event ? event.severity : null,
+      ),
+    ).toEqual(['CRITICAL', 'CRITICAL']);
+  });
 });

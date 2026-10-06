@@ -134,6 +134,13 @@
       "when": 1791176405896,
       "tag": "0018_multi_tier_metric_rules",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1791277949014,
+      "tag": "0019_critical_only_metric_rules",
+      "breakpoints": true
     }
   ]
 }

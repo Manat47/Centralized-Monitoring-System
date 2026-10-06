@@ -21,6 +21,7 @@ export interface MetricRuleProps {
   assetId: string;
   metricType: MetricRuleType;
   operator: MetricRuleOperator;
+  warningEnabled: boolean;
   warningThreshold: number;
   warningDurationSeconds: number;
   criticalThreshold: number;
@@ -35,7 +36,8 @@ export interface CreateMetricRuleProps {
   assetId: string;
   metricType: MetricRuleType;
   operator?: MetricRuleOperator;
-  warningThreshold: number;
+  warningEnabled?: boolean;
+  warningThreshold?: number;
   warningDurationSeconds?: number;
   criticalThreshold: number;
   criticalDurationSeconds?: number;
@@ -45,13 +47,18 @@ export class MetricRule {
   private constructor(private readonly props: MetricRuleProps) {}
 
   static create(ruleId: string, input: CreateMetricRuleProps): MetricRule {
+    const warningEnabled = input.warningEnabled ?? true;
+    if (warningEnabled && input.warningThreshold == null) {
+      throw new Error('Warning threshold is required when Warning is enabled');
+    }
     const now = new Date();
     const rule = new MetricRule({
       ruleId,
       assetId: input.assetId,
       metricType: input.metricType,
       operator: input.operator ?? MetricRuleOperator.GREATER_THAN_OR_EQUAL,
-      warningThreshold: input.warningThreshold,
+      warningEnabled,
+      warningThreshold: input.warningThreshold ?? input.criticalThreshold,
       warningDurationSeconds: input.warningDurationSeconds ?? 30,
       criticalThreshold: input.criticalThreshold,
       criticalDurationSeconds: input.criticalDurationSeconds ?? 60,
@@ -86,6 +93,7 @@ export class MetricRule {
   updateConfiguration(input: {
     metricType: MetricRuleType;
     operator: MetricRuleOperator;
+    warningEnabled: boolean;
     warningThreshold: number;
     warningDurationSeconds: number;
     criticalThreshold: number;
@@ -154,10 +162,18 @@ export class MetricRule {
     const increasing =
       props.operator === MetricRuleOperator.GREATER_THAN ||
       props.operator === MetricRuleOperator.GREATER_THAN_OR_EQUAL;
-    if (increasing && props.warningThreshold >= props.criticalThreshold) {
+    if (
+      props.warningEnabled &&
+      increasing &&
+      props.warningThreshold >= props.criticalThreshold
+    ) {
       throw new Error('Warning threshold must be below critical threshold');
     }
-    if (!increasing && props.warningThreshold <= props.criticalThreshold) {
+    if (
+      props.warningEnabled &&
+      !increasing &&
+      props.warningThreshold <= props.criticalThreshold
+    ) {
       throw new Error('Warning threshold must be above critical threshold');
     }
   }
