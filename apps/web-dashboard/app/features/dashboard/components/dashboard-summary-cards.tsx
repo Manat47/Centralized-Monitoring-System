@@ -23,7 +23,6 @@ function SummaryCardSkeleton() {
       <CardContent className="p-4">
         <div className="h-4 w-24 animate-pulse rounded bg-slate-100" />
         <div className="mt-5 h-8 w-16 animate-pulse rounded bg-slate-100" />
-        <div className="mt-2 h-3 w-28 animate-pulse rounded bg-slate-100" />
       </CardContent>
     </Card>
   );
@@ -64,7 +63,6 @@ export function DashboardSummaryCards() {
       title: "Monitored Servers (Hosts)",
       href: "/infrastructure",
       value: servers.length,
-      description: null,
       icon: Server,
       iconClassName: "bg-blue-50 text-blue-700",
       valueClassName: "text-slate-950",
@@ -73,7 +71,6 @@ export function DashboardSummaryCards() {
       title: "Monitored Applications (Synthetic)",
       href: "/health-checks",
       value: applicationAssets.reduce((sum, asset) => sum + (asset.healthChecks?.total ?? 0), 0) + data.standaloneChecks.length,
-      description: null,
       icon: Globe,
       iconClassName: "bg-indigo-50 text-indigo-700",
       valueClassName: "text-slate-950",
@@ -82,7 +79,6 @@ export function DashboardSummaryCards() {
       title: "Active Firing Alerts",
       href: "/alerts",
       value: data.alerts.firing,
-      description: `${data.alerts.active} active incl. acknowledged`,
       icon: BellRing,
       iconClassName: "bg-rose-50 text-rose-700",
       valueClassName: "text-rose-700",
@@ -91,7 +87,6 @@ export function DashboardSummaryCards() {
       title: "OK Assets",
       href: "/infrastructure?overall=OK",
       value: data.assets.ok,
-      description: "Signals operating normally",
       icon: CircleCheck,
       iconClassName: "bg-emerald-50 text-emerald-700",
       valueClassName: "text-emerald-700",
@@ -100,7 +95,6 @@ export function DashboardSummaryCards() {
       title: "Warning Assets",
       href: "/infrastructure?overall=WARNING",
       value: data.assets.warning,
-      description: "Investigation recommended",
       icon: AlertTriangle,
       iconClassName: "bg-amber-50 text-amber-700",
       valueClassName: "text-amber-700",
@@ -109,7 +103,6 @@ export function DashboardSummaryCards() {
       title: "Critical Assets",
       href: "/infrastructure?overall=CRITICAL",
       value: data.assets.critical,
-      description: "Immediate attention required",
       icon: CircleAlert,
       iconClassName: "bg-rose-50 text-rose-700",
       valueClassName: "text-rose-700",
@@ -118,7 +111,6 @@ export function DashboardSummaryCards() {
       title: "No Data Assets",
       href: "/infrastructure?overall=NO_DATA",
       value: data.assets.noData,
-      description: "Expected telemetry is missing",
       icon: CircleDashed,
       iconClassName: "bg-slate-100 text-slate-600",
       valueClassName: "text-slate-700",
@@ -127,7 +119,6 @@ export function DashboardSummaryCards() {
       title: "Not Monitored",
       href: "/infrastructure?overall=NOT_MONITORED",
       value: data.assets.notMonitored,
-      description: "No running monitoring target",
       icon: CircleDashed,
       iconClassName: "bg-slate-100 text-slate-600",
       valueClassName: "text-slate-700",
@@ -165,11 +156,6 @@ export function DashboardSummaryCards() {
                   delay={index * 0.05}
                 />
               </p>
-              {card.description && (
-                <p className="mt-1 truncate text-xs text-slate-500">
-                  {card.description}
-                </p>
-              )}
             </CardContent>
           </Card>
           </Link>

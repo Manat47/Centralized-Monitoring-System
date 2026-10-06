@@ -2,6 +2,9 @@
 
 import Link from "next/link";
 
+import { useHealthCheckTargets } from "@/app/features/health-checks/api/use-health-check-targets";
+import { getHealthResultStatus } from "@/app/features/health-checks/components/health-check-status";
+
 import { useDashboardSummary } from "../api/use-dashboard-summary";
 import type { DashboardHealthStatus } from "../types/dashboard-summary";
 
@@ -16,6 +19,7 @@ const statusClass: Record<DashboardHealthStatus, string> = {
 
 export function StandaloneSyntheticChecks() {
   const { data, isLoading, isError } = useDashboardSummary();
+  const { data: targets } = useHealthCheckTargets((data?.standaloneChecks?.length ?? 0) > 0);
 
   if (isLoading) {
     return <section className="rounded-xl border border-slate-200 bg-white p-4 text-sm text-slate-500">Loading standalone checks...</section>;
@@ -27,6 +31,7 @@ export function StandaloneSyntheticChecks() {
 
   const standaloneChecks = data.standaloneChecks ?? [];
   const standaloneAlerts = data.standaloneAlerts ?? [];
+  const targetsById = new Map((targets ?? []).map((target) => [target.healthCheckTargetId, target]));
 
   if (standaloneChecks.length === 0 && standaloneAlerts.length === 0) {
     return null;
@@ -44,19 +49,35 @@ export function StandaloneSyntheticChecks() {
         <p className="mt-1 text-xs text-slate-500">HTTP targets that are not linked to an asset</p>
       </div>
       <div className="divide-y divide-slate-100">
-        {checks.map((check) => (
-          <div key={check.healthCheckTargetId} className="flex flex-wrap items-center justify-between gap-3 px-5 py-3">
-            <div className="min-w-0">
-              <Link href={`/health-checks/${check.healthCheckTargetId}`} className="text-sm font-medium text-blue-700 hover:underline">{check.name}</Link>
-              <p className="truncate text-xs text-slate-500" title={check.url}>{check.url}</p>
+        {checks.map((check) => {
+          const target = targetsById.get(check.healthCheckTargetId);
+          const summaryCodesMatch =
+            check.actualStatus !== null &&
+            Number(check.actualStatus) === Number(check.expectedStatus);
+          const status: DashboardHealthStatus = target
+            ? target.enabled && !target.archivedAt
+              ? getHealthResultStatus(target)
+              : "PAUSED"
+            : check.status === "UNAVAILABLE" && summaryCodesMatch
+              ? "UNKNOWN"
+              : check.status;
+          const actualStatus = target ? (target.latest?.statusCode ?? null) : check.actualStatus;
+          const expectedStatus = target?.expectedStatus ?? check.expectedStatus;
+
+          return (
+            <div key={check.healthCheckTargetId} className="flex flex-wrap items-center justify-between gap-3 px-5 py-3">
+              <div className="min-w-0">
+                <Link href={`/health-checks/${check.healthCheckTargetId}`} className="text-sm font-medium text-blue-700 hover:underline">{check.name}</Link>
+                <p className="truncate text-xs text-slate-500" title={check.url}>{check.url}</p>
+              </div>
+              <div className="flex flex-wrap items-center gap-2 text-xs">
+                <span className={`rounded px-2 py-1 font-medium ${statusClass[status]}`}>{status === "AVAILABLE" ? "HEALTHY" : status.replaceAll("_", " ")}</span>
+                <span className="text-slate-500">HTTP {actualStatus ?? "—"} / expected {expectedStatus}</span>
+                {check.activeAlerts > 0 && <span className={check.highestAlertSeverity === "CRITICAL" ? "font-medium text-rose-700" : "font-medium text-amber-700"}>{check.activeAlerts} active alert{check.activeAlerts === 1 ? "" : "s"}</span>}
+              </div>
             </div>
-            <div className="flex flex-wrap items-center gap-2 text-xs">
-              <span className={`rounded px-2 py-1 font-medium ${statusClass[check.status]}`}>{check.status.replaceAll("_", " ")}</span>
-              <span className="text-slate-500">HTTP {check.actualStatus ?? "—"} / expected {check.expectedStatus}</span>
-              {check.activeAlerts > 0 && <span className={check.highestAlertSeverity === "CRITICAL" ? "font-medium text-rose-700" : "font-medium text-amber-700"}>{check.activeAlerts} active alert{check.activeAlerts === 1 ? "" : "s"}</span>}
-            </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
       {standaloneAlerts.length > 0 && (
         <div className="border-t border-slate-100 px-5 py-4">

@@ -10,9 +10,12 @@ export function getHealthResultStatus(target: HealthCheckTarget): HealthResultSt
   if (!latest) return "UNKNOWN";
 
   const staleAfterMs = Math.max(target.checkIntervalSeconds * 3, 60) * 1000;
-  if (Date.now() - new Date(latest.timestamp).getTime() > staleAfterMs) return "STALE";
+  const checkedAt = new Date(latest.timestamp).getTime();
+  if (!Number.isFinite(checkedAt) || Date.now() - checkedAt > staleAfterMs) return "STALE";
 
-  return latest.statusCode === target.expectedStatus
+  return latest.error === null &&
+    latest.statusCode !== null &&
+    Number(latest.statusCode) === Number(target.expectedStatus)
     ? "AVAILABLE"
     : "UNAVAILABLE";
 }
