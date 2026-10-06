@@ -4,6 +4,7 @@ services:
       - "443:443"
     volumes:
       - ./nginx/nginx.prod.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/cloudflare-ips.conf:/etc/nginx/cloudflare-ips.conf:ro
       - /etc/letsencrypt:/etc/letsencrypt:ro
 
   auth-service:
