@@ -1,6 +1,11 @@
 export type UserRole = 'ADMIN' | 'OPERATOR';
 
-export type AuditAction = 'ALERT_ACKNOWLEDGED' | 'ALERT_CLOSED';
+export type AuditAction =
+  | 'ALERT_ACKNOWLEDGED'
+  | 'ALERT_CLOSED'
+  | 'LOG_FINDING_RULE_CREATED'
+  | 'LOG_FINDING_RULE_UPDATED'
+  | 'LOG_FINDING_RULE_DELETED';
 
 export interface AuditEvent {
   actorUserId: string;
@@ -9,7 +14,7 @@ export interface AuditEvent {
 
   action: AuditAction;
 
-  resourceType: 'ALERT';
+  resourceType: 'ALERT' | 'LOG_FINDING_RULE';
   resourceId: string;
   resourceName?: string | null;
 

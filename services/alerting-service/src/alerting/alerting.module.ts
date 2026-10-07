@@ -133,5 +133,6 @@ import { LogFindingEventPublisher } from '../log-finding/log-finding-event.publi
       useClass: RabbitMqAuditEventPublisher,
     },
   ],
+  exports: [AUDIT_EVENT_PUBLISHER],
 })
 export class AlertingModule {}

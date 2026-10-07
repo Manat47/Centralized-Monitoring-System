@@ -14,6 +14,11 @@ export interface LogFindingRule {
   updatedAt: string;
 }
 
+export interface LogFindingRuleWithSummary extends LogFindingRule {
+  lastTriggeredAt: string | null;
+  triggeredFingerprintCount: number;
+}
+
 export type LogFindingRuleInput = Pick<
   LogFindingRule,
   "name" | "serviceName" | "searchQuery" | "severity" | "threshold" |

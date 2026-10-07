@@ -1,5 +1,5 @@
 import { authenticatedFetch } from "@/app/lib/authenticated-fetch";
-import type { LogFindingRule, LogFindingRuleInput } from "./types";
+import type { LogFindingRule, LogFindingRuleInput, LogFindingRuleWithSummary } from "./types";
 
 const base = `${process.env.NEXT_PUBLIC_API_GATEWAY_URL ?? "http://localhost:3005/api"}/log-finding-rules`;
 
@@ -20,7 +20,7 @@ async function request<T>(path = "", init?: RequestInit): Promise<T> {
 const rulePath = (id: string) => `/${encodeURIComponent(id)}`;
 
 export const logFindingRulesApi = {
-  list: () => request<LogFindingRule[]>(),
+  list: () => request<LogFindingRuleWithSummary[]>(),
   create: (input: LogFindingRuleInput) => request<LogFindingRule>("", { method: "POST", body: JSON.stringify(input) }),
   update: (id: string, input: Partial<LogFindingRuleInput>) => request<LogFindingRule>(rulePath(id), { method: "PATCH", body: JSON.stringify(input) }),
   remove: (id: string) => request<void>(rulePath(id), { method: "DELETE" }),

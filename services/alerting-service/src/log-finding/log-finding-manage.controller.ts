@@ -15,11 +15,17 @@ import {
   Post,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { asc, eq } from 'drizzle-orm';
+import { isUUID } from 'class-validator';
+import { eq } from 'drizzle-orm';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { randomUUID, timingSafeEqual } from 'node:crypto';
 import { DRIZZLE_DB } from '../database/database.provider';
+import {
+  AUDIT_EVENT_PUBLISHER,
+  type AuditEventPublisher,
+} from '../alerting/domain/port/audit-event-publisher.port';
 import { logFindingRules } from '../database/schema/log-finding.schema';
+import { LogFindingRuleSummaryReader } from './log-finding-rule-summary.reader';
 import {
   CreateLogFindingRuleDto,
   UpdateLogFindingRuleDto,
@@ -30,6 +36,9 @@ export class LogFindingManageController {
   constructor(
     @Inject(DRIZZLE_DB) private readonly db: NodePgDatabase,
     private readonly config: ConfigService,
+    private readonly summaries: LogFindingRuleSummaryReader,
+    @Inject(AUDIT_EVENT_PUBLISHER)
+    private readonly auditEvents: AuditEventPublisher,
   ) {}
 
   private requireGateway(supplied?: string): void {
@@ -58,21 +67,28 @@ export class LogFindingManageController {
     return trimmed;
   }
 
+  private requireAdminActor(userId?: string, role?: string) {
+    if (!userId || !isUUID(userId) || role !== 'ADMIN')
+      throw new ForbiddenException('Verified administrator is required');
+    return { actorUserId: userId, actorRole: 'ADMIN' as const };
+  }
+
   @Get()
   list(@Headers('x-internal-service-secret') secret?: string) {
     this.requireGateway(secret);
-    return this.db
-      .select()
-      .from(logFindingRules)
-      .orderBy(asc(logFindingRules.name));
+    return this.summaries.list();
   }
 
   @Post()
   async create(
     @Headers('x-internal-service-secret') secret: string | undefined,
     @Body() input: CreateLogFindingRuleDto,
+    @Headers('x-user-id') actorUserId?: string,
+    @Headers('x-user-role') actorRole?: string,
+    @Headers('x-user-email') actorEmail?: string,
   ) {
     this.requireGateway(secret);
+    const actor = this.requireAdminActor(actorUserId, actorRole);
     const name = input.name.trim();
     const serviceName = input.serviceName.trim();
     if (!name || !serviceName)
@@ -92,6 +108,17 @@ export class LogFindingManageController {
         isEnabled: input.isEnabled ?? true,
       })
       .returning();
+    await this.auditEvents.publish({
+      ...actor,
+      actorEmail,
+      action: 'LOG_FINDING_RULE_CREATED',
+      resourceType: 'LOG_FINDING_RULE',
+      resourceId: created.id,
+      resourceName: created.name,
+      result: 'SUCCESS',
+      metadata: { serviceName: created.serviceName },
+      occurredAt: new Date(),
+    });
     return created;
   }
 
@@ -100,8 +127,12 @@ export class LogFindingManageController {
     @Headers('x-internal-service-secret') secret: string | undefined,
     @Param('id', ParseUUIDPipe) id: string,
     @Body() input: UpdateLogFindingRuleDto,
+    @Headers('x-user-id') actorUserId?: string,
+    @Headers('x-user-role') actorRole?: string,
+    @Headers('x-user-email') actorEmail?: string,
   ) {
     this.requireGateway(secret);
+    const actor = this.requireAdminActor(actorUserId, actorRole);
     if (Object.keys(input).length === 0)
       throw new BadRequestException('At least one field is required');
     const name = input.name === undefined ? undefined : input.name.trim();
@@ -135,6 +166,17 @@ export class LogFindingManageController {
       .where(eq(logFindingRules.id, id))
       .returning();
     if (!updated) throw new NotFoundException('Rule not found');
+    await this.auditEvents.publish({
+      ...actor,
+      actorEmail,
+      action: 'LOG_FINDING_RULE_UPDATED',
+      resourceType: 'LOG_FINDING_RULE',
+      resourceId: updated.id,
+      resourceName: updated.name,
+      result: 'SUCCESS',
+      metadata: { changedFields: Object.keys(input) },
+      occurredAt: new Date(),
+    });
     return updated;
   }
 
@@ -143,12 +185,26 @@ export class LogFindingManageController {
   async remove(
     @Headers('x-internal-service-secret') secret: string | undefined,
     @Param('id', ParseUUIDPipe) id: string,
+    @Headers('x-user-id') actorUserId?: string,
+    @Headers('x-user-role') actorRole?: string,
+    @Headers('x-user-email') actorEmail?: string,
   ): Promise<void> {
     this.requireGateway(secret);
+    const actor = this.requireAdminActor(actorUserId, actorRole);
     const [deleted] = await this.db
       .delete(logFindingRules)
       .where(eq(logFindingRules.id, id))
-      .returning({ id: logFindingRules.id });
+      .returning({ id: logFindingRules.id, name: logFindingRules.name });
     if (!deleted) throw new NotFoundException('Rule not found');
+    await this.auditEvents.publish({
+      ...actor,
+      actorEmail,
+      action: 'LOG_FINDING_RULE_DELETED',
+      resourceType: 'LOG_FINDING_RULE',
+      resourceId: deleted.id,
+      resourceName: deleted.name,
+      result: 'SUCCESS',
+      occurredAt: new Date(),
+    });
   }
 }

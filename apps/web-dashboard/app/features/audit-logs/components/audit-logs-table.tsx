@@ -83,6 +83,9 @@ const auditActions: AuditAction[] = [
   "PROJECT_MEMBER_REMOVED",
   "PROJECT_TOKEN_CREATED",
   "PROJECT_TOKEN_REVOKED",
+  "LOG_FINDING_RULE_CREATED",
+  "LOG_FINDING_RULE_UPDATED",
+  "LOG_FINDING_RULE_DELETED",
 ];
 
 const resourceTypes: AuditResourceType[] = [
@@ -97,6 +100,7 @@ const resourceTypes: AuditResourceType[] = [
   "PROJECT",
   "PROJECT_MEMBER",
   "PROJECT_TOKEN",
+  "LOG_FINDING_RULE",
 ];
 
 function formatDate(value: string): string {
@@ -178,6 +182,8 @@ function getResourceHref(log: AuditLog): string | null {
       return "/monitoring-targets";
     case "METRIC_RULE":
       return "/metric-rules";
+    case "LOG_FINDING_RULE":
+      return "/explorer/finding-rules";
     case "USER":
       return "/users";
     default:

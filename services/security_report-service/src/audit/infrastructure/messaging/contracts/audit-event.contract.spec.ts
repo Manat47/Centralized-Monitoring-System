@@ -28,8 +28,25 @@ describe('AuditEventDto', () => {
     expect(errors).toHaveLength(0);
   });
 
+  it.each([
+    'LOG_FINDING_RULE_CREATED',
+    'LOG_FINDING_RULE_UPDATED',
+    'LOG_FINDING_RULE_DELETED',
+  ])('accepts %s for a log finding rule', async (action) => {
+    const errors = await validate(
+      plainToInstance(AuditEventDto, {
+        ...validEvent,
+        action,
+        resourceType: 'LOG_FINDING_RULE',
+        sourceService: 'alerting-service',
+      }),
+    );
+    expect(errors).toHaveLength(0);
+  });
+
   it('rejects an event without an idempotency key', async () => {
     const { eventId: _eventId, ...event } = validEvent;
+    void _eventId;
     const errors = await validate(plainToInstance(AuditEventDto, event));
 
     expect(errors.some((error) => error.property === 'eventId')).toBe(true);

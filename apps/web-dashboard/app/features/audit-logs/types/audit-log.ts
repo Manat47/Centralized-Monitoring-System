@@ -13,7 +13,8 @@ export type AuditResourceType =
   | "ALERT"
   | "PROJECT"
   | "PROJECT_MEMBER"
-  | "PROJECT_TOKEN";
+  | "PROJECT_TOKEN"
+  | "LOG_FINDING_RULE";
 
 export type AuditAction =
   | "USER_CREATED"
@@ -54,7 +55,10 @@ export type AuditAction =
   | "PROJECT_MEMBER_ROLE_CHANGED"
   | "PROJECT_MEMBER_REMOVED"
   | "PROJECT_TOKEN_CREATED"
-  | "PROJECT_TOKEN_REVOKED";
+  | "PROJECT_TOKEN_REVOKED"
+  | "LOG_FINDING_RULE_CREATED"
+  | "LOG_FINDING_RULE_UPDATED"
+  | "LOG_FINDING_RULE_DELETED";
 
 export interface AuditLog {
   auditLogId: string;
