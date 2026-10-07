@@ -97,7 +97,8 @@ export function InfrastructureConsole() {
   ) ?? [];
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("ALL");
-  const [typeFilter, setTypeFilter] = useState<TypeFilter>("ALL");
+  const typeParam = searchParams.get("type");
+  const typeFilter: TypeFilter = typeParam === "SERVER" || typeParam === "APPLICATION" ? typeParam : "ALL";
   const [sortOrder, setSortOrder] = useState<SortOrder>("HEALTH");
   const assetsQuery = useAssets();
   const targetsQuery = useMonitoringTargets();
@@ -153,6 +154,13 @@ export function InfrastructureConsole() {
   function clearOverallFilter() {
     const params = new URLSearchParams(searchParams.toString());
     params.delete("overall");
+    window.history.replaceState(null, "", `/infrastructure${params.size ? `?${params.toString()}` : ""}`);
+  }
+
+  function setTypeFilter(value: TypeFilter) {
+    const params = new URLSearchParams(searchParams.toString());
+    if (value === "ALL") params.delete("type");
+    else params.set("type", value);
     window.history.replaceState(null, "", `/infrastructure${params.size ? `?${params.toString()}` : ""}`);
   }
 

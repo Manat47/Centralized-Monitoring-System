@@ -56,12 +56,12 @@ export function DashboardSummaryCards() {
     );
   }
 
-  const servers = data.assetOverview.filter((asset) => asset.targetType === "SERVER" && asset.telemetry?.status !== "NOT_CONFIGURED");
+  const servers = data.assetOverview.filter((asset) => asset.targetType === "SERVER");
   const applicationAssets = data.assetOverview.filter((asset) => asset.targetType !== "SERVER" && (asset.healthChecks?.total ?? 0) > 0);
   const cards = [
     {
-      title: "Monitored Servers (Hosts)",
-      href: "/infrastructure",
+      title: "Total Servers (Hosts)",
+      href: "/infrastructure?type=SERVER",
       value: servers.length,
       icon: Server,
       iconClassName: "bg-blue-50 text-blue-700",
@@ -126,26 +126,26 @@ export function DashboardSummaryCards() {
   ];
 
   return (
-    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 2xl:grid-cols-8">
+    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
       {cards.map((card, index) => {
         const Icon = card.icon;
 
         return (
-          <Link key={card.title} href={card.href} className="block rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500" aria-label={`View ${card.title} assets`}>
-          <Card className="border-slate-200 bg-white shadow-none transition-colors hover:border-blue-300">
-            <CardContent className="p-4">
-              <div className="flex items-start justify-between gap-3">
-                <p className="text-xs font-medium text-slate-500">
+          <Link key={card.title} href={card.href} className="block h-full rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500" aria-label={`View ${card.title} assets`}>
+          <Card className="h-full min-h-32 border-slate-200 bg-white py-0 shadow-none transition-colors hover:border-blue-300">
+            <CardContent className="flex h-full flex-col p-4">
+              <div className="flex min-h-10 items-start justify-between gap-3">
+                <p className="text-xs leading-5 font-medium text-slate-500">
                   {card.title}
                 </p>
                 <div
-                  className={`flex size-8 items-center justify-center rounded-md ${card.iconClassName}`}
+                  className={`flex size-8 shrink-0 items-center justify-center rounded-md ${card.iconClassName}`}
                 >
                   <Icon className="size-4" />
                 </div>
               </div>
               <p
-                className={`mt-3 text-2xl font-semibold tabular-nums ${card.valueClassName}`}
+                className={`mt-auto pt-3 text-2xl font-semibold tabular-nums ${card.valueClassName}`}
               >
                 <CountUp
                   from={0}
