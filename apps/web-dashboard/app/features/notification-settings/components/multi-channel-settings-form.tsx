@@ -7,6 +7,7 @@ import { useAllUsers } from "@/app/features/users/api/use-users";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   useMultiChannelSettings,
   useTestNotificationChannel,
@@ -90,6 +91,49 @@ function nextPriority(draft: DraftSettings): number {
   return Math.max(0, ...draft.recipients.map((recipient) => recipient.priority ?? 0)) + 1;
 }
 
+function NotificationSettingsSkeleton() {
+  return (
+    <div role="status" aria-label="Loading notification settings" className="space-y-5">
+      <span className="sr-only">Loading notification settings...</span>
+      <Card>
+        <CardHeader><Skeleton className="h-6 w-40" /></CardHeader>
+        <CardContent className="space-y-3">
+          <Skeleton className="h-5 w-52" />
+          <Skeleton className="h-4 w-80 max-w-full" />
+        </CardContent>
+      </Card>
+      <div className="flex flex-wrap gap-2">
+        {[0, 1, 2].map((item) => <Skeleton key={item} className="h-9 w-28" />)}
+      </div>
+      <Card>
+        <CardHeader><Skeleton className="h-6 w-40" /></CardHeader>
+        <CardContent><Skeleton className="h-10 w-full" /></CardContent>
+      </Card>
+      {[0, 1].map((item) => (
+        <Card key={item}>
+          <CardContent className="space-y-4 pt-5">
+            <div className="flex items-center justify-between">
+              <Skeleton className="h-7 w-32" />
+              <Skeleton className="h-8 w-24" />
+            </div>
+            <div className="grid gap-4 md:grid-cols-2">
+              <Skeleton className="h-14 w-full" />
+              <Skeleton className="h-14 w-full" />
+            </div>
+            <div className="flex justify-end border-t pt-3">
+              <Skeleton className="h-9 w-32" />
+            </div>
+          </CardContent>
+        </Card>
+      ))}
+      <div className="flex justify-end gap-2">
+        <Skeleton className="h-9 w-20" />
+        <Skeleton className="h-9 w-32" />
+      </div>
+    </div>
+  );
+}
+
 export function MultiChannelSettingsForm() {
   const settingsQuery = useMultiChannelSettings();
   const saveMutation = useUpdateMultiChannelSettings();
@@ -100,7 +144,7 @@ export function MultiChannelSettingsForm() {
   const [testingId, setTestingId] = useState<string | null>(null);
 
   if (settingsQuery.isLoading) {
-    return <p className="text-sm text-muted-foreground">Loading notification settings...</p>;
+    return <NotificationSettingsSkeleton />;
   }
   if (settingsQuery.isError) {
     return (
