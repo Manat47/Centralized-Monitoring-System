@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { LoaderCircle, Plus, Send, Trash2, Webhook as WebhookIcon } from "lucide-react";
+import { Hash, LoaderCircle, Mail, MessageCircle, Plus, Send, Trash2, Webhook as WebhookIcon } from "lucide-react";
 
 import { useAllUsers } from "@/app/features/users/api/use-users";
 import { Button } from "@/components/ui/button";
@@ -26,6 +26,18 @@ const labels: Record<NotificationChannel, string> = {
   line: "LINE",
   slack: "Slack",
   webhook: "Webhook",
+};
+const channelIcons = {
+  email: Mail,
+  line: MessageCircle,
+  slack: Hash,
+  webhook: WebhookIcon,
+};
+const channelIconStyles: Record<NotificationChannel, string> = {
+  email: "bg-sky-50 text-sky-700 dark:bg-sky-950/40 dark:text-sky-300",
+  line: "bg-green-50 text-green-700 dark:bg-green-950/40 dark:text-green-300",
+  slack: "bg-fuchsia-50 text-fuchsia-700 dark:bg-fuchsia-950/40 dark:text-fuchsia-300",
+  webhook: "bg-violet-50 text-violet-700 dark:bg-violet-950/40 dark:text-violet-300",
 };
 const placeholders: Record<NotificationChannel, string> = {
   email: "recipient@example.com",
@@ -346,6 +358,7 @@ export function MultiChannelSettingsForm() {
       )}
 
       {current.recipients.map((recipient) => {
+        const ChannelIcon = channelIcons[recipient.channel];
         const systemUser = recipient.channel === "email"
           ? usersQuery.data?.find((user) => user.email.trim().toLowerCase() === recipient.destination.trim().toLowerCase())
           : undefined;
@@ -354,11 +367,9 @@ export function MultiChannelSettingsForm() {
             <CardContent className="space-y-4 pt-5">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="flex items-center gap-3">
-                  {recipient.channel === "webhook" && (
-                    <span className="flex size-8 items-center justify-center rounded-md bg-violet-50 text-violet-700 dark:bg-violet-950/40 dark:text-violet-300">
-                      <WebhookIcon className="size-4" aria-hidden="true" />
-                    </span>
-                  )}
+                  <span className={`flex size-8 items-center justify-center rounded-md ${channelIconStyles[recipient.channel]}`}>
+                    <ChannelIcon className="size-4" aria-hidden="true" />
+                  </span>
                   <span className="rounded bg-blue-50 px-2 py-1 text-xs font-semibold text-blue-700">
                     {labels[recipient.channel]}
                   </span>
