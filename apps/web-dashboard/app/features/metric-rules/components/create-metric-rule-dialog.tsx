@@ -172,7 +172,8 @@ export function CreateMetricRuleDialog() {
     .map((rule) => rule.metricType));
   const warning = Number(form.warningThreshold);
   const critical = Number(form.criticalThreshold);
-  const thresholdUnit = metrics.find((metric) => metric.value === form.metricType)?.unit ?? "%";
+  const selectedMetric = metrics.find((metric) => metric.value === form.metricType);
+  const thresholdUnit = selectedMetric?.unit ?? "%";
   const criticalThresholdError = thresholdError(form.criticalThreshold);
   const warningThresholdError = form.warningEnabled ? thresholdError(form.warningThreshold) : null;
   const criticalDurationError = durationError(form.criticalDuration, form.criticalDurationUnit);
@@ -255,7 +256,7 @@ export function CreateMetricRuleDialog() {
             <div className="grid gap-2">
               <Label htmlFor="rule-metric">Metric</Label>
               <Select value={form.metricType} onValueChange={(value) => setForm((current) => ({ ...current, metricType: (value ?? "CPU_USAGE") as MetricRuleType }))}>
-                <SelectTrigger id="rule-metric" className="w-full"><SelectValue /></SelectTrigger>
+                <SelectTrigger id="rule-metric" className="w-full"><SelectValue>{selectedMetric?.label ?? form.metricType}</SelectValue></SelectTrigger>
                 <SelectContent>
                   {metrics.map((metric) => <SelectItem key={metric.value} value={metric.value} disabled={configured.has(metric.value)}>
                     {metric.label}{configured.has(metric.value) ? " (rule exists — edit it instead)" : ""}
