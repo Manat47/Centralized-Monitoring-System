@@ -106,6 +106,21 @@ describe('LineNotificationSender adapter', () => {
     );
   });
 
+  it('includes an absolute Explorer URL in the push message', async () => {
+    const config = { get: () => 'line-token' } as unknown as ConfigService;
+    post.mockResolvedValueOnce({});
+    await new LineNotificationSender(config).sendAlert({
+      ...input,
+      alert: { ...input.alert, actionUrl: 'https://monitor.example/explorer' },
+    });
+    const payload = post.mock.calls[0]?.[1] as {
+      messages: Array<{ text: string }>;
+    };
+    expect(payload.messages[0].text).toContain(
+      'Open: https://monitor.example/explorer',
+    );
+  });
+
   it('returns a permanent failure if the token is missing', async () => {
     const config = { get: () => undefined } as unknown as ConfigService;
     expect(
@@ -127,6 +142,21 @@ describe('SlackNotificationSender adapter', () => {
     expect(post).toHaveBeenCalledWith(
       'recipient',
       { text: '*Endpoint unavailable*\nConnection refused' },
+      { timeout: 10000 },
+    );
+  });
+
+  it('includes an absolute Explorer URL in the webhook text', async () => {
+    post.mockResolvedValueOnce({});
+    await new SlackNotificationSender().sendAlert({
+      ...input,
+      alert: { ...input.alert, actionUrl: 'https://monitor.example/explorer' },
+    });
+    expect(post).toHaveBeenCalledWith(
+      'recipient',
+      {
+        text: '*Endpoint unavailable*\nConnection refused\nOpen: https://monitor.example/explorer',
+      },
       { timeout: 10000 },
     );
   });

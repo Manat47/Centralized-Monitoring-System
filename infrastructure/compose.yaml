@@ -378,6 +378,7 @@ services:
       - ../services/notification-service/.env
     environment:
       PORT: 3003
+      DASHBOARD_PUBLIC_URL: ${DASHBOARD_PUBLIC_URL:-http://localhost:3010}
       DATABASE_URL: postgresql://${NOTIFICATION_DB_USER}:${NOTIFICATION_DB_PASSWORD}@notification-db:5432/${NOTIFICATION_DB_NAME}
       RABBITMQ_URL: amqp://${RABBITMQ_USER}:${RABBITMQ_PASSWORD}@rabbitmq:5672
       RABBITMQ_NOTIFICATION_QUEUE: notification_events

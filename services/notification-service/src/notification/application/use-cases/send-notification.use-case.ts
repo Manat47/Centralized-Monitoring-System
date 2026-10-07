@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 
 import type { NotificationEvent } from '../contracts/notification-event.contract';
 import {
@@ -8,12 +9,36 @@ import {
 
 @Injectable()
 export class SendNotificationUseCase {
-  constructor(private readonly executionRouter: NotificationExecutionRouter) {}
+  constructor(
+    private readonly executionRouter: NotificationExecutionRouter,
+    private readonly config: ConfigService,
+  ) {}
+
+  private explorerUrl(path: string): string | undefined {
+    const configured = this.config.get<string>('DASHBOARD_PUBLIC_URL');
+    if (!configured) return undefined;
+    try {
+      const base = new URL(configured);
+      const url = new URL(path, base);
+      if (
+        !['http:', 'https:'].includes(base.protocol) ||
+        base.username ||
+        base.password ||
+        url.origin !== base.origin ||
+        url.pathname !== '/explorer'
+      )
+        return undefined;
+      return url.toString();
+    } catch {
+      return undefined;
+    }
+  }
 
   async execute(
     event: NotificationEvent,
   ): Promise<NotificationExecutionReport> {
     if (event.eventType === 'log_finding_alert') {
+      const actionUrl = this.explorerUrl(event.deepLink);
       return this.executionRouter.execute({
         alertId: event.eventId,
         assetId: null,
@@ -26,7 +51,8 @@ export class SendNotificationUseCase {
         alertType: 'LOG_FINDING',
         metricType: 'LOG_FINDING',
         title: event.isSummary ? `${event.title} (summary)` : event.title,
-        message: `${event.countOverflow ? '> 10,000' : event.matchCount} matching logs in ${event.timeWindowSeconds}s from ${event.service}.\n${event.snippet}\nOpen: ${event.deepLink}`,
+        message: `${event.countOverflow ? '> 10,000' : event.matchCount} matching logs in ${event.timeWindowSeconds}s from ${event.service}.\n${event.snippet}`,
+        actionUrl,
         occurredAt: new Date(event.timestamp),
       });
     }

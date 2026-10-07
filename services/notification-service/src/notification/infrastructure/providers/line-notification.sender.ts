@@ -33,7 +33,7 @@ export class LineNotificationSender implements NotificationSenderPort {
           messages: [
             {
               type: 'text',
-              text: `${input.alert.title}\n${input.alert.message}`.slice(
+              text: `${input.alert.title}\n${input.alert.message}${input.alert.actionUrl ? `\nOpen: ${input.alert.actionUrl}` : ''}`.slice(
                 0,
                 5000,
               ),

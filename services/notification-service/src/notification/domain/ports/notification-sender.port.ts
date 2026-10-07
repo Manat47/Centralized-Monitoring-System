@@ -14,6 +14,7 @@ export interface SendNotificationInput {
   resolutionReason?: string;
   title: string;
   message: string;
+  actionUrl?: string;
   occurredAt: Date;
 }
 

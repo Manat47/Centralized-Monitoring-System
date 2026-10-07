@@ -40,6 +40,7 @@ export function buildAlertEmail(
     headline,
     '',
     input.message,
+    ...(input.actionUrl ? [`Open: ${input.actionUrl}`] : []),
     '',
     `Signal: ${metricLabel}`,
     `${eventTimeLabel}: ${occurredAt}`,
@@ -153,6 +154,8 @@ export function buildAlertEmail(
                 >
                   ${escapeHtml(input.message)}
                 </p>
+
+                ${input.actionUrl ? `<p style="margin:18px 0 0;"><a href="${escapeHtml(input.actionUrl)}" style="display:inline-block;padding:10px 16px;border-radius:6px;background:#2563eb;color:#ffffff;text-decoration:none;font-size:14px;font-weight:600;">Open Log Explorer</a></p>` : ''}
 
                 <div
                   style="

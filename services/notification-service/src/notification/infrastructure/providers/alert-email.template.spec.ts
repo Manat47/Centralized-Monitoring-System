@@ -66,4 +66,24 @@ describe('buildAlertEmail', () => {
     expect(email.text).toContain('Rule ID: rule-1');
     expect(email.html).toContain('Database errors');
   });
+
+  it('renders an absolute Explorer link as a clickable email action', () => {
+    const url =
+      'https://monitor.example/explorer?projectId=c4259ce4-c164-4b62-a11a-8aa01d939096';
+    const email = buildAlertEmail({
+      ...input,
+      assetId: null,
+      alertType: 'LOG_FINDING',
+      metricType: 'LOG_FINDING',
+      status: 'TRIGGERED',
+      message: '3 matching logs in 60s from qa_finding.',
+      actionUrl: url,
+    });
+
+    expect(email.text).toContain(`Open: ${url}`);
+    expect(email.html).toContain(
+      `href="https://monitor.example/explorer?projectId=c4259ce4-c164-4b62-a11a-8aa01d939096"`,
+    );
+    expect(email.html).toContain('Open Log Explorer');
+  });
 });

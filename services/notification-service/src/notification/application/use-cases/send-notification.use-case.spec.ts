@@ -1,4 +1,5 @@
 import type { NotificationExecutionRouter } from '../services/notification-execution.router';
+import type { ConfigService } from '@nestjs/config';
 import { SendNotificationUseCase } from './send-notification.use-case';
 
 describe('SendNotificationUseCase', () => {
@@ -6,7 +7,10 @@ describe('SendNotificationUseCase', () => {
   const router = {
     execute: executeMock,
   } as unknown as jest.Mocked<NotificationExecutionRouter>;
-  const useCase = new SendNotificationUseCase(router);
+  const config = {
+    get: jest.fn().mockReturnValue('https://monitor.example'),
+  } as unknown as ConfigService;
+  const useCase = new SendNotificationUseCase(router, config);
 
   beforeEach(() => jest.clearAllMocks());
 
@@ -79,7 +83,7 @@ describe('SendNotificationUseCase', () => {
       countOverflow: false,
       timeWindowSeconds: 60,
       snippet: 'Connection refused',
-      deepLink: '/explorer',
+      deepLink: '/explorer?projectId=c4259ce4-c164-4b62-a11a-8aa01d939096',
       timestamp: '2026-10-05T00:00:00.000Z',
       isSummary: false,
     });
@@ -91,9 +95,34 @@ describe('SendNotificationUseCase', () => {
         alertType: 'LOG_FINDING',
         severity: 'CRITICAL',
         title: 'Database errors',
+        actionUrl:
+          'https://monitor.example/explorer?projectId=c4259ce4-c164-4b62-a11a-8aa01d939096',
       }),
     );
     const calls = executeMock.mock.calls as Array<[{ message: string }]>;
     expect(calls[0][0].message).toContain('Connection refused');
+    expect(calls[0][0].message).not.toContain('Open: /explorer');
+  });
+
+  it('does not turn an external event path into a notification link', async () => {
+    await useCase.execute({
+      eventId: 'event-2',
+      eventType: 'log_finding_alert',
+      severity: 'high',
+      title: 'Database errors',
+      service: 'billing',
+      ruleId: 'rule-1',
+      fingerprint: 'fingerprint-2',
+      matchCount: 3,
+      countOverflow: false,
+      timeWindowSeconds: 60,
+      snippet: 'Connection refused',
+      deepLink: 'https://untrusted.example/explorer',
+      timestamp: '2026-10-05T00:00:00.000Z',
+      isSummary: false,
+    });
+    expect(executeMock).toHaveBeenCalledWith(
+      expect.objectContaining({ actionUrl: undefined }),
+    );
   });
 });

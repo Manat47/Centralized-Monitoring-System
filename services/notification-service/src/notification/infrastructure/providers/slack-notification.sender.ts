@@ -16,7 +16,9 @@ export class SlackNotificationSender implements NotificationSenderPort {
     try {
       await axios.post(
         input.destination,
-        { text: `*${input.alert.title}*\n${input.alert.message}` },
+        {
+          text: `*${input.alert.title}*\n${input.alert.message}${input.alert.actionUrl ? `\nOpen: ${input.alert.actionUrl}` : ''}`,
+        },
         { timeout: 10000 },
       );
       return { success: true, isTransientError: false };
