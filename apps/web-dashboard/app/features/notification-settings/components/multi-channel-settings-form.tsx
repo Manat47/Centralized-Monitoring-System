@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { LoaderCircle, Plus, Send, Trash2 } from "lucide-react";
+import { LoaderCircle, Plus, Send, Trash2, Webhook as WebhookIcon } from "lucide-react";
 
 import { useAllUsers } from "@/app/features/users/api/use-users";
 import { Button } from "@/components/ui/button";
@@ -310,6 +310,11 @@ export function MultiChannelSettingsForm() {
             <CardContent className="space-y-4 pt-5">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="flex items-center gap-3">
+                  {recipient.channel === "webhook" && (
+                    <span className="flex size-8 items-center justify-center rounded-md bg-violet-50 text-violet-700 dark:bg-violet-950/40 dark:text-violet-300">
+                      <WebhookIcon className="size-4" aria-hidden="true" />
+                    </span>
+                  )}
                   <span className="rounded bg-blue-50 px-2 py-1 text-xs font-semibold text-blue-700">
                     {labels[recipient.channel]}
                   </span>
