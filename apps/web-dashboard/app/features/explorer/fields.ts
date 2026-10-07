@@ -12,7 +12,7 @@ export const DEFAULT_FIELD_IDS = ["receivedAt", "severity", "clientIp", "event_t
 const standardFields: ExplorerField[] = [
   { id: "receivedAt", label: "Received (Bangkok)", kind: "text" },
   { id: "severity", label: "Severity", kind: "text", queryPrefix: "severity:" },
-  { id: "clientIp", label: "Client IP", kind: "text", queryPrefix: "ip:" },
+  { id: "clientIp", label: "Reported client IP", kind: "text", queryPrefix: "ip:" },
   { id: "event_type", label: "Event type", kind: "text", queryPrefix: "event_type:" },
   { id: "message", label: "Message / preview", kind: "text", queryPrefix: "message:" },
   { id: "source", label: "Source", kind: "text", queryPrefix: "source:" },

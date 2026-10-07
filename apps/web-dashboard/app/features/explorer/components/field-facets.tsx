@@ -37,6 +37,7 @@ export function FieldFacets({ fields, selected, onToggle, onAddFilter }: {
   return <aside aria-label="Available fields" className="min-w-0 self-start rounded-xl border border-slate-200 bg-white p-3 shadow-sm lg:sticky lg:top-20">
     <h2 className="text-sm font-semibold text-slate-900">Available fields</h2>
     <p className="mt-1 text-xs text-slate-500">Columns from standard fields and the first 100 loaded payloads.</p>
+    <p className="mt-1 text-xs text-slate-500">Reported client IP comes from the sender&apos;s <code>client.ip</code> field. A dash means it was not supplied.</p>
     <input type="search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Find field..." aria-label="Find field" className="mt-3 h-9 w-full rounded-md border border-slate-200 px-3 text-sm outline-none focus:border-blue-500" />
     <div className="mt-4 max-h-[38rem] space-y-4 overflow-y-auto">
       {group("Selected fields", selectedFields)}
