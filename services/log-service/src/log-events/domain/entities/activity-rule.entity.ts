@@ -7,6 +7,7 @@ export interface ActivityRule {
   eventType: string;
   conditionField: string;
   conditionValue: string;
+  sourceFilter?: string | null;
   groupBy: 'project' | 'client.ip' | 'user_id' | 'token_id';
   dataSource: 'ACCEPTED_RECORDS' | 'LOG_API_REQUESTS';
   threshold: number;
@@ -43,6 +44,7 @@ export function matchActivityRule(
     !rule.enabled ||
     rule.dataSource !== 'ACCEPTED_RECORDS' ||
     rule.eventType !== event.event_type ||
+    (rule.sourceFilter && rule.sourceFilter !== event.source) ||
     ruleValue(event, rule.conditionField) !== rule.conditionValue
   )
     return null;

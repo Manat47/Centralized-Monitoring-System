@@ -16,6 +16,7 @@ export interface RuleDraft {
   eventType: string;
   conditionField: string;
   conditionValue: string;
+  sourceFilter?: string | null;
   groupBy: 'project' | 'client.ip' | 'user_id' | 'token_id';
   threshold: number;
   windowMinutes: number;

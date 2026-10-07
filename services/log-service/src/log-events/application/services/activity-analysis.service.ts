@@ -59,6 +59,10 @@ export class ActivityAnalysisService {
         : rawValue;
     const dataSource = input?.dataSource;
     const requestRule = dataSource === 'LOG_API_REQUESTS';
+    const sourceFilter =
+      typeof input?.sourceFilter === 'string'
+        ? input.sourceFilter.trim()
+        : null;
     if (
       !name ||
       name.length > 100 ||
@@ -66,6 +70,11 @@ export class ActivityAnalysisService {
       eventType.length > 100 ||
       !value ||
       value.length > 256 ||
+      (input?.sourceFilter != null && typeof input.sourceFilter !== 'string') ||
+      (sourceFilter !== null &&
+        (sourceFilter.length === 0 ||
+          sourceFilter.length > 100 ||
+          requestRule)) ||
       !['ACCEPTED_RECORDS', 'LOG_API_REQUESTS'].includes(dataSource) ||
       (requestRule
         ? eventType !== 'log_api.request' ||
@@ -103,6 +112,7 @@ export class ActivityAnalysisService {
       eventType,
       conditionField: field,
       conditionValue: value,
+      sourceFilter,
       groupBy: input.groupBy,
       threshold: input.threshold,
       windowMinutes: input.windowMinutes,

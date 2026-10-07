@@ -26,16 +26,16 @@ export interface LogPage {
 }
 export interface ActivityRule {
   ruleId: string; name: string; eventType: string; conditionField: string;
-  conditionValue: string; groupBy: "project" | "client.ip" | "user_id" | "token_id"; threshold: number;
+  conditionValue: string; sourceFilter: string | null; groupBy: "project" | "client.ip" | "user_id" | "token_id"; threshold: number;
   windowMinutes: number; enabled: boolean; createdAt: string; sampleCount?: number;
   waitingForData?: boolean; dataSource: "ACCEPTED_RECORDS" | "LOG_API_REQUESTS";
 }
-export type ActivityRuleDraft = Pick<ActivityRule, "name" | "eventType" | "conditionField" | "conditionValue" | "groupBy" | "threshold" | "windowMinutes" | "dataSource">;
+export type ActivityRuleDraft = Pick<ActivityRule, "name" | "eventType" | "sourceFilter" | "conditionField" | "conditionValue" | "groupBy" | "threshold" | "windowMinutes" | "dataSource">;
 export interface ActivityFinding {
   findingId: string; ruleId: string; ruleName: string; groupValue: string;
   matchedCount: number; triggeredAt: string; windowStart: string; eventId: string;
   dataSource: "ACCEPTED_RECORDS" | "LOG_API_REQUESTS"; eventType: string; conditionField: string;
-  conditionValue: string; groupBy: string;
+  conditionValue: string; sourceFilter: string | null; groupBy: string;
 }
 export interface FindingPage { items: ActivityFinding[]; nextOffset: number | null }
 

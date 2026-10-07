@@ -29,6 +29,8 @@ function rule(row: Row): ActivityRule {
     eventType: String(row.event_type),
     conditionField: String(row.condition_field),
     conditionValue: String(row.condition_value),
+    sourceFilter:
+      typeof row.source_filter === 'string' ? row.source_filter : null,
     groupBy: row.group_by as ActivityRule['groupBy'],
     threshold: Number(row.threshold),
     windowMinutes: Number(row.window_minutes),
@@ -85,6 +87,7 @@ export class PostgresActivityRepository
          AND (r.group_by='project' OR (r.group_by='token_id' AND q.token_id IS NOT NULL)))
       ELSE (SELECT count(*) FROM log_event_records e WHERE e.project_id=r.project_id
        AND e.received_at >= now() - interval '24 hours' AND e.event_type=r.event_type
+        AND (r.source_filter IS NULL OR e.source=r.source_filter)
        AND CASE r.condition_field
          WHEN 'source' THEN e.source WHEN 'event_type' THEN e.event_type
          WHEN 'severity' THEN e.severity WHEN 'client.ip' THEN e.client_ip
@@ -135,8 +138,14 @@ export class PostgresActivityRepository
       `SELECT count(*)::text AS matching,
       count(*) FILTER (WHERE ${group})::text AS usable FROM log_event_records e
       WHERE e.project_id=$1 AND e.received_at >= now() - interval '24 hours'
-        AND e.event_type=$2 AND ${column[draft.conditionField]}=$3`,
-      [projectId, draft.eventType, draft.conditionValue],
+        AND e.event_type=$2 AND ${column[draft.conditionField]}=$3
+        AND ($4::text IS NULL OR e.source=$4)`,
+      [
+        projectId,
+        draft.eventType,
+        draft.conditionValue,
+        draft.sourceFilter ?? null,
+      ],
     );
     return {
       matchingRecords: Number(rows.rows[0]?.matching ?? 0),
@@ -188,8 +197,8 @@ export class PostgresActivityRepository
     return this.db.transaction(async (client) => {
       const rows = await client.query<Row>(
         `INSERT INTO log_detection_rules
-        (rule_id,project_id,name,event_type,condition_field,condition_value,group_by,threshold,window_minutes,data_source)
-        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING *`,
+        (rule_id,project_id,name,event_type,condition_field,condition_value,group_by,threshold,window_minutes,data_source,source_filter)
+        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING *`,
         [
           randomUUID(),
           projectId,
@@ -201,6 +210,7 @@ export class PostgresActivityRepository
           draft.threshold,
           draft.windowMinutes,
           draft.dataSource,
+          draft.sourceFilter ?? null,
         ],
       );
       const created = rule(rows.rows[0]);
@@ -433,7 +443,7 @@ export class PostgresActivityRepository
   async findings(projectId: string, limit: number, offset: number) {
     const rows = await this.db.query<Row>(
       `SELECT f.finding_id AS "findingId",f.rule_id AS "ruleId",r.name AS "ruleName",
-      r.event_type AS "eventType",r.condition_field AS "conditionField",r.condition_value AS "conditionValue",
+      r.event_type AS "eventType",r.condition_field AS "conditionField",r.condition_value AS "conditionValue",r.source_filter AS "sourceFilter",
       r.group_by AS "groupBy",r.data_source AS "dataSource",f.group_value AS "groupValue",
       f.matched_count AS "matchedCount",f.triggered_at AS "triggeredAt",f.window_start AS "windowStart",
       f.event_id AS "eventId",f.request_id AS "requestId" FROM log_detection_findings f JOIN log_detection_rules r ON r.rule_id=f.rule_id

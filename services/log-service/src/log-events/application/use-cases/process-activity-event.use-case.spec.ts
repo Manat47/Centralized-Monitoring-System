@@ -52,6 +52,25 @@ describe('record detection', () => {
     ]);
   });
 
+  it('requires both source and severity when a source filter is configured', async () => {
+    const filteredRule = { ...rule, sourceFilter: 'payment_gateway' };
+    activeRules.mockResolvedValueOnce([filteredRule]);
+    await useCase.execute('project-1', event);
+    expect(process).toHaveBeenCalledWith('project-1', event, [
+      { rule: filteredRule, groupValue: '203.0.113.195' },
+    ]);
+
+    const otherSource = { ...event, source: 'checkout' };
+    activeRules.mockResolvedValueOnce([filteredRule]);
+    await useCase.execute('project-1', otherSource);
+    expect(process).toHaveBeenLastCalledWith('project-1', otherSource, []);
+
+    const otherSeverity = { ...event, severity: 'WARN' as const };
+    activeRules.mockResolvedValueOnce([filteredRule]);
+    await useCase.execute('project-1', otherSeverity);
+    expect(process).toHaveBeenLastCalledWith('project-1', otherSeverity, []);
+  });
+
   it('stores old records without generating findings', async () => {
     const old = { ...event, timestamp: '2026-09-29T10:42:30Z' };
     await useCase.execute('project-1', old);
