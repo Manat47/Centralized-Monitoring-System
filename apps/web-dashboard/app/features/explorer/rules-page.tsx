@@ -17,9 +17,12 @@ export function ExplorerRulesPage() {
     projectApi.list().then((items) => {
       if (!active) return;
       setProjects(items);
-      if (!projectId && items.length) {
+      if (items.length && !items.some((item) => item.projectId === projectId)) {
         const saved = window.localStorage.getItem("selected-log-project");
-        router.replace(`/explorer/rules?projectId=${encodeURIComponent(items.find((item) => item.projectId === saved)?.projectId ?? items[0].projectId)}`);
+        const selected = items.find((item) => item.projectId === saved)?.projectId ?? items[0].projectId;
+        window.localStorage.setItem("selected-log-project", selected);
+        window.dispatchEvent(new Event("log-project-selected"));
+        router.replace(`/explorer/rules?projectId=${encodeURIComponent(selected)}`);
       }
     }).catch((cause: unknown) => { if (active) setError(cause instanceof Error ? cause.message : "Could not load projects"); });
     return () => { active = false; };

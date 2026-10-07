@@ -66,8 +66,10 @@ export function ExplorerPage() {
       if (!active) return;
       setProjects(items);
       const saved = window.localStorage.getItem("selected-log-project");
-      if (!projectId && items.length) {
+      if (items.length && !items.some((item) => item.projectId === projectId)) {
         const selected = items.find((item) => item.projectId === saved)?.projectId ?? items[0].projectId;
+        window.localStorage.setItem("selected-log-project", selected);
+        window.dispatchEvent(new Event("log-project-selected"));
         updateUrl({ projectId: selected });
       }
     }).catch((cause) => { if (active) setProjectError(message(cause)); });
@@ -99,6 +101,7 @@ export function ExplorerPage() {
 
   function selectProject(id: string) {
     window.localStorage.setItem("selected-log-project", id);
+    window.dispatchEvent(new Event("log-project-selected"));
     setPage(null); setRecords([]);
     updateUrl({ projectId: id });
   }

@@ -165,9 +165,21 @@ export function DashboardNavigation({
   const { user } = useAuth();
   const [projects, setProjects] = useState<Project[]>([]);
   const [savedProjectId, setSavedProjectId] = useState("");
+  const [projectLoadState, setProjectLoadState] = useState<"loading" | "ready" | "error">("loading");
+  const [projectReload, setProjectReload] = useState(0);
   const fromPath = pathname.match(/^\/projects\/([^/]+)/)?.[1];
-  const requestedProjectId = fromPath ?? searchParams.get("projectId") ?? savedProjectId;
-  const selectedProjectId = projects.some((item) => item.projectId === requestedProjectId) ? requestedProjectId : "";
+  const selectedProjectId = [fromPath, searchParams.get("projectId"), savedProjectId]
+    .find((id) => id && projects.some((item) => item.projectId === id)) ?? projects[0]?.projectId ?? "";
+
+  useEffect(() => {
+    const updateSavedProject = () => setSavedProjectId(window.localStorage.getItem("selected-log-project") ?? "");
+    window.addEventListener("log-project-selected", updateSavedProject);
+    window.addEventListener("storage", updateSavedProject);
+    return () => {
+      window.removeEventListener("log-project-selected", updateSavedProject);
+      window.removeEventListener("storage", updateSavedProject);
+    };
+  }, []);
 
   useEffect(() => {
     if (!user) return;
@@ -176,9 +188,12 @@ export function DashboardNavigation({
       if (!active) return;
       setProjects(items);
       setSavedProjectId(window.localStorage.getItem("selected-log-project") ?? "");
-    }).catch(() => undefined);
+      setProjectLoadState("ready");
+    }).catch(() => {
+      if (active) setProjectLoadState("error");
+    });
     return () => { active = false; };
-  }, [user]);
+  }, [user, projectReload]);
 
   function selectProject(id: string) {
     setSavedProjectId(id);
@@ -230,10 +245,11 @@ export function DashboardNavigation({
               ) : (
                 <div className="mb-2 px-2">
                   <label htmlFor={projectSelectId} className="mb-1 block text-[10px] font-semibold tracking-[0.14em] text-slate-500">PROJECT</label>
-                  <select id={projectSelectId} aria-label="Select log project" value={selectedProjectId} onChange={(event) => selectProject(event.target.value)} className="h-9 w-full rounded-md border border-slate-700 bg-slate-900 px-2 text-sm text-slate-100">
-                    <option value="">Choose project</option>
+                  <select id={projectSelectId} aria-label="Select log project" value={selectedProjectId} disabled={projectLoadState !== "ready" || projects.length === 0} onChange={(event) => selectProject(event.target.value)} className="h-9 w-full rounded-md border border-slate-700 bg-slate-900 px-2 text-sm text-slate-100 disabled:opacity-60">
+                    <option value="" disabled={projectLoadState === "ready" && projects.length > 0}>{projectLoadState === "loading" ? "Loading projects..." : projectLoadState === "error" ? "Projects unavailable" : projects.length === 0 ? "No projects yet" : "Choose project"}</option>
                     {projects.map((project) => <option key={project.projectId} value={project.projectId}>{project.name}</option>)}
                   </select>
+                  {projectLoadState === "error" && <button type="button" onClick={() => { setProjectLoadState("loading"); setProjectReload((value) => value + 1); }} className="mt-1 text-xs text-blue-300 underline">Retry loading projects</button>}
                 </div>
               ))}
 
