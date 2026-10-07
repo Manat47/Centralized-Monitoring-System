@@ -145,6 +145,56 @@ describe('NotificationExecutionRouter', () => {
     expect(slack.sendAlert).not.toHaveBeenCalled();
   });
 
+  it('attempts every recipient at the same priority before stopping', async () => {
+    repository.getConfiguration.mockResolvedValue({
+      isFallbackEnabled: true,
+      recipients: [
+        recipient('email-1', 'email', 1),
+        recipient('email-2', 'email', 1),
+        recipient('slack-1', 'slack', 2),
+      ],
+    });
+    email.sendAlert
+      .mockResolvedValueOnce({ success: true, isTransientError: false })
+      .mockResolvedValueOnce({ success: false, isTransientError: false });
+
+    const result = await router.execute(alert);
+
+    expect(email.sendAlert).toHaveBeenCalledTimes(2);
+    expect(slack.sendAlert).not.toHaveBeenCalled();
+    expect(
+      result.deliveries.map(({ recipient: item }) => item.recipientId),
+    ).toEqual(['email-1', 'email-2']);
+    expect(result).toMatchObject({ sentCount: 1, failedCount: 1 });
+  });
+
+  it('tries the next priority only when every recipient at the current priority fails', async () => {
+    repository.getConfiguration.mockResolvedValue({
+      isFallbackEnabled: true,
+      recipients: [
+        recipient('email-1', 'email', 1),
+        recipient('email-2', 'email', 1),
+        recipient('slack-1', 'slack', 2),
+      ],
+    });
+    email.sendAlert.mockResolvedValue({
+      success: false,
+      isTransientError: false,
+    });
+    slack.sendAlert.mockResolvedValueOnce({
+      success: true,
+      isTransientError: false,
+    });
+
+    const result = await router.execute(alert);
+
+    expect(email.sendAlert).toHaveBeenCalledTimes(2);
+    expect(slack.sendAlert).toHaveBeenCalledTimes(1);
+    expect(
+      result.deliveries.map(({ recipient: item }) => item.recipientId),
+    ).toEqual(['email-1', 'email-2', 'slack-1']);
+  });
+
   it('retries transient errors twice with bounded backoff, then falls back', async () => {
     jest.useFakeTimers();
     repository.getConfiguration.mockResolvedValue({

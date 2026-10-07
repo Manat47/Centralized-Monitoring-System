@@ -100,7 +100,42 @@ describe('ManageNotificationSettingsUseCase', () => {
     expect(publishMock).toHaveBeenCalledTimes(1);
   });
 
-  it('rejects duplicate fallback priority', async () => {
+  it('allows recipients to share a fallback priority', async () => {
+    const recipients = [
+      {
+        channel: 'email' as const,
+        name: 'One',
+        destination: 'one@example.com',
+        isEnabled: true,
+        priority: 1,
+      },
+      {
+        channel: 'email' as const,
+        name: 'Two',
+        destination: 'two@example.com',
+        isEnabled: true,
+        priority: 1,
+      },
+      {
+        channel: 'slack' as const,
+        name: 'Backup',
+        destination: 'https://hooks.slack.com/services/test',
+        isEnabled: true,
+        priority: 2,
+      },
+    ];
+
+    await useCase.update({ isFallbackEnabled: true, recipients }, actor);
+
+    expect(replaceMock).toHaveBeenCalledTimes(1);
+    expect(
+      replaceMock.mock.calls[0][0].recipients.map(
+        (recipient) => recipient.priority,
+      ),
+    ).toEqual([1, 1, 2]);
+  });
+
+  it('rejects a gap between fallback priority levels on save', async () => {
     await expect(
       useCase.update(
         {
@@ -119,6 +154,13 @@ describe('ManageNotificationSettingsUseCase', () => {
               destination: 'two@example.com',
               isEnabled: true,
               priority: 1,
+            },
+            {
+              channel: 'slack',
+              name: 'Backup',
+              destination: 'https://hooks.slack.com/services/test',
+              isEnabled: true,
+              priority: 3,
             },
           ],
         },

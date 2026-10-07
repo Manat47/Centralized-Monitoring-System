@@ -159,12 +159,12 @@ export class ManageNotificationSettingsUseCase {
       const priorities = recipients
         .filter((recipient) => recipient.isEnabled)
         .map((recipient) => recipient.priority);
-      const ordered = [...priorities].sort(
+      const ordered = [...new Set(priorities)].sort(
         (left, right) => (left ?? 0) - (right ?? 0),
       );
       if (ordered.some((priority, index) => priority !== index + 1)) {
         throw new BadRequestException(
-          'Enabled fallback priorities must be 1 through N without duplicates',
+          'Enabled fallback priority levels must be consecutive from 1',
         );
       }
     }

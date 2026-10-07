@@ -64,10 +64,22 @@ export class NotificationExecutionRouter {
           (right.priority ?? Number.POSITIVE_INFINITY) ||
         left.recipientId.localeCompare(right.recipientId),
     );
-    for (const recipient of orderedRecipients) {
-      const delivery = await this.sendWithRetry(recipient, alert);
-      deliveries.push(delivery);
-      if (delivery.result.success) break;
+    for (let index = 0; index < orderedRecipients.length;) {
+      const priority = orderedRecipients[index].priority;
+      let levelSucceeded = false;
+      do {
+        const delivery = await this.sendWithRetry(
+          orderedRecipients[index],
+          alert,
+        );
+        deliveries.push(delivery);
+        levelSucceeded ||= delivery.result.success;
+        index += 1;
+      } while (
+        index < orderedRecipients.length &&
+        orderedRecipients[index].priority === priority
+      );
+      if (levelSucceeded) break;
     }
     return this.report('fallback', recipients.length, deliveries);
   }
