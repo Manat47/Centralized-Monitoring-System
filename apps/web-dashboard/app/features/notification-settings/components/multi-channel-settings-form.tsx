@@ -1,8 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { ArrowDown, ArrowUp, LoaderCircle, Plus, Send, Trash2 } from "lucide-react";
+import { LoaderCircle, Plus, Send, Trash2 } from "lucide-react";
 
+import { useAllUsers } from "@/app/features/users/api/use-users";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -16,6 +17,7 @@ import type {
   NotificationSettings,
   UpdateNotificationSettingsInput,
 } from "../types/notification-settings";
+import { RecipientPicker } from "./recipient-picker";
 
 const channels: NotificationChannel[] = ["email", "line", "slack", "webhook"];
 const labels: Record<NotificationChannel, string> = {
@@ -40,6 +42,7 @@ interface DraftRecipient {
   secretToken: string;
   hasSecretToken: boolean;
   isEnabled: boolean;
+  priority: number | null;
 }
 
 interface DraftSettings {
@@ -61,12 +64,12 @@ function makeDraft(settings: NotificationSettings): DraftSettings {
         secretToken: "",
         hasSecretToken: recipient.hasSecretToken,
         isEnabled: recipient.isEnabled,
+        priority: recipient.priority,
       })),
   };
 }
 
 function toPayload(draft: DraftSettings): UpdateNotificationSettingsInput {
-  let priority = 0;
   return {
     isFallbackEnabled: draft.isFallbackEnabled,
     recipients: draft.recipients.map((recipient) => ({
@@ -78,16 +81,20 @@ function toPayload(draft: DraftSettings): UpdateNotificationSettingsInput {
         ? { secretToken: recipient.secretToken.trim() }
         : {}),
       isEnabled: recipient.isEnabled,
-      priority:
-        draft.isFallbackEnabled && recipient.isEnabled ? ++priority : null,
+      priority: recipient.priority,
     })),
   };
+}
+
+function nextPriority(draft: DraftSettings): number {
+  return Math.max(0, ...draft.recipients.map((recipient) => recipient.priority ?? 0)) + 1;
 }
 
 export function MultiChannelSettingsForm() {
   const settingsQuery = useMultiChannelSettings();
   const saveMutation = useUpdateMultiChannelSettings();
   const testMutation = useTestNotificationChannel();
+  const usersQuery = useAllUsers();
   const [draft, setDraft] = useState<DraftSettings | null>(null);
   const [feedback, setFeedback] = useState<string | null>(null);
   const [testingId, setTestingId] = useState<string | null>(null);
@@ -107,9 +114,12 @@ export function MultiChannelSettingsForm() {
 
   const saved = settingsQuery.data ?? { isFallbackEnabled: false, recipients: [] };
   const current = draft ?? makeDraft(saved);
-  const enabledKeys = current.recipients
-    .filter((recipient) => recipient.isEnabled)
-    .map((recipient) => recipient.key);
+  const emailRecipients = current.recipients.filter((recipient) => recipient.channel === "email");
+  const priorityOptionCount = Math.max(
+    1,
+    current.recipients.length,
+    ...current.recipients.map((recipient) => recipient.priority ?? 0),
+  );
 
   function edit(transform: (value: DraftSettings) => DraftSettings) {
     setDraft((value) => transform(value ?? makeDraft(saved)));
@@ -138,22 +148,53 @@ export function MultiChannelSettingsForm() {
           secretToken: "",
           hasSecretToken: false,
           isEnabled: true,
+          priority: value.isFallbackEnabled ? nextPriority(value) : null,
         },
       ],
     }));
   }
 
-  function moveRecipient(key: string, direction: -1 | 1) {
+  function addEmail(email: string) {
+    const normalizedEmail = email.trim().toLowerCase();
+    const systemUser = usersQuery.data?.find(
+      (user) => user.email.trim().toLowerCase() === normalizedEmail,
+    );
     edit((value) => {
-      const ordered = [...value.recipients];
-      const enabled = ordered.filter((recipient) => recipient.isEnabled);
-      const position = enabled.findIndex((recipient) => recipient.key === key);
-      const neighbor = enabled[position + direction];
-      if (!neighbor) return value;
-      const from = ordered.findIndex((recipient) => recipient.key === key);
-      const to = ordered.findIndex((recipient) => recipient.key === neighbor.key);
-      [ordered[from], ordered[to]] = [ordered[to], ordered[from]];
-      return { ...value, recipients: ordered };
+      if (value.recipients.some(
+        (recipient) => recipient.channel === "email" && recipient.destination.toLowerCase() === normalizedEmail,
+      )) return value;
+      return {
+        ...value,
+        recipients: [
+          ...value.recipients,
+          {
+            key: crypto.randomUUID(),
+            channel: "email",
+            name: systemUser?.displayName ?? normalizedEmail,
+            destination: normalizedEmail,
+            secretToken: "",
+            hasSecretToken: false,
+            isEnabled: true,
+            priority: value.isFallbackEnabled ? nextPriority(value) : null,
+          },
+        ],
+      };
+    });
+  }
+
+  function setFallbackEnabled(enabled: boolean) {
+    edit((value) => {
+      if (!enabled) return { ...value, isFallbackEnabled: false };
+      let priority = Math.max(0, ...value.recipients.map((recipient) => recipient.priority ?? 0));
+      return {
+        ...value,
+        isFallbackEnabled: true,
+        recipients: value.recipients.map((recipient) =>
+          recipient.isEnabled && recipient.priority === null
+            ? { ...recipient, priority: ++priority }
+            : recipient,
+        ),
+      };
     });
   }
 
@@ -170,6 +211,17 @@ export function MultiChannelSettingsForm() {
     )) {
       setFeedback("Enter a signing secret for each new webhook.");
       return;
+    }
+    if (payload.isFallbackEnabled) {
+      const priorityLevels = [
+        ...new Set(payload.recipients
+          .filter((recipient) => recipient.isEnabled)
+          .map((recipient) => recipient.priority)),
+      ].sort((left, right) => (left ?? 0) - (right ?? 0));
+      if (priorityLevels.some((priority, index) => priority !== index + 1)) {
+        setFeedback("Enabled priority levels must be consecutive from 1 (for example: 1, 1, 2).");
+        return;
+      }
     }
     try {
       await saveMutation.mutateAsync(payload);
@@ -207,28 +259,41 @@ export function MultiChannelSettingsForm() {
               type="checkbox"
               role="switch"
               checked={current.isFallbackEnabled}
-              onChange={(event) =>
-                edit((value) => ({ ...value, isFallbackEnabled: event.target.checked }))
-              }
+              onChange={(event) => setFallbackEnabled(event.target.checked)}
               className="size-4 accent-blue-600"
             />
             Enable Fallback Routing
           </label>
           <p className="text-sm text-muted-foreground">
             {current.isFallbackEnabled
-              ? "Try enabled channels in priority order. Stop after the first success."
+              ? "Try every destination at the same priority, then stop if any succeeds."
               : "Send to every enabled channel at the same time."}
           </p>
         </CardContent>
       </Card>
 
       <div className="flex flex-wrap gap-2">
-        {channels.map((channel) => (
+        {channels.filter((channel) => channel !== "email").map((channel) => (
           <Button key={channel} type="button" variant="outline" onClick={() => addRecipient(channel)}>
             <Plus className="size-4" /> Add {labels[channel]}
           </Button>
         ))}
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Email recipients</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <RecipientPicker
+            users={usersQuery.data ?? []}
+            emails={emailRecipients.map((recipient) => recipient.destination.trim().toLowerCase())}
+            usersLoading={usersQuery.isLoading}
+            usersUnavailable={usersQuery.isError}
+            onAdd={addEmail}
+          />
+        </CardContent>
+      </Card>
 
       {current.recipients.length === 0 && (
         <p className="rounded-md border border-dashed p-6 text-center text-sm text-muted-foreground">
@@ -237,7 +302,9 @@ export function MultiChannelSettingsForm() {
       )}
 
       {current.recipients.map((recipient) => {
-        const position = enabledKeys.indexOf(recipient.key);
+        const systemUser = recipient.channel === "email"
+          ? usersQuery.data?.find((user) => user.email.trim().toLowerCase() === recipient.destination.trim().toLowerCase())
+          : undefined;
         return (
           <Card key={recipient.key}>
             <CardContent className="space-y-4 pt-5">
@@ -250,7 +317,12 @@ export function MultiChannelSettingsForm() {
                     <input
                       type="checkbox"
                       checked={recipient.isEnabled}
-                      onChange={(event) => updateRecipient(recipient.key, { isEnabled: event.target.checked })}
+                      onChange={(event) => updateRecipient(recipient.key, {
+                        isEnabled: event.target.checked,
+                        priority: event.target.checked && recipient.priority === null
+                          ? nextPriority(current)
+                          : recipient.priority,
+                      })}
                     />
                     Enabled
                   </label>
@@ -268,6 +340,14 @@ export function MultiChannelSettingsForm() {
                   <Trash2 className="size-4" /> Remove
                 </Button>
               </div>
+
+              {recipient.channel === "email" && (
+                <p className="text-xs text-muted-foreground">
+                  {systemUser
+                    ? `${systemUser.displayName} · ${systemUser.status === "ACTIVE" ? "System user" : "Inactive system user"}`
+                    : "External email"}
+                </p>
+              )}
 
               <div className="grid gap-4 md:grid-cols-2">
                 <label className="space-y-1 text-sm font-medium">
@@ -289,11 +369,20 @@ export function MultiChannelSettingsForm() {
 
               <div className="flex flex-wrap items-center justify-between gap-3 border-t pt-3">
                 {current.isFallbackEnabled && recipient.isEnabled ? (
-                  <div className="flex items-center gap-2 text-sm">
-                    <span className="font-medium">Priority {position + 1}</span>
-                    <Button type="button" size="sm" variant="outline" disabled={position <= 0} onClick={() => moveRecipient(recipient.key, -1)} aria-label={`Move ${recipient.name} up`}><ArrowUp className="size-4" /></Button>
-                    <Button type="button" size="sm" variant="outline" disabled={position >= enabledKeys.length - 1} onClick={() => moveRecipient(recipient.key, 1)} aria-label={`Move ${recipient.name} down`}><ArrowDown className="size-4" /></Button>
-                  </div>
+                  <label className="flex items-center gap-2 text-sm font-medium">
+                    Priority
+                    <select
+                      aria-label={`Priority for ${recipient.name}`}
+                      value={recipient.priority ?? ""}
+                      onChange={(event) => updateRecipient(recipient.key, { priority: Number(event.target.value) })}
+                      className="h-9 rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    >
+                      <option value="" disabled>Select</option>
+                      {Array.from({ length: priorityOptionCount }, (_, index) => index + 1).map((priority) => (
+                        <option key={priority} value={priority}>{priority}</option>
+                      ))}
+                    </select>
+                  </label>
                 ) : <span />}
                 <Button
                   type="button"
