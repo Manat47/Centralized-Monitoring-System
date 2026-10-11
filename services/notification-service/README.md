@@ -49,6 +49,7 @@ The settings UI uses `/api/notification-recipients` through the API Gateway.
 | `RABBITMQ_AUDIT_QUEUE` | Audit event queue; defaults to `audit_events` |
 | `SMTP_USER` | Gmail account used as the sender |
 | `SMTP_PASS` | Gmail app password or SMTP credential |
+| `DASHBOARD_PUBLIC_URL` | Public Dashboard origin for clickable Log Finding links (for example `https://monitor.example`) |
 
 ## Development
 
