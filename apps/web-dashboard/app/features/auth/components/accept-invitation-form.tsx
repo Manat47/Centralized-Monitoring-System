@@ -13,6 +13,7 @@ import {
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { cn } from "@/lib/utils";
 
 import {
   acceptInvitation,
@@ -166,10 +167,12 @@ export function AcceptInvitationForm({ token }: AcceptInvitationFormProps) {
         </p>
         <Link
           href="/login"
-          className={buttonVariants({
-            className:
-              "mt-7 h-11 w-full bg-white text-slate-950 hover:bg-slate-200",
-          })}
+          className={cn(
+            buttonVariants({
+              className:
+                "mt-7 h-11 w-full bg-white text-slate-950 hover:bg-slate-200 dark:bg-white dark:text-slate-950 dark:hover:bg-slate-200",
+            }),
+          )}
         >
           Sign in
         </Link>
