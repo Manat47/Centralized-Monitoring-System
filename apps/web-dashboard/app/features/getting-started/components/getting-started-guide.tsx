@@ -307,6 +307,23 @@ export function GettingStartedGuide() {
                       onCopy={handleCopy}
                     />
                   </div>
+                  <p className="mt-3 rounded-lg border border-blue-100 bg-blue-50 px-3 py-2 text-xs leading-5 text-slate-700">
+                    <span className="font-semibold text-blue-800">
+                      Node Exporter compatibility:
+                    </span>{" "}
+                    Use Prometheus Node Exporter 1.x for Server Monitoring. If
+                    installed via apt, update{" "}
+                    <code className="font-mono text-slate-800">
+                      prometheus-node-exporter
+                    </code>{" "}
+                    as needed, then check that{" "}
+                    <code className="font-mono text-slate-800">/metrics</code>{" "}
+                    contains{" "}
+                    <code className="font-mono text-slate-800">
+                      node_cpu_seconds_total
+                    </code>
+                    .
+                  </p>
                 </div>
               </div>
             </section>
@@ -545,7 +562,10 @@ export function GettingStartedGuide() {
                     </Link>
                     <Link
                       href="/monitoring-targets"
-                      className={buttonVariants({ className: "h-9 px-4" })}
+                      className={cn(
+                        buttonVariants({ className: "h-9 px-4" }),
+                        "bg-blue-600 text-white hover:bg-blue-700 active:bg-blue-800 dark:bg-blue-600 dark:text-white dark:hover:bg-blue-700",
+                      )}
                     >
                       Create Target
                       <ArrowRight data-icon="inline-end" />
