@@ -13,6 +13,7 @@ export class HttpHealthChecker implements HealthChecker {
     try {
       const response = await fetch(url, {
         method: 'GET',
+        headers: { 'User-Agent': 'Centralized-Monitoring-System/1.0' },
         signal: AbortSignal.timeout(5000),
       });
 
