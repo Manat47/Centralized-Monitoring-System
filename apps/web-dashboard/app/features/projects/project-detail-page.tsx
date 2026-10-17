@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useState, type FormEvent, type KeyboardEvent } from "react";
+import { useCallback, useEffect, useState, useSyncExternalStore, type FormEvent, type KeyboardEvent } from "react";
 import { Activity, ArrowLeft, CalendarDays, Copy, KeyRound, RefreshCw, Users } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -25,8 +25,11 @@ const date = (value: string) => new Intl.DateTimeFormat("en-GB", {
   dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Bangkok",
 }).format(new Date(value));
 const errorText = (cause: unknown) => cause instanceof Error ? cause.message : "Request failed";
+const subscribeToOrigin = () => () => {};
+const getBrowserOrigin = () => window.location.origin;
+const getServerOrigin = () => null;
 
-export function ProjectDetailPage({ projectId }: { projectId: string }) {
+export function ProjectDetailPage({ projectId, ingestEndpoint }: { projectId: string; ingestEndpoint: string | null }) {
   const [project, setProject] = useState<Project | null>(null);
   const [members, setMembers] = useState<Member[]>([]);
   const [tokens, setTokens] = useState<ProjectToken[]>([]);
@@ -41,6 +44,7 @@ export function ProjectDetailPage({ projectId }: { projectId: string }) {
   const [newToken, setNewToken] = useState("");
   const [pendingRevoke, setPendingRevoke] = useState<ProjectToken | null>(null);
   const [pendingRemove, setPendingRemove] = useState<Member | null>(null);
+  const browserOrigin = useSyncExternalStore(subscribeToOrigin, getBrowserOrigin, getServerOrigin);
 
   const canManageTokens = project?.role === "OWNER" || project?.role === "MAINTAINER";
   const isOwner = project?.role === "OWNER";
@@ -116,13 +120,13 @@ export function ProjectDetailPage({ projectId }: { projectId: string }) {
   }
 
   const sample = JSON.stringify({ source: "payment_gateway", event_type: "provider_timeout", message: "Payment provider timed out", severity: "WARN", status_code: 504, client: { ip: "203.0.113.10" }, context: { provider: "example", attempt: 2 } }, null, 2);
-  const endpoint = "https://YOUR_HOST/api/ingest/logs";
   const secret = "YOUR_PROJECT_TOKEN";
-  const snippets: Record<string, string> = {
+  const endpoint = ingestEndpoint ?? (browserOrigin ? `${browserOrigin}/api/ingest/logs` : null);
+  const snippets: Record<string, string> = endpoint ? {
     PowerShell: `$token = '${secret}'\n$body = @'\n${sample}\n'@\nInvoke-RestMethod -Uri '${endpoint}' -Method Post -Headers @{ Authorization = "Bearer $token" } -ContentType 'application/json' -Body $body`,
     cURL: `curl -X POST '${endpoint}' -H 'Authorization: Bearer ${secret}' -H 'Content-Type: application/json' -d '${sample.replace(/\n/g, "")}'`,
     "Node.js": `await fetch('${endpoint}', {\n  method: 'POST',\n  headers: { Authorization: 'Bearer ${secret}', 'Content-Type': 'application/json' },\n  body: JSON.stringify(${sample.replace(/\n/g, "")})\n});`,
-  };
+  } : {};
   const rpm = usage?.requestsPerMinute ?? 0;
   const limit = usage?.rateLimitRpm ?? 600;
   const utilization = Math.min(100, Math.round((rpm / limit) * 100));
@@ -161,7 +165,7 @@ export function ProjectDetailPage({ projectId }: { projectId: string }) {
         {newToken && <div className="rounded-lg border border-amber-200 bg-amber-50 p-4"><p className="text-sm font-medium text-amber-800">Copy this token now. It will not be shown again.</p><code className="mt-2 block break-all rounded bg-white p-2 text-xs text-slate-900">{newToken}</code><Button type="button" size="sm" variant="outline" className="mt-2 bg-white" onClick={() => void copy(newToken)}><Copy className="mr-2 size-3" />Copy token</Button></div>}
         {tokens.length === 0 ? <p className="border-t border-slate-100 py-6 text-center text-sm text-slate-500">No tokens yet. Create one to send logs.</p> : <div className="divide-y divide-slate-100">{tokens.map((token) => <div key={token.tokenId} className="flex flex-wrap items-center justify-between gap-3 py-3 text-sm"><div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><strong className="text-slate-900">{token.name}</strong><Badge variant="outline" className={token.revokedAt ? "border-slate-200 bg-slate-50 text-slate-600" : "border-emerald-200 bg-emerald-50 text-emerald-700"}>{token.revokedAt ? "Revoked" : "Active"}</Badge></div><p className="mt-1 font-mono text-xs text-slate-500">{token.prefix}...</p><p className="mt-1 text-xs text-slate-500">Created {date(token.createdAt)}{token.lastUsedAt ? ` · Last used ${date(token.lastUsedAt)}` : ""}</p></div>{!token.revokedAt && <Button type="button" size="sm" variant="outline" disabled={busy} className="border-rose-200 text-rose-700 hover:bg-rose-50" onClick={() => setPendingRevoke(token)}>Revoke</Button>}</div>)}</div>}
       </CardContent></Card>
-      <Card className="border-slate-200 bg-white shadow-none"><CardHeader><CardTitle className="text-base text-slate-950">Send your first event</CardTitle><p className="text-sm text-slate-500">Use one token per sending system. All tokens in this project share the same records and RPM limit. Send non-empty source and event_type; other fields are optional. Replace YOUR_HOST with your HTTPS domain and YOUR_PROJECT_TOKEN with the token you copied. The example client.ip is sender-reported: replace it with a real client IP or remove it.</p></CardHeader><CardContent className="space-y-4">
+      <Card className="border-slate-200 bg-white shadow-none"><CardHeader><CardTitle className="text-base text-slate-950">Send your first event</CardTitle><p className="text-sm text-slate-500">Use one token per sending system. All tokens in this project share the same records and RPM limit. Send non-empty source and event_type; other fields are optional. Replace YOUR_PROJECT_TOKEN with the token you copied. The example client.ip is sender-reported: replace it with a real client IP or remove it.</p></CardHeader><CardContent className="space-y-4">
         {Object.entries(snippets).map(([language, code]) => <div key={language}><div className="mb-2 flex items-center justify-between"><strong className="text-sm text-slate-900">{language}</strong><Button type="button" size="sm" variant="outline" onClick={() => void copy(code)}><Copy className="mr-2 size-3" />Copy</Button></div><pre className="overflow-x-auto rounded-lg bg-slate-950 p-4 text-xs text-slate-100">{code}</pre></div>)}
         <p className="text-xs text-slate-500">A 202 response means the queue accepted the batch. Use its batchId with GET /api/ingest/logs/receipts/&lt;batchId&gt; and the same Bearer token to check QUEUED, STORED, or FAILED. Invalid JSON or a missing required field rejects the whole batch with its record index. Custom fields remain visible in the inline JSON inspector but are not searchable yet.</p>
       </CardContent></Card></div>}
