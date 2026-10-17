@@ -6,8 +6,9 @@ import { Hash, LoaderCircle, Mail, MessageCircle, Plus, Send, Trash2, Webhook as
 import { useAllUsers } from "@/app/features/users/api/use-users";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import {
@@ -34,13 +35,6 @@ const channelIcons = {
   slack: Hash,
   webhook: WebhookIcon,
 };
-const channelIconStyles: Record<NotificationChannel, string> = {
-  email: "bg-sky-50 text-sky-700 dark:bg-sky-950/40 dark:text-sky-300",
-  line: "bg-green-50 text-green-700 dark:bg-green-950/40 dark:text-green-300",
-  slack: "bg-fuchsia-50 text-fuchsia-700 dark:bg-fuchsia-950/40 dark:text-fuchsia-300",
-  webhook: "bg-violet-50 text-violet-700 dark:bg-violet-950/40 dark:text-violet-300",
-};
-
 interface DraftRecipient extends DestinationFormValues {
   key: string;
   recipientId?: string;
@@ -137,6 +131,7 @@ export function MultiChannelSettingsForm() {
   const [testOpen, setTestOpen] = useState(false);
   const [selectedTestId, setSelectedTestId] = useState("");
   const highlightRowRef = useRef<HTMLTableRowElement | null>(null);
+  const noticeRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     if (!highlightIdentity) return;
@@ -145,6 +140,14 @@ export function MultiChannelSettingsForm() {
     });
     return () => cancelAnimationFrame(frame);
   }, [highlightIdentity, draft, settingsQuery.data]);
+
+  useEffect(() => {
+    if (!notice || notice.kind === "info") return;
+    const frame = requestAnimationFrame(() => {
+      noticeRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [notice]);
 
   if (settingsQuery.isLoading) return <NotificationSettingsSkeleton />;
   if (settingsQuery.isError) {
@@ -171,6 +174,7 @@ export function MultiChannelSettingsForm() {
     ...current.recipients.filter((recipient) => !recipient.recipientId).reverse(),
     ...current.recipients.filter((recipient) => recipient.recipientId),
   ];
+  const selectedTestRecipient = saved.recipients.find((recipient) => recipient.recipientId === selectedTestId);
 
   function edit(transform: (value: DraftSettings) => DraftSettings) {
     setDraft((value) => transform(value ?? makeDraft(saved)));
@@ -249,6 +253,7 @@ export function MultiChannelSettingsForm() {
     try {
       await saveMutation.mutateAsync(payload);
       setDraft(null);
+      setHighlightIdentity(null);
       setNotice({ kind: "success", message: "Notification settings saved. The changes now apply to alert delivery." });
     } catch (error) {
       setNotice({
@@ -274,91 +279,96 @@ export function MultiChannelSettingsForm() {
   }
 
   return (
-    <div className="space-y-5">
-      {notice && (
-        <div
-          role={notice.kind === "error" ? "alert" : "status"}
-          className={`sticky top-4 z-20 rounded-lg border px-4 py-3 text-sm shadow-sm ${notice.kind === "error"
-            ? "border-red-200 bg-red-50 text-red-800 dark:border-red-900 dark:bg-red-950/40 dark:text-red-200"
-            : notice.kind === "success"
-              ? "border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-200"
-              : "border-blue-200 bg-blue-50 text-blue-800 dark:border-blue-900 dark:bg-blue-950/40 dark:text-blue-200"}`}
-        >
-          {notice.message}
-        </div>
-      )}
+    <div>
+      <Card className="gap-0 py-0">
+        <CardContent className="p-0">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 px-4 py-4 dark:border-slate-800">
+            <div>
+              <h2 className="text-base font-semibold text-slate-950 dark:text-slate-50">Delivery destinations</h2>
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                Global settings for alerts routed through this service · {current.recipients.length}/100 destinations
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                disabled={Boolean(editor) || draft !== null || saved.recipients.length === 0 || saveMutation.isPending || testMutation.isPending}
+                onClick={() => {
+                  setSelectedTestId(saved.recipients[0]?.recipientId ?? "");
+                  setTestOpen(true);
+                }}
+              >
+                <Send className="size-4" /> Test notification
+              </Button>
+              <Button
+                type="button"
+                className="bg-blue-600 text-white hover:bg-blue-700 dark:bg-blue-600 dark:text-white dark:hover:bg-blue-700"
+                disabled={Boolean(editor) || current.recipients.length >= 100 || saveMutation.isPending}
+                onClick={() => setEditor({ kind: "add" })}
+              >
+                <Plus className="size-4" /> Add destination
+              </Button>
+            </div>
+          </div>
 
-      <Card>
-        <CardHeader><CardTitle>Delivery routing</CardTitle></CardHeader>
-        <CardContent className="space-y-3">
-          <label className="flex items-center gap-3 text-sm font-medium">
-            <input
-              type="checkbox"
-              role="switch"
-              checked={current.isFallbackEnabled}
-              disabled={Boolean(editor) || saveMutation.isPending}
-              onChange={(event) => setFallbackEnabled(event.target.checked)}
-              className="size-4 accent-blue-600"
-            />
-            Enable Fallback Routing
-          </label>
-          <p className="text-sm text-muted-foreground">
-            {current.isFallbackEnabled
-              ? "Try every enabled destination at the same priority, then stop if any succeeds. Table position does not control delivery order."
-              : "Send to every enabled destination when an alert reaches this notification service."}
-          </p>
-        </CardContent>
-      </Card>
+          <div className="flex flex-wrap items-center gap-x-5 gap-y-2 border-b border-slate-200 bg-slate-50/60 px-4 py-3 dark:border-slate-800 dark:bg-slate-900/40">
+            <label className="inline-flex items-center gap-2.5 text-sm font-medium">
+              <input
+                type="checkbox"
+                role="switch"
+                checked={current.isFallbackEnabled}
+                disabled={Boolean(editor) || saveMutation.isPending}
+                onChange={(event) => setFallbackEnabled(event.target.checked)}
+                className="size-4 accent-blue-600"
+              />
+              Fallback routing
+            </label>
+            <p className="text-xs text-muted-foreground">
+              {current.isFallbackEnabled
+                ? "Try all enabled destinations at the same priority. Continue to the next priority only if all fail."
+                : "Broadcast: send to every enabled destination."}
+            </p>
+          </div>
 
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="text-sm text-muted-foreground">Global destinations · {current.recipients.length}/100 in list</p>
-        <div className="flex gap-2">
-          <Button
-            type="button"
-            variant="outline"
-            disabled={Boolean(editor) || current.recipients.length >= 100 || saveMutation.isPending}
-            onClick={() => setEditor({ kind: "add" })}
-          >
-            <Plus className="size-4" /> Add destination
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            disabled={Boolean(editor) || draft !== null || saved.recipients.length === 0 || saveMutation.isPending || testMutation.isPending}
-            onClick={() => {
-              setSelectedTestId(saved.recipients[0]?.recipientId ?? "");
-              setTestOpen(true);
-            }}
-          >
-            <Send className="size-4" /> Test notification
-          </Button>
-        </div>
-      </div>
-      {draft && <p className="text-sm text-amber-700 dark:text-amber-300">You have unsaved changes. Save or discard them before sending a test.</p>}
+          {notice && (
+            <div
+              ref={noticeRef}
+              role={notice.kind === "error" ? "alert" : "status"}
+              className={`border-b px-4 py-3 text-sm ${notice.kind === "error"
+                ? "border-red-200 bg-red-50 text-red-800 dark:border-red-900 dark:bg-red-950/40 dark:text-red-200"
+                : notice.kind === "success"
+                  ? "border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-200"
+                  : "border-blue-200 bg-blue-50 text-blue-800 dark:border-blue-900 dark:bg-blue-950/40 dark:text-blue-200"}`}
+            >
+              {notice.message}
+            </div>
+          )}
+          {draft && (
+            <p className="border-b border-amber-100 bg-amber-50/70 px-4 py-2.5 text-xs text-amber-800 dark:border-amber-950 dark:bg-amber-950/20 dark:text-amber-300">
+              Unsaved changes · Save or discard before sending a test.
+            </p>
+          )}
 
-      {editor && (editor.kind === "add" || editingRecipient) && (
-        <DestinationEditor
-          key={editor.kind === "add" ? "add" : editor.key}
-          initial={editingRecipient}
-          hasSecretToken={editingRecipient?.hasSecretToken}
-          users={usersQuery.data ?? []}
-          usersUnavailable={usersQuery.isError}
-          isFallbackEnabled={current.isFallbackEnabled}
-          priorityOptions={priorityOptions}
-          existingDestinations={otherDestinations}
-          onSubmit={applyDestination}
-          onCancel={() => setEditor(null)}
-        />
-      )}
+          {editor && (editor.kind === "add" || editingRecipient) && (
+            <div className="border-b border-slate-200 bg-slate-50/40 p-4 dark:border-slate-800 dark:bg-slate-900/20">
+              <DestinationEditor
+                key={editor.kind === "add" ? "add" : editor.key}
+                initial={editingRecipient}
+                hasSecretToken={editingRecipient?.hasSecretToken}
+                users={usersQuery.data ?? []}
+                usersUnavailable={usersQuery.isError}
+                isFallbackEnabled={current.isFallbackEnabled}
+                priorityOptions={priorityOptions}
+                existingDestinations={otherDestinations}
+                onSubmit={applyDestination}
+                onCancel={() => setEditor(null)}
+              />
+            </div>
+          )}
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Delivery destinations</CardTitle>
-          <p className="text-sm text-muted-foreground">These destinations apply globally to alerts routed through this service. Display names do not create teams.</p>
-        </CardHeader>
-        <CardContent>
           {rows.length === 0 ? (
-            <p className="rounded-md border border-dashed p-6 text-center text-sm text-muted-foreground">
+            <p className="m-4 rounded-md border border-dashed border-slate-200 p-8 text-center text-sm text-muted-foreground dark:border-slate-800">
               No destinations configured. Add a destination to begin.
             </p>
           ) : (
@@ -381,11 +391,11 @@ export function MultiChannelSettingsForm() {
                     <TableRow
                       key={recipient.key}
                       ref={highlighted ? highlightRowRef : undefined}
-                      className={highlighted ? "bg-blue-50/70 dark:bg-blue-950/30" : undefined}
+                      className={highlighted ? "bg-blue-50/70 dark:bg-blue-950/30" : "hover:bg-slate-50/70 dark:hover:bg-slate-900/40"}
                     >
                       <TableCell>
                         <span className="inline-flex items-center gap-2">
-                          <span className={`flex size-7 items-center justify-center rounded-md ${channelIconStyles[recipient.channel]}`}>
+                          <span className="flex size-7 items-center justify-center rounded-md bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300">
                             <ChannelIcon className="size-4" aria-hidden="true" />
                           </span>
                           {labels[recipient.channel]}
@@ -393,7 +403,7 @@ export function MultiChannelSettingsForm() {
                       </TableCell>
                       <TableCell>
                         <span className="font-medium">{recipient.name}</span>
-                        {!recipient.recipientId && <Badge variant="secondary" className="ml-2">Not saved</Badge>}
+                        {!recipient.recipientId && <Badge variant="secondary" className="ml-2 bg-amber-50 text-amber-800 dark:bg-amber-950/30 dark:text-amber-300">Not saved</Badge>}
                       </TableCell>
                       <TableCell className="max-w-60 truncate" title={recipient.channel === "email" ? recipient.destination : undefined}>
                         {displayedDestination(recipient)}
@@ -402,6 +412,7 @@ export function MultiChannelSettingsForm() {
                         <label className="inline-flex items-center gap-2 text-sm">
                           <input
                             type="checkbox"
+                            role="switch"
                             checked={recipient.isEnabled}
                             disabled={Boolean(editor) || saveMutation.isPending}
                             onChange={(event) => updateRecipient(recipient.key, {
@@ -452,31 +463,30 @@ export function MultiChannelSettingsForm() {
               </TableBody>
             </Table>
           )}
+          <div className="flex justify-end gap-2 border-t border-slate-200 px-4 py-4 dark:border-slate-800">
+            <Button
+              type="button"
+              variant="outline"
+              disabled={!draft || saveMutation.isPending}
+              onClick={() => {
+                setDraft(null);
+                setEditor(null);
+                setNotice(null);
+                setHighlightIdentity(null);
+              }}
+            >Discard</Button>
+            <Button
+              type="button"
+              disabled={!draft || Boolean(editor) || saveMutation.isPending}
+              className="bg-blue-600 text-white hover:bg-blue-700 dark:bg-blue-600 dark:text-white dark:hover:bg-blue-700"
+              onClick={save}
+            >
+              {saveMutation.isPending && <LoaderCircle className="size-4 animate-spin" />}
+              Save Changes
+            </Button>
+          </div>
         </CardContent>
       </Card>
-
-      <div className="flex justify-end gap-2">
-        <Button
-          type="button"
-          variant="outline"
-          disabled={!draft || saveMutation.isPending}
-          onClick={() => {
-            setDraft(null);
-            setEditor(null);
-            setNotice(null);
-            setHighlightIdentity(null);
-          }}
-        >Discard</Button>
-        <Button
-          type="button"
-          disabled={!draft || Boolean(editor) || saveMutation.isPending}
-          className="bg-blue-600 text-white hover:bg-blue-700 dark:bg-blue-600 dark:text-white dark:hover:bg-blue-700"
-          onClick={save}
-        >
-          {saveMutation.isPending && <LoaderCircle className="size-4 animate-spin" />}
-          Save Changes
-        </Button>
-      </div>
 
       <Dialog open={testOpen} onOpenChange={setTestOpen}>
         <DialogContent className="sm:max-w-md">
@@ -484,20 +494,28 @@ export function MultiChannelSettingsForm() {
             <DialogTitle>Test notification</DialogTitle>
             <DialogDescription>Send one real test message to a saved destination. Disabled destinations can also be tested.</DialogDescription>
           </DialogHeader>
-          <label className="space-y-1 text-sm font-medium">
-            <span>Destination to test</span>
-            <select
+          <div className="space-y-1.5 text-sm font-medium">
+            <span id="test-destination-label">Destination to test</span>
+            <Select
               value={selectedTestId}
-              onChange={(event) => setSelectedTestId(event.target.value)}
-              className="block h-9 w-full rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              onValueChange={(recipientId) => setSelectedTestId(recipientId ?? "")}
             >
-              {saved.recipients.map((recipient) => (
-                <option key={recipient.recipientId} value={recipient.recipientId}>
-                  {labels[recipient.channel]} · {recipient.name}{recipient.isEnabled ? "" : " (disabled)"}
-                </option>
-              ))}
-            </select>
-          </label>
+              <SelectTrigger aria-labelledby="test-destination-label" className="h-9 w-full">
+                <SelectValue>
+                  {selectedTestRecipient
+                    ? `${labels[selectedTestRecipient.channel]} · ${selectedTestRecipient.name}${selectedTestRecipient.isEnabled ? "" : " (disabled)"}`
+                    : "Select a destination"}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent alignItemWithTrigger={false} sideOffset={6}>
+                {saved.recipients.map((recipient) => (
+                  <SelectItem key={recipient.recipientId} value={recipient.recipientId}>
+                    {labels[recipient.channel]} · {recipient.name}{recipient.isEnabled ? "" : " (disabled)"}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
           <DialogFooter>
             <Button type="button" variant="outline" disabled={testMutation.isPending} onClick={() => setTestOpen(false)}>Cancel</Button>
             <Button type="button" disabled={!selectedTestId || testMutation.isPending} onClick={sendTest}>

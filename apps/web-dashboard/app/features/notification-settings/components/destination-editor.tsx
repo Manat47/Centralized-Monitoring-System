@@ -4,8 +4,8 @@ import { useState, type FormEvent } from "react";
 
 import type { User } from "@/app/features/users/types/user";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 import type { NotificationChannel } from "../types/notification-settings";
 
@@ -148,35 +148,42 @@ export function DestinationEditor({
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>{initial ? "Edit destination" : "Add destination"}</CardTitle>
-        <p className="text-sm text-muted-foreground">
-          Changes appear in the list first. Save Changes to apply them to global alert delivery.
+    <section className="space-y-4" aria-label={initial ? "Edit destination" : "Add destination"}>
+      <div>
+        <h3 className="text-sm font-semibold text-slate-950 dark:text-slate-50">
+          {initial ? "Edit destination" : "Add destination"}
+        </h3>
+        <p className="mt-1 text-xs text-muted-foreground">
+          {initial
+            ? "Apply the edit to the list, then Save Changes to update global alert delivery."
+            : "Add to the list first, then Save Changes to apply it to global alert delivery."}
         </p>
-      </CardHeader>
-      <CardContent>
-        <form className="space-y-4" onSubmit={submit}>
+      </div>
+      <form className="space-y-4" onSubmit={submit}>
           <div className="grid gap-4 md:grid-cols-2">
-            <label className="space-y-1 text-sm font-medium">
+            <label className="space-y-1.5 text-xs font-medium text-slate-600 dark:text-slate-300">
               <span>Channel</span>
-              <select
+              <Select
                 value={values.channel}
                 disabled={Boolean(initial)}
-                onChange={(event) => change({
-                  channel: event.target.value as NotificationChannel,
+                onValueChange={(channel) => change({
+                  channel: (channel ?? "email") as NotificationChannel,
                   name: "",
                   destination: "",
                   secretToken: "",
                 })}
-                className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60"
               >
-                {Object.entries(channelCopy).map(([channel, item]) => (
-                  <option key={channel} value={channel}>{item.label}</option>
-                ))}
-              </select>
+                <SelectTrigger aria-label="Channel" className="h-9 w-full bg-white dark:bg-slate-950">
+                  <SelectValue>{copy.label}</SelectValue>
+                </SelectTrigger>
+                <SelectContent alignItemWithTrigger={false} sideOffset={6}>
+                  {Object.entries(channelCopy).map(([channel, item]) => (
+                    <SelectItem key={channel} value={channel}>{item.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </label>
-            <label className="space-y-1 text-sm font-medium">
+            <label className="space-y-1.5 text-xs font-medium text-slate-600 dark:text-slate-300">
               <span>Display name {values.channel === "email" && <span className="font-normal text-muted-foreground">(optional)</span>}</span>
               <Input
                 value={values.name}
@@ -184,12 +191,13 @@ export function DestinationEditor({
                 placeholder={values.channel === "email" ? "Defaults to user name or email" : "e.g. Operations"}
                 maxLength={120}
                 required={values.channel !== "email"}
+                className="h-9 bg-white focus-visible:border-blue-500 focus-visible:ring-2 focus-visible:ring-blue-500/20 dark:bg-slate-950"
               />
               <span className="block text-xs font-normal text-muted-foreground">For identifying this row only; it does not select a team.</span>
             </label>
           </div>
 
-          <label className="block space-y-1 text-sm font-medium">
+          <label className="block space-y-1.5 text-xs font-medium text-slate-600 dark:text-slate-300">
             <span>{copy.destinationLabel}</span>
             <Input
               value={values.destination}
@@ -199,6 +207,7 @@ export function DestinationEditor({
               maxLength={2048}
               required
               autoComplete="off"
+              className="h-9 bg-white focus-visible:border-blue-500 focus-visible:ring-2 focus-visible:ring-blue-500/20 dark:bg-slate-950"
             />
             <span className="block text-xs font-normal text-muted-foreground">{copy.help}</span>
           </label>
@@ -216,7 +225,7 @@ export function DestinationEditor({
           )}
 
           {values.channel === "webhook" && (
-            <label className="block space-y-1 text-sm font-medium">
+            <label className="block space-y-1.5 text-xs font-medium text-slate-600 dark:text-slate-300">
               <span>Signing secret</span>
               <Input
                 type="password"
@@ -225,6 +234,7 @@ export function DestinationEditor({
                 onChange={(event) => change({ secretToken: event.target.value })}
                 placeholder={hasSecretToken ? "Configured — leave blank to keep" : "Enter a signing secret"}
                 maxLength={4096}
+                className="h-9 bg-white focus-visible:border-blue-500 focus-visible:ring-2 focus-visible:ring-blue-500/20 dark:bg-slate-950"
               />
               <span className="block text-xs font-normal text-muted-foreground">
                 Used to sign the JSON request. An existing secret is kept when this field is left blank.
@@ -236,6 +246,7 @@ export function DestinationEditor({
             <label className="flex items-center gap-2 text-sm font-medium">
               <input
                 type="checkbox"
+                role="switch"
                 checked={values.isEnabled}
                 onChange={(event) => change({
                   isEnabled: event.target.checked,
@@ -249,29 +260,31 @@ export function DestinationEditor({
               Enabled
             </label>
             {isFallbackEnabled && values.isEnabled && (
-              <label className="space-y-1 text-sm font-medium">
+              <label className="space-y-1.5 text-xs font-medium text-slate-600 dark:text-slate-300">
                 <span>Fallback priority</span>
-                <select
-                  value={values.priority ?? ""}
-                  onChange={(event) => change({ priority: Number(event.target.value) })}
-                  className="block h-9 min-w-36 rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                <Select
+                  value={String(values.priority ?? "")}
+                  onValueChange={(priority) => change({ priority: priority ? Number(priority) : null })}
                 >
-                  <option value="" disabled>Select</option>
-                  {priorityOptions.map((priority) => <option key={priority} value={priority}>{priority}</option>)}
-                </select>
+                  <SelectTrigger aria-label="Fallback priority" className="h-9 min-w-36 bg-white dark:bg-slate-950">
+                    <SelectValue>{values.priority ?? "Select"}</SelectValue>
+                  </SelectTrigger>
+                  <SelectContent alignItemWithTrigger={false} sideOffset={6}>
+                    {priorityOptions.map((priority) => <SelectItem key={priority} value={String(priority)}>{priority}</SelectItem>)}
+                  </SelectContent>
+                </Select>
               </label>
             )}
           </div>
 
-          {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
-          <div className="flex justify-end gap-2">
+          {error && <p role="alert" className="text-sm text-rose-600">{error}</p>}
+          <div className="flex justify-end gap-2 border-t border-slate-200 pt-4 dark:border-slate-800">
             <Button type="button" variant="outline" onClick={onCancel}>Cancel</Button>
             <Button type="submit" className="bg-blue-600 text-white hover:bg-blue-700 dark:bg-blue-600 dark:text-white dark:hover:bg-blue-700">
               {initial ? "Apply edit to list" : "Add to list"}
             </Button>
           </div>
-        </form>
-      </CardContent>
-    </Card>
+      </form>
+    </section>
   );
 }
