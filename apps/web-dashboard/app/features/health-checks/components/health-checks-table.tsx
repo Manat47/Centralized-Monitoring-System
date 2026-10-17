@@ -94,10 +94,10 @@ function displayName(target: HealthCheckTarget): string {
 }
 
 function errorLabel(error: string): string {
-  if (/timed?\s*out|timeout|aborted/i.test(error)) return "Timeout";
+  if (/timed?\s*out|timeout|aborted/i.test(error)) return "Timed out";
   const status = error.match(/\b[45]\d\d\b/);
   if (status) return `HTTP ${status[0]}`;
-  return "Fetch failed";
+  return "No response";
 }
 
 const resultStyles: Record<HealthResultStatus, string> = {
@@ -290,17 +290,17 @@ export function HealthChecksTable() {
             </div>
           )}
 
-          <Table className="min-w-[1040px]">
+          <Table className="min-w-[1100px]">
             <TableHeader>
               <TableRow>
                 <TableHead className="pl-4">Name / asset</TableHead>
                 <TableHead>URL</TableHead>
                 <TableHead>State</TableHead>
                 <TableHead>Result</TableHead>
-                <TableHead className="text-right" title="Expected HTTP status">Expected</TableHead>
-                <TableHead className="text-right" title="Latest HTTP status">Actual</TableHead>
-                <TableHead title="Check duration">Time</TableHead>
-                <TableHead title="Last checked">Checked</TableHead>
+                <TableHead className="text-right">Expected HTTP</TableHead>
+                <TableHead className="text-right">Actual HTTP</TableHead>
+                <TableHead>Duration</TableHead>
+                <TableHead>Last checked</TableHead>
                 <TableHead className="pr-4 text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
@@ -368,15 +368,17 @@ export function HealthChecksTable() {
                             {runtimeLabel(runtime)}
                           </Badge>
                         </TableCell>
-                        <TableCell className="min-w-36">
-                          <div className="flex flex-col items-start gap-1">
+                        <TableCell className="min-w-[220px]">
+                          <div className="flex items-center gap-1.5 whitespace-nowrap">
                             <Badge variant="outline" className={resultStyles[result]}>
                               {resultLabels[result]}
                             </Badge>
                             {latestError && (
                               <Tooltip>
-                                <TooltipTrigger render={<button type="button" aria-label={`Full error for ${displayName(target)}`} className="max-w-40 truncate text-left text-xs text-slate-500 underline decoration-dotted underline-offset-2 hover:text-slate-700 focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500" />}>
-                                  {errorLabel(latestError)}
+                                <TooltipTrigger render={<button type="button" aria-label={`Full error for ${displayName(target)}`} className="rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500" />}>
+                                  <Badge variant="outline" className="border-rose-200 bg-rose-50 text-rose-700">
+                                    {errorLabel(latestError)}
+                                  </Badge>
                                 </TooltipTrigger>
                                 <TooltipContent side="top" className="max-h-64 max-w-sm overflow-y-auto break-words font-normal">{latestError}</TooltipContent>
                               </Tooltip>
