@@ -2,11 +2,13 @@ import {
   BadGatewayException,
   Body,
   Controller,
+  Delete,
   Get,
   Headers,
   HttpException,
   Param,
   ParseUUIDPipe,
+  Patch,
   Post,
   Put,
   UsePipes,
@@ -16,6 +18,11 @@ import { ConfigService } from '@nestjs/config';
 import axios, { isAxiosError } from 'axios';
 
 import { UpdateNotificationSettingsDto } from './dto/update-notification-settings.dto';
+import {
+  CreateNotificationRecipientDto,
+  PatchNotificationRecipientDto,
+  PatchNotificationRoutingDto,
+} from './dto/notification-settings-mutations.dto';
 
 @Controller('notification-settings')
 @UsePipes(
@@ -54,6 +61,67 @@ export class NotificationSettingsGatewayController {
     );
   }
 
+  @Post('recipients')
+  async createRecipient(
+    @Body() body: CreateNotificationRecipientDto,
+    @Headers('x-user-id') userId: string,
+    @Headers('x-user-role') role: string,
+    @Headers('x-user-email') email: string | undefined,
+  ) {
+    return this.forward(
+      'POST',
+      '/notification-settings/recipients',
+      body,
+      this.actorHeaders(userId, role, email),
+    );
+  }
+
+  @Patch('recipients/:recipientId')
+  async patchRecipient(
+    @Param('recipientId', ParseUUIDPipe) recipientId: string,
+    @Body() body: PatchNotificationRecipientDto,
+    @Headers('x-user-id') userId: string,
+    @Headers('x-user-role') role: string,
+    @Headers('x-user-email') email: string | undefined,
+  ) {
+    return this.forward(
+      'PATCH',
+      `/notification-settings/recipients/${recipientId}`,
+      body,
+      this.actorHeaders(userId, role, email),
+    );
+  }
+
+  @Delete('recipients/:recipientId')
+  async deleteRecipient(
+    @Param('recipientId', ParseUUIDPipe) recipientId: string,
+    @Headers('x-user-id') userId: string,
+    @Headers('x-user-role') role: string,
+    @Headers('x-user-email') email: string | undefined,
+  ) {
+    return this.forward(
+      'DELETE',
+      `/notification-settings/recipients/${recipientId}`,
+      undefined,
+      this.actorHeaders(userId, role, email),
+    );
+  }
+
+  @Patch('routing')
+  async patchRouting(
+    @Body() body: PatchNotificationRoutingDto,
+    @Headers('x-user-id') userId: string,
+    @Headers('x-user-role') role: string,
+    @Headers('x-user-email') email: string | undefined,
+  ) {
+    return this.forward(
+      'PATCH',
+      '/notification-settings/routing',
+      body,
+      this.actorHeaders(userId, role, email),
+    );
+  }
+
   @Post(':recipientId/test')
   async testChannel(
     @Param('recipientId', ParseUUIDPipe) recipientId: string,
@@ -82,9 +150,13 @@ export class NotificationSettingsGatewayController {
   }
 
   private async forward(
-    method: 'GET' | 'PUT' | 'POST',
+    method: 'GET' | 'PUT' | 'POST' | 'PATCH' | 'DELETE',
     path: string,
-    data?: UpdateNotificationSettingsDto,
+    data?:
+      | UpdateNotificationSettingsDto
+      | CreateNotificationRecipientDto
+      | PatchNotificationRecipientDto
+      | PatchNotificationRoutingDto,
     headers?: Record<string, string>,
   ): Promise<unknown> {
     try {

@@ -14,7 +14,7 @@ export default function NotificationSettingsPage() {
         <div>
           <h1 className="text-2xl font-semibold">Notification Settings</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Configure destinations and routing for alert notifications.
+            Configure global destinations and routing for alerts. These settings are not assigned by team or monitor.
           </p>
         </div>
 

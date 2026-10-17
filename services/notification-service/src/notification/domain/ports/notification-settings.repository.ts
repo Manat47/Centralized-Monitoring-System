@@ -20,8 +20,8 @@ export interface NotificationSettingsRecord {
 
 export interface NotificationSettingsRepository {
   get(): Promise<NotificationSettingsRecord>;
-  replace(
-    settings: NotificationSettingsRecord,
+  mutate(
+    change: (current: NotificationSettingsRecord) => NotificationSettingsRecord,
   ): Promise<NotificationSettingsRecord>;
   findRecipient(
     recipientId: string,

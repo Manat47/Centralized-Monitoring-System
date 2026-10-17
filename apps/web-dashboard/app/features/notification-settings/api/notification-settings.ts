@@ -1,11 +1,10 @@
 import { authenticatedFetch } from "@/app/lib/authenticated-fetch";
 
 import type {
-  NotificationRecipient,
   NotificationSettings,
-  TestNotificationResult,
   TestChannelResult,
-  UpdateNotificationSettingsInput,
+  CreateNotificationChannelInput,
+  PatchNotificationChannelInput,
 } from "../types/notification-settings";
 
 const API_GATEWAY_URL =
@@ -24,58 +23,6 @@ async function getErrorMessage(
   }
 
   return body?.message ?? fallback;
-}
-
-export async function getNotificationRecipients(): Promise<
-  NotificationRecipient[]
-> {
-  const response = await authenticatedFetch(
-    `${API_GATEWAY_URL}/notification-recipients`,
-  );
-
-  if (!response.ok) {
-    throw new Error(
-      await getErrorMessage(response, "Failed to load notification recipients"),
-    );
-  }
-
-  return (await response.json()) as NotificationRecipient[];
-}
-
-export async function updateNotificationRecipients(
-  emails: string[],
-): Promise<NotificationRecipient[]> {
-  const response = await authenticatedFetch(
-    `${API_GATEWAY_URL}/notification-recipients`,
-    {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ emails }),
-    },
-  );
-
-  if (!response.ok) {
-    throw new Error(
-      await getErrorMessage(response, "Failed to update notification recipients"),
-    );
-  }
-
-  return (await response.json()) as NotificationRecipient[];
-}
-
-export async function sendTestNotification(): Promise<TestNotificationResult> {
-  const response = await authenticatedFetch(
-    `${API_GATEWAY_URL}/notification-recipients/test`,
-    { method: "POST" },
-  );
-
-  if (!response.ok) {
-    throw new Error(
-      await getErrorMessage(response, "Failed to send test notification"),
-    );
-  }
-
-  return (await response.json()) as TestNotificationResult;
 }
 
 const settingsUrl = `${API_GATEWAY_URL}/notification-settings`;
@@ -115,18 +62,41 @@ export async function getNotificationSettings(): Promise<NotificationSettings> {
   return normalizeSettings(await response.json());
 }
 
-export async function updateNotificationSettings(
-  input: UpdateNotificationSettingsInput,
+async function mutateSettings(
+  path: string,
+  method: "POST" | "PATCH" | "DELETE",
+  payload?: unknown,
 ): Promise<NotificationSettings> {
-  const response = await authenticatedFetch(settingsUrl, {
-    method: "PUT",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(input),
+  const response = await authenticatedFetch(`${settingsUrl}${path}`, {
+    method,
+    ...(payload === undefined ? {} : {
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    }),
   });
   if (!response.ok) {
-    throw new Error(await getErrorMessage(response, "Failed to save notification settings"));
+    throw new Error(await getErrorMessage(response, "Failed to update notification settings"));
   }
   return normalizeSettings(await response.json());
+}
+
+export function createNotificationChannel(input: CreateNotificationChannelInput) {
+  return mutateSettings("/recipients", "POST", input);
+}
+
+export function patchNotificationChannel(input: {
+  recipientId: string;
+  patch: PatchNotificationChannelInput;
+}) {
+  return mutateSettings(`/recipients/${encodeURIComponent(input.recipientId)}`, "PATCH", input.patch);
+}
+
+export function deleteNotificationChannel(recipientId: string) {
+  return mutateSettings(`/recipients/${encodeURIComponent(recipientId)}`, "DELETE");
+}
+
+export function patchNotificationRouting(isFallbackEnabled: boolean) {
+  return mutateSettings("/routing", "PATCH", { isFallbackEnabled });
 }
 
 export async function testNotificationChannel(recipientId: string): Promise<TestChannelResult> {
