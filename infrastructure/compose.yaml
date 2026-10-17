@@ -445,6 +445,7 @@ services:
       NODE_ENV: production
       PORT: 3010
       HOSTNAME: 0.0.0.0
+      LOG_INGEST_PUBLIC_URL: ${LOG_INGEST_PUBLIC_URL:-}
     ports:
       - "${WEB_DASHBOARD_PORT:-3010}:3010"
     depends_on:
