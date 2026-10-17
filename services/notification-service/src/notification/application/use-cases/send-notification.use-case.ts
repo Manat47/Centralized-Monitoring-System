@@ -43,6 +43,7 @@ export class SendNotificationUseCase {
         alertId: event.eventId,
         assetId: null,
         sourceId: event.ruleId,
+        sourceName: event.service,
         severity:
           event.severity === 'critical' || event.severity === 'high'
             ? 'CRITICAL'
@@ -78,6 +79,7 @@ export class SendNotificationUseCase {
       alertId: event.alertId,
       assetId: event.assetId,
       sourceId: event.sourceId,
+      ...(event.sourceName ? { sourceName: event.sourceName } : {}),
       severity: event.severity,
       status: event.eventType === 'ALERT_TRIGGERED' ? 'TRIGGERED' : 'RESOLVED',
       alertType: event.alertType,

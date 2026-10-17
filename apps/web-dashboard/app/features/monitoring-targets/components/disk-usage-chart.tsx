@@ -150,7 +150,7 @@ export function DiskUsageChart({
     series: visibleDiskKeys.map((diskKey, index) => ({
       name: diskKey,
       type: "line",
-      smooth: true,
+      smooth: false,
       showSymbol: false,
       lineStyle: { width: 2 },
       data: visibleData

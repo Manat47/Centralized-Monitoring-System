@@ -85,7 +85,7 @@ export function MemoryUsageChart({
       {
         name: "Memory usage",
         type: "line",
-        smooth: true,
+        smooth: false,
         showSymbol: false,
         lineStyle: { width: 2 },
         areaStyle: { color: "rgba(15, 118, 110, 0.08)" },

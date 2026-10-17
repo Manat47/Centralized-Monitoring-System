@@ -105,6 +105,7 @@ export class ProcessAlertEventUseCase {
       severity: event.severity,
       thresholdValue: event.thresholdValue,
       actualValue: event.actualValue,
+      context: event.sourceName ? { sourceName: event.sourceName } : null,
       message: event.message,
       triggeredAt: new Date(event.occurredAt),
     });
@@ -376,6 +377,7 @@ export class ProcessAlertEventUseCase {
         alertId: data.alertId,
         sourceType: data.sourceType,
         sourceId: data.sourceId,
+        sourceName: this.notificationSourceName(data.context),
         alertType: data.alertType,
         ruleId: data.ruleId,
         assetId: data.assetId,
@@ -420,6 +422,7 @@ export class ProcessAlertEventUseCase {
         alertId: data.alertId,
         sourceType: data.sourceType,
         sourceId: data.sourceId,
+        sourceName: this.notificationSourceName(data.context),
         alertType: data.alertType,
         ruleId: data.ruleId,
         assetId: data.assetId,
@@ -493,10 +496,27 @@ export class ProcessAlertEventUseCase {
     event: HealthCheckResultRecordedEvent,
   ): Record<string, unknown> {
     return {
+      ...(event.sourceName ? { sourceName: event.sourceName } : {}),
       url: event.url,
       statusCode: event.statusCode,
       responseTimeMs: event.responseTimeMs,
       error: event.error,
     };
+  }
+
+  private notificationSourceName(
+    context: Record<string, unknown> | null,
+  ): string | undefined {
+    if (typeof context?.sourceName === 'string' && context.sourceName.trim()) {
+      return context.sourceName.trim();
+    }
+    if (typeof context?.url === 'string') {
+      try {
+        return new URL(context.url).hostname;
+      } catch {
+        return undefined;
+      }
+    }
+    return undefined;
   }
 }

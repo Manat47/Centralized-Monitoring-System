@@ -1,6 +1,7 @@
 import { createHmac } from 'node:crypto';
 
 import { Injectable } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import axios from 'axios';
 
 import type {
@@ -8,11 +9,14 @@ import type {
   SendChannelNotificationInput,
   SendResult,
 } from '../../domain/ports/notification-sender.port';
+import { alertChannelPresentation } from './alert-channel-presentation';
 import { httpSendFailure } from './provider-send-result';
 
 @Injectable()
 export class WebhookNotificationSender implements NotificationSenderPort {
   readonly channel = 'webhook' as const;
+
+  constructor(private readonly config: ConfigService) {}
 
   async sendAlert(input: SendChannelNotificationInput): Promise<SendResult> {
     if (!input.secretToken) {
@@ -24,9 +28,23 @@ export class WebhookNotificationSender implements NotificationSenderPort {
     }
 
     try {
+      const content = alertChannelPresentation(
+        input.alert,
+        this.config.get<string>('DASHBOARD_PUBLIC_URL'),
+      );
       const body = JSON.stringify({
         ...input.alert,
         occurredAt: input.alert.occurredAt.toISOString(),
+        presentation: {
+          headline: `${content.indicator} · ${content.eventLabel}`,
+          sourceName: content.sourceName,
+          severity: content.severityLabel,
+          summary: content.details,
+          ...(content.reason ? { reason: content.reason } : {}),
+          ...(content.dashboardUrl
+            ? { dashboardUrl: content.dashboardUrl }
+            : {}),
+        },
       });
       const signature = createHmac('sha256', input.secretToken)
         .update(body)

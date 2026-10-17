@@ -94,7 +94,7 @@ export function HealthCheckDetail() {
     series: [
       {
         type: "line",
-        smooth: true,
+        smooth: false,
         symbol: "none",
         lineStyle: { color: "#2563eb", width: 2 },
         areaStyle: { color: "rgba(37,99,235,0.08)" },
