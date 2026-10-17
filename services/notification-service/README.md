@@ -61,7 +61,12 @@ retain consecutive levels.
 | `RABBITMQ_AUDIT_QUEUE` | Audit event queue; defaults to `audit_events` |
 | `SMTP_USER` | Gmail account used as the sender |
 | `SMTP_PASS` | Gmail app password or SMTP credential |
-| `DASHBOARD_PUBLIC_URL` | Public Dashboard origin for clickable Log Finding links (for example `https://monitor.example`) |
+| `DASHBOARD_PUBLIC_URL` | Public Dashboard origin for alert links in email, LINE, Slack, and webhook presentation data (for example `https://monitor.example`) |
+
+Webhook deliveries retain the existing alert fields and include a `presentation`
+object with a readable headline, source name, severity, summary, and Dashboard
+URL when configured. `X-Signature-SHA256` signs the exact JSON body including
+this object.
 
 ## Development
 

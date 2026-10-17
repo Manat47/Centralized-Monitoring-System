@@ -54,6 +54,7 @@ describe('ProcessAlertEventUseCase', () => {
       eventType: 'METRIC_THRESHOLD_EXCEEDED',
       ruleId: randomUUID(),
       assetId: randomUUID(),
+      sourceName: 'User_server',
       metricType: 'CPU_USAGE',
       severity: 'WARNING',
       thresholdValue: 80,
@@ -63,11 +64,15 @@ describe('ProcessAlertEventUseCase', () => {
     });
 
     expect(result?.toObject().status).toBe('TRIGGERED');
-    expect(alertRepository.createWithNotification).toHaveBeenCalledWith(
-      expect.any(Alert),
-      expect.objectContaining({ eventType: 'TRIGGERED' }),
-      expect.objectContaining({ eventType: 'ALERT_TRIGGERED' }),
-    );
+    expect(result?.toObject().context).toMatchObject({
+      sourceName: 'User_server',
+    });
+    const notification =
+      alertRepository.createWithNotification.mock.calls[0][2];
+    expect(notification).toMatchObject({
+      eventType: 'ALERT_TRIGGERED',
+      sourceName: 'User_server',
+    });
   });
 
   it('does not create a duplicate active metric alert', async () => {
@@ -150,6 +155,7 @@ describe('ProcessAlertEventUseCase', () => {
       severity: 'WARNING',
       thresholdValue: 80,
       actualValue: 90,
+      context: { sourceName: 'User_server' },
       message: 'CPU usage exceeded threshold',
       triggeredAt: new Date('2026-07-14T10:00:00.000Z'),
     });
@@ -172,11 +178,12 @@ describe('ProcessAlertEventUseCase', () => {
     });
 
     expect(result?.toObject().status).toBe('RESOLVED');
-    expect(alertRepository.resolveWithNotification).toHaveBeenCalledWith(
-      expect.any(Alert),
-      expect.objectContaining({ eventType: 'RESOLVED' }),
-      expect.objectContaining({ eventType: 'ALERT_RESOLVED' }),
-    );
+    const notification =
+      alertRepository.resolveWithNotification.mock.calls[0][2];
+    expect(notification).toMatchObject({
+      eventType: 'ALERT_RESOLVED',
+      sourceName: 'User_server',
+    });
   });
 
   it('does not publish a duplicate resolution when another worker resolved the alert first', async () => {
@@ -331,6 +338,7 @@ describe('ProcessAlertEventUseCase', () => {
     const base = {
       eventType: 'HEALTH_CHECK_RESULT_RECORDED' as const,
       healthCheckTargetId: randomUUID(),
+      sourceName: 'register-uasportal',
       assetId: randomUUID(),
       url: 'https://example.com/health',
       checkIntervalSeconds: 15,
@@ -356,6 +364,9 @@ describe('ProcessAlertEventUseCase', () => {
       status: 'TRIGGERED',
       actualText: 'HTTP 500',
     });
+    expect(
+      alertRepository.createWithNotification.mock.calls[0][2].sourceName,
+    ).toBe('register-uasportal');
   });
 
   it('uses heartbeat for freshness and opens or resolves only on transition events', async () => {

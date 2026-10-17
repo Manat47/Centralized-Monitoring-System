@@ -7,6 +7,7 @@ import type {
   SendChannelNotificationInput,
   SendResult,
 } from '../../domain/ports/notification-sender.port';
+import { alertChannelPresentation } from './alert-channel-presentation';
 import { httpSendFailure } from './provider-send-result';
 
 @Injectable()
@@ -33,10 +34,7 @@ export class LineNotificationSender implements NotificationSenderPort {
           messages: [
             {
               type: 'text',
-              text: `${input.alert.title}\n${input.alert.message}${input.alert.actionUrl ? `\nOpen: ${input.alert.actionUrl}` : ''}`.slice(
-                0,
-                5000,
-              ),
+              text: this.messageText(input.alert),
             },
           ],
         },
@@ -49,5 +47,26 @@ export class LineNotificationSender implements NotificationSenderPort {
     } catch (error: unknown) {
       return httpSendFailure(error);
     }
+  }
+
+  private messageText(alert: SendChannelNotificationInput['alert']): string {
+    const content = alertChannelPresentation(
+      alert,
+      this.configService.get<string>('DASHBOARD_PUBLIC_URL'),
+    );
+    return [
+      `${content.indicator} · ${content.eventLabel}`,
+      `Source: ${content.sourceName}`,
+      `${alert.status === 'RESOLVED' ? 'Previous severity' : 'Severity'}: ${content.severityLabel}`,
+      `Details: ${content.details.slice(0, 3000)}`,
+      ...(content.reason ? [`Reason: ${content.reason}`] : []),
+      `${content.referenceLabel}: ${alert.sourceId}`,
+      `Alert ID: ${alert.alertId}`,
+      ...(content.dashboardUrl
+        ? [`${content.dashboardLabel}: ${content.dashboardUrl}`]
+        : []),
+    ]
+      .join('\n')
+      .slice(0, 5000);
   }
 }

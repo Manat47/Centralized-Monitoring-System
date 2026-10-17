@@ -40,7 +40,13 @@ export class GmailSmtpNotificationSender
   }
 
   async send(input: SendNotificationInput): Promise<void> {
-    const email = buildAlertEmail(input);
+    const email = buildAlertEmail({
+      ...input,
+      actionUrl:
+        input.alertType === 'LOG_FINDING'
+          ? (input.actionUrl ?? this.dashboardUrl('/explorer'))
+          : this.dashboardUrl(`/alerts/${encodeURIComponent(input.alertId)}`),
+    });
 
     await this.transporter.sendMail({
       from: {
@@ -52,6 +58,24 @@ export class GmailSmtpNotificationSender
       text: email.text,
       html: email.html,
     });
+  }
+
+  private dashboardUrl(path: string): string | undefined {
+    const configured = this.configService.get<string>('DASHBOARD_PUBLIC_URL');
+    if (!configured) return undefined;
+    try {
+      const base = new URL(configured);
+      if (
+        !['http:', 'https:'].includes(base.protocol) ||
+        base.username ||
+        base.password
+      ) {
+        return undefined;
+      }
+      return new URL(path, base).toString();
+    } catch {
+      return undefined;
+    }
   }
 
   async sendAlert(input: SendChannelNotificationInput): Promise<SendResult> {

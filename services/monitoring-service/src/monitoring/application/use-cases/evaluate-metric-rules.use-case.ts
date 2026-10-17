@@ -232,6 +232,7 @@ export class EvaluateMetricRulesUseCase {
         eventType: 'METRIC_THRESHOLD_RECOVERED',
         ruleId: data.ruleId,
         assetId: data.assetId,
+        sourceName: assetName,
         metricType: data.metricType,
         severity: previousSeverity ?? 'WARNING',
         thresholdValue: data.warningEnabled
@@ -268,6 +269,7 @@ export class EvaluateMetricRulesUseCase {
       eventType: 'METRIC_THRESHOLD_EXCEEDED',
       ruleId: data.ruleId,
       assetId: data.assetId,
+      sourceName: assetName,
       metricType: data.metricType,
       severity: transition.triggered,
       thresholdValue,

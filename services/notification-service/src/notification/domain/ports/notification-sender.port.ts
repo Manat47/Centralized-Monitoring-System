@@ -3,6 +3,7 @@ export interface SendNotificationInput {
   alertId: string;
   assetId: string | null;
   sourceId: string;
+  sourceName?: string;
   severity: 'WARNING' | 'CRITICAL';
   status: 'TRIGGERED' | 'RESOLVED';
   alertType:

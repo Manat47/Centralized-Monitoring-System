@@ -18,6 +18,7 @@ interface NotificationEventBase {
   alertId: string;
   sourceType: 'METRIC_RULE' | 'HEALTH_CHECK';
   sourceId: string;
+  sourceName?: string;
   alertType: 'METRIC_THRESHOLD' | 'ENDPOINT_UNAVAILABLE' | 'HEALTH_CHECK_STALE';
   ruleId: string | null;
   assetId: string | null;

@@ -5,6 +5,7 @@ import type {
 import type {
   NotificationSenderPort,
   SendChannelNotificationInput,
+  SendResult,
 } from '../../domain/ports/notification-sender.port';
 import { NotificationExecutionRouter } from './notification-execution.router';
 
@@ -38,10 +39,23 @@ describe('NotificationExecutionRouter', () => {
   const repository: jest.Mocked<NotificationRoutingRepository> = {
     getConfiguration: jest.fn(),
   };
-  const email = { channel: 'email' as const, sendAlert: jest.fn() };
-  const line = { channel: 'line' as const, sendAlert: jest.fn() };
-  const slack = { channel: 'slack' as const, sendAlert: jest.fn() };
-  const senders: NotificationSenderPort[] = [email, line, slack];
+  const email = {
+    channel: 'email' as const,
+    sendAlert: jest.fn<Promise<SendResult>, [SendChannelNotificationInput]>(),
+  };
+  const line = {
+    channel: 'line' as const,
+    sendAlert: jest.fn<Promise<SendResult>, [SendChannelNotificationInput]>(),
+  };
+  const slack = {
+    channel: 'slack' as const,
+    sendAlert: jest.fn<Promise<SendResult>, [SendChannelNotificationInput]>(),
+  };
+  const webhook = {
+    channel: 'webhook' as const,
+    sendAlert: jest.fn<Promise<SendResult>, [SendChannelNotificationInput]>(),
+  };
+  const senders: NotificationSenderPort[] = [email, line, slack, webhook];
   const router = new NotificationExecutionRouter(repository, senders);
 
   beforeEach(() => {
@@ -86,6 +100,49 @@ describe('NotificationExecutionRouter', () => {
       sentCount: 2,
       failedCount: 0,
     });
+  });
+
+  it('shares the source label with every channel', async () => {
+    repository.getConfiguration.mockResolvedValue({
+      isFallbackEnabled: false,
+      recipients: [
+        recipient('email-1', 'email', null),
+        recipient('line-1', 'line', null),
+        recipient('slack-1', 'slack', null),
+        recipient('webhook-1', 'webhook', null),
+      ],
+    });
+    email.sendAlert.mockResolvedValueOnce({
+      success: true,
+      isTransientError: false,
+    });
+    line.sendAlert.mockResolvedValueOnce({
+      success: true,
+      isTransientError: false,
+    });
+    slack.sendAlert.mockResolvedValueOnce({
+      success: true,
+      isTransientError: false,
+    });
+    webhook.sendAlert.mockResolvedValueOnce({
+      success: true,
+      isTransientError: false,
+    });
+
+    await router.execute({ ...alert, sourceName: 'register-uasportal' });
+
+    expect(email.sendAlert.mock.calls[0][0].alert.sourceName).toBe(
+      'register-uasportal',
+    );
+    expect(slack.sendAlert.mock.calls[0][0].alert.sourceName).toBe(
+      'register-uasportal',
+    );
+    expect(line.sendAlert.mock.calls[0][0].alert.sourceName).toBe(
+      'register-uasportal',
+    );
+    expect(webhook.sendAlert.mock.calls[0][0].alert.sourceName).toBe(
+      'register-uasportal',
+    );
   });
 
   it('settles broadcast failures without suppressing successful channels', async () => {
