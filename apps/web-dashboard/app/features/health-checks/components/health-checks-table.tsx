@@ -331,12 +331,11 @@ export function HealthChecksTable() {
                     asset?.endpoint ?? null,
                     target.url,
                   );
-                  const pendingId =
-                    pauseMutation.variables ??
-                    resumeMutation.variables ??
-                    archiveMutation.variables ??
-                    checkNowMutation.variables;
-                  const pending = pendingId === target.healthCheckTargetId;
+                  const pending =
+                    (pauseMutation.isPending && pauseMutation.variables === target.healthCheckTargetId) ||
+                    (resumeMutation.isPending && resumeMutation.variables === target.healthCheckTargetId) ||
+                    (archiveMutation.isPending && archiveMutation.variables === target.healthCheckTargetId) ||
+                    (checkNowMutation.isPending && checkNowMutation.variables === target.healthCheckTargetId);
                   const actionable =
                     !target.archivedAt && asset?.status !== "DEACTIVATE";
 
