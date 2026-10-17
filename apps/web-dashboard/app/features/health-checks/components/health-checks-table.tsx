@@ -290,14 +290,15 @@ export function HealthChecksTable() {
             </div>
           )}
 
-          <Table className="min-w-[980px]">
+          <Table className="min-w-[1100px]">
             <TableHeader>
               <TableRow>
                 <TableHead className="pl-4">Name / asset</TableHead>
                 <TableHead>URL</TableHead>
                 <TableHead>State</TableHead>
                 <TableHead>Latest status</TableHead>
-                <TableHead>HTTP</TableHead>
+                <TableHead>Expected HTTP</TableHead>
+                <TableHead>Actual HTTP</TableHead>
                 <TableHead>Response</TableHead>
                 <TableHead>Last checked</TableHead>
                 <TableHead className="pr-4 text-right">Actions</TableHead>
@@ -313,7 +314,7 @@ export function HealthChecksTable() {
               {filteredTargets.length === 0 ? (
                 <TableRow>
                   <TableCell
-                    colSpan={8}
+                    colSpan={9}
                     className="h-28 text-center text-slate-500"
                   >
                     <div className="flex flex-col items-center gap-3">
@@ -374,6 +375,9 @@ export function HealthChecksTable() {
                             {resultLabels[result]}
                           </Badge>
                           {target.latest?.error && <Tooltip><TooltipTrigger render={<button type="button" aria-label={`Full error for ${displayName(target)}`} className="ml-1 rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500" />}><Badge variant="outline" className="border-rose-200 bg-rose-50 text-rose-700">{errorLabel(target.latest.error)}</Badge></TooltipTrigger><TooltipContent side="top" className="max-h-64 max-w-sm overflow-y-auto break-words font-normal">{target.latest.error}</TooltipContent></Tooltip>}
+                        </TableCell>
+                        <TableCell className="font-mono text-xs">
+                          {target.expectedStatus}
                         </TableCell>
                         <TableCell className="font-mono text-xs">
                           {target.latest?.statusCode ?? "—"}
@@ -569,12 +573,13 @@ function HealthChecksSkeleton() {
         {Array.from({ length: 6 }).map((_, index) => (
           <div
             key={index}
-            className="grid h-16 grid-cols-[1fr_1.5fr_0.8fr_0.8fr_0.7fr] items-center gap-5 border-t border-slate-100 px-4"
+            className="grid h-16 grid-cols-[1fr_1.5fr_0.8fr_0.8fr_0.8fr_0.7fr] items-center gap-5 border-t border-slate-100 px-4"
           >
             <Skeleton className="h-3 w-28" />
             <Skeleton className="h-3 w-44" />
             <Skeleton className="h-5 w-20" />
             <Skeleton className="h-5 w-20" />
+            <Skeleton className="h-3 w-16" />
             <Skeleton className="h-3 w-16" />
           </div>
         ))}
