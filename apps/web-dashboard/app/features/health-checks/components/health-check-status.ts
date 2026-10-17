@@ -13,7 +13,7 @@ export function getHealthResultStatus(target: HealthCheckTarget): HealthResultSt
   const checkedAt = new Date(latest.timestamp).getTime();
   if (!Number.isFinite(checkedAt) || Date.now() - checkedAt > staleAfterMs) return "STALE";
 
-  return latest.error === null &&
+  return !latest.error?.trim() &&
     latest.statusCode !== null &&
     Number(latest.statusCode) === Number(target.expectedStatus)
     ? "AVAILABLE"
