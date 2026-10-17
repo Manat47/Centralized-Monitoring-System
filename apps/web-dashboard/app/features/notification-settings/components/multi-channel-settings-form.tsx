@@ -1,13 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Hash, LoaderCircle, Mail, MessageCircle, Plus, Send, Trash2, Webhook as WebhookIcon } from "lucide-react";
 
 import { useAllUsers } from "@/app/features/users/api/use-users";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import {
   useMultiChannelSettings,
   useTestNotificationChannel,
@@ -18,9 +20,8 @@ import type {
   NotificationSettings,
   UpdateNotificationSettingsInput,
 } from "../types/notification-settings";
-import { RecipientPicker } from "./recipient-picker";
+import { DestinationEditor, type DestinationFormValues } from "./destination-editor";
 
-const channels: NotificationChannel[] = ["email", "line", "slack", "webhook"];
 const labels: Record<NotificationChannel, string> = {
   email: "Email",
   line: "LINE",
@@ -39,29 +40,20 @@ const channelIconStyles: Record<NotificationChannel, string> = {
   slack: "bg-fuchsia-50 text-fuchsia-700 dark:bg-fuchsia-950/40 dark:text-fuchsia-300",
   webhook: "bg-violet-50 text-violet-700 dark:bg-violet-950/40 dark:text-violet-300",
 };
-const placeholders: Record<NotificationChannel, string> = {
-  email: "recipient@example.com",
-  line: "LINE user or group ID",
-  slack: "https://hooks.slack.com/services/...",
-  webhook: "https://example.com/notifications",
-};
 
-interface DraftRecipient {
+interface DraftRecipient extends DestinationFormValues {
   key: string;
   recipientId?: string;
-  channel: NotificationChannel;
-  name: string;
-  destination: string;
-  secretToken: string;
   hasSecretToken: boolean;
-  isEnabled: boolean;
-  priority: number | null;
 }
 
 interface DraftSettings {
   isFallbackEnabled: boolean;
   recipients: DraftRecipient[];
 }
+
+type EditorState = { kind: "add" } | { kind: "edit"; key: string } | null;
+type Notice = { kind: "info" | "success" | "error"; message: string } | null;
 
 function makeDraft(settings: NotificationSettings): DraftSettings {
   return {
@@ -90,9 +82,7 @@ function toPayload(draft: DraftSettings): UpdateNotificationSettingsInput {
       channel: recipient.channel,
       name: recipient.name.trim(),
       destination: recipient.destination.trim(),
-      ...(recipient.secretToken.trim()
-        ? { secretToken: recipient.secretToken.trim() }
-        : {}),
+      ...(recipient.secretToken.trim() ? { secretToken: recipient.secretToken.trim() } : {}),
       isEnabled: recipient.isEnabled,
       priority: recipient.priority,
     })),
@@ -100,48 +90,37 @@ function toPayload(draft: DraftSettings): UpdateNotificationSettingsInput {
 }
 
 function nextPriority(draft: DraftSettings): number {
-  return Math.max(0, ...draft.recipients.map((recipient) => recipient.priority ?? 0)) + 1;
+  return Math.max(0, ...draft.recipients
+    .filter((recipient) => recipient.isEnabled)
+    .map((recipient) => recipient.priority ?? 0)) + 1;
+}
+
+function identity(recipient: Pick<DraftRecipient, "channel" | "destination">): string {
+  return `${recipient.channel}:${recipient.channel === "email"
+    ? recipient.destination.trim().toLowerCase()
+    : recipient.destination.trim()}`;
+}
+
+function displayedDestination(recipient: DraftRecipient): string {
+  if (recipient.channel === "email") return recipient.destination;
+  if (recipient.channel === "line") {
+    const value = recipient.destination.trim();
+    return value.length > 8 ? `${value.slice(0, 4)}…${value.slice(-4)}` : "••••";
+  }
+  try {
+    return `${new URL(recipient.destination).origin}/••••`;
+  } catch {
+    return "URL hidden";
+  }
 }
 
 function NotificationSettingsSkeleton() {
   return (
     <div role="status" aria-label="Loading notification settings" className="space-y-5">
       <span className="sr-only">Loading notification settings...</span>
-      <Card>
-        <CardHeader><Skeleton className="h-6 w-40" /></CardHeader>
-        <CardContent className="space-y-3">
-          <Skeleton className="h-5 w-52" />
-          <Skeleton className="h-4 w-80 max-w-full" />
-        </CardContent>
-      </Card>
-      <div className="flex flex-wrap gap-2">
-        {[0, 1, 2].map((item) => <Skeleton key={item} className="h-9 w-28" />)}
-      </div>
-      <Card>
-        <CardHeader><Skeleton className="h-6 w-40" /></CardHeader>
-        <CardContent><Skeleton className="h-10 w-full" /></CardContent>
-      </Card>
-      {[0, 1].map((item) => (
-        <Card key={item}>
-          <CardContent className="space-y-4 pt-5">
-            <div className="flex items-center justify-between">
-              <Skeleton className="h-7 w-32" />
-              <Skeleton className="h-8 w-24" />
-            </div>
-            <div className="grid gap-4 md:grid-cols-2">
-              <Skeleton className="h-14 w-full" />
-              <Skeleton className="h-14 w-full" />
-            </div>
-            <div className="flex justify-end border-t pt-3">
-              <Skeleton className="h-9 w-32" />
-            </div>
-          </CardContent>
-        </Card>
-      ))}
-      <div className="flex justify-end gap-2">
-        <Skeleton className="h-9 w-20" />
-        <Skeleton className="h-9 w-32" />
-      </div>
+      <Skeleton className="h-28 w-full" />
+      <div className="flex justify-end gap-2"><Skeleton className="h-9 w-32" /><Skeleton className="h-9 w-36" /></div>
+      <Skeleton className="h-72 w-full" />
     </div>
   );
 }
@@ -152,12 +131,22 @@ export function MultiChannelSettingsForm() {
   const testMutation = useTestNotificationChannel();
   const usersQuery = useAllUsers();
   const [draft, setDraft] = useState<DraftSettings | null>(null);
-  const [feedback, setFeedback] = useState<string | null>(null);
-  const [testingId, setTestingId] = useState<string | null>(null);
+  const [editor, setEditor] = useState<EditorState>(null);
+  const [notice, setNotice] = useState<Notice>(null);
+  const [highlightIdentity, setHighlightIdentity] = useState<string | null>(null);
+  const [testOpen, setTestOpen] = useState(false);
+  const [selectedTestId, setSelectedTestId] = useState("");
+  const highlightRowRef = useRef<HTMLTableRowElement | null>(null);
 
-  if (settingsQuery.isLoading) {
-    return <NotificationSettingsSkeleton />;
-  }
+  useEffect(() => {
+    if (!highlightIdentity) return;
+    const frame = requestAnimationFrame(() => {
+      highlightRowRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [highlightIdentity, draft, settingsQuery.data]);
+
+  if (settingsQuery.isLoading) return <NotificationSettingsSkeleton />;
   if (settingsQuery.isError) {
     return (
       <p role="alert" className="text-sm text-destructive">
@@ -170,86 +159,65 @@ export function MultiChannelSettingsForm() {
 
   const saved = settingsQuery.data ?? { isFallbackEnabled: false, recipients: [] };
   const current = draft ?? makeDraft(saved);
-  const emailRecipients = current.recipients.filter((recipient) => recipient.channel === "email");
-  const priorityOptionCount = Math.max(
-    1,
-    current.recipients.length,
-    ...current.recipients.map((recipient) => recipient.priority ?? 0),
-  );
+  const editingRecipient = editor?.kind === "edit"
+    ? current.recipients.find((recipient) => recipient.key === editor.key)
+    : undefined;
+  const otherDestinations = current.recipients
+    .filter((recipient) => recipient.key !== editingRecipient?.key)
+    .map((recipient) => ({ channel: recipient.channel, destination: recipient.destination }));
+  const priorityOptionCount = Math.max(1, nextPriority(current));
+  const priorityOptions = Array.from({ length: priorityOptionCount }, (_, index) => index + 1);
+  const rows = [
+    ...current.recipients.filter((recipient) => !recipient.recipientId).reverse(),
+    ...current.recipients.filter((recipient) => recipient.recipientId),
+  ];
 
   function edit(transform: (value: DraftSettings) => DraftSettings) {
     setDraft((value) => transform(value ?? makeDraft(saved)));
-    setFeedback(null);
+    setNotice(null);
   }
 
   function updateRecipient(key: string, patch: Partial<DraftRecipient>) {
     edit((value) => ({
       ...value,
       recipients: value.recipients.map((recipient) =>
-        recipient.key === key ? { ...recipient, ...patch } : recipient,
-      ),
+        recipient.key === key ? { ...recipient, ...patch } : recipient),
     }));
   }
 
-  function addRecipient(channel: NotificationChannel) {
-    edit((value) => ({
-      ...value,
-      recipients: [
-        ...value.recipients,
-        {
-          key: crypto.randomUUID(),
-          channel,
-          name: labels[channel],
-          destination: "",
-          secretToken: "",
-          hasSecretToken: false,
-          isEnabled: true,
-          priority: value.isFallbackEnabled ? nextPriority(value) : null,
-        },
-      ],
-    }));
-  }
-
-  function addEmail(email: string) {
-    const normalizedEmail = email.trim().toLowerCase();
-    const systemUser = usersQuery.data?.find(
-      (user) => user.email.trim().toLowerCase() === normalizedEmail,
-    );
-    edit((value) => {
-      if (value.recipients.some(
-        (recipient) => recipient.channel === "email" && recipient.destination.toLowerCase() === normalizedEmail,
-      )) return value;
-      return {
+  function applyDestination(values: DestinationFormValues) {
+    if (editor?.kind === "add") {
+      edit((value) => ({
         ...value,
-        recipients: [
-          ...value.recipients,
-          {
-            key: crypto.randomUUID(),
-            channel: "email",
-            name: systemUser?.displayName ?? normalizedEmail,
-            destination: normalizedEmail,
-            secretToken: "",
-            hasSecretToken: false,
-            isEnabled: true,
-            priority: value.isFallbackEnabled ? nextPriority(value) : null,
-          },
-        ],
-      };
-    });
+        recipients: [...value.recipients, {
+          ...values,
+          key: crypto.randomUUID(),
+          hasSecretToken: false,
+        }],
+      }));
+      setHighlightIdentity(identity(values));
+      setNotice({ kind: "info", message: "Destination added to the list. Save Changes to apply it." });
+    } else if (editor?.kind === "edit") {
+      updateRecipient(editor.key, values);
+      setHighlightIdentity(identity(values));
+      setNotice({ kind: "info", message: "Edit added to pending changes. Save Changes to apply it." });
+    }
+    setEditor(null);
   }
 
   function setFallbackEnabled(enabled: boolean) {
     edit((value) => {
       if (!enabled) return { ...value, isFallbackEnabled: false };
-      let priority = Math.max(0, ...value.recipients.map((recipient) => recipient.priority ?? 0));
+      let priority = Math.max(0, ...value.recipients
+        .filter((recipient) => recipient.isEnabled)
+        .map((recipient) => recipient.priority ?? 0));
       return {
         ...value,
         isFallbackEnabled: true,
         recipients: value.recipients.map((recipient) =>
           recipient.isEnabled && recipient.priority === null
             ? { ...recipient, priority: ++priority }
-            : recipient,
-        ),
+            : recipient),
       };
     });
   }
@@ -257,64 +225,78 @@ export function MultiChannelSettingsForm() {
   async function save() {
     const payload = toPayload(current);
     if (payload.recipients.some((recipient) => !recipient.name || !recipient.destination)) {
-      setFeedback("Enter a name and destination for every channel.");
+      setNotice({ kind: "error", message: "Enter a name and destination for every channel." });
       return;
     }
     if (payload.recipients.some((recipient) =>
       recipient.channel === "webhook" &&
       !recipient.secretToken &&
-      !current.recipients.find((item) => item.key === (recipient.recipientId ?? ""))?.hasSecretToken,
+      !current.recipients.find((item) => item.recipientId === recipient.recipientId)?.hasSecretToken,
     )) {
-      setFeedback("Enter a signing secret for each new webhook.");
+      setNotice({ kind: "error", message: "Enter a signing secret for each new webhook." });
       return;
     }
     if (payload.isFallbackEnabled) {
-      const priorityLevels = [
-        ...new Set(payload.recipients
-          .filter((recipient) => recipient.isEnabled)
-          .map((recipient) => recipient.priority)),
-      ].sort((left, right) => (left ?? 0) - (right ?? 0));
-      if (priorityLevels.some((priority, index) => priority !== index + 1)) {
-        setFeedback("Enabled priority levels must be consecutive from 1 (for example: 1, 1, 2).");
+      const levels = [...new Set(payload.recipients
+        .filter((recipient) => recipient.isEnabled)
+        .map((recipient) => recipient.priority))]
+        .sort((left, right) => (left ?? 0) - (right ?? 0));
+      if (levels.some((priority, index) => priority !== index + 1)) {
+        setNotice({ kind: "error", message: "Enabled priority levels must be consecutive from 1 (for example: 1, 1, 2)." });
         return;
       }
     }
     try {
       await saveMutation.mutateAsync(payload);
       setDraft(null);
-      setFeedback("Notification settings saved.");
-    } catch {
-      // The mutation error is rendered below.
+      setNotice({ kind: "success", message: "Notification settings saved. The changes now apply to alert delivery." });
+    } catch (error) {
+      setNotice({
+        kind: "error",
+        message: error instanceof Error ? error.message : "Failed to save notification settings.",
+      });
     }
   }
 
-  async function testChannel(recipientId: string, channel: NotificationChannel) {
-    setTestingId(recipientId);
-    setFeedback(null);
+  async function sendTest() {
+    const recipient = saved.recipients.find((item) => item.recipientId === selectedTestId);
+    if (!recipient) return;
     try {
-      const result = await testMutation.mutateAsync(recipientId);
-      setFeedback(result.success
-        ? `${labels[channel]} test sent successfully.`
-        : `${labels[channel]} test failed: ${result.errorMessage ?? "Provider unavailable"}`);
-    } catch {
-      // The mutation error is rendered below.
+      const result = await testMutation.mutateAsync(recipient.recipientId);
+      setNotice(result.success
+        ? { kind: "success", message: `${labels[recipient.channel]} test sent to ${recipient.name}.` }
+        : { kind: "error", message: `${labels[recipient.channel]} test failed: ${result.errorMessage ?? "Provider unavailable"}` });
+    } catch (error) {
+      setNotice({ kind: "error", message: error instanceof Error ? error.message : "Notification test failed." });
     } finally {
-      setTestingId(null);
+      setTestOpen(false);
     }
   }
 
   return (
     <div className="space-y-5">
+      {notice && (
+        <div
+          role={notice.kind === "error" ? "alert" : "status"}
+          className={`sticky top-4 z-20 rounded-lg border px-4 py-3 text-sm shadow-sm ${notice.kind === "error"
+            ? "border-red-200 bg-red-50 text-red-800 dark:border-red-900 dark:bg-red-950/40 dark:text-red-200"
+            : notice.kind === "success"
+              ? "border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-200"
+              : "border-blue-200 bg-blue-50 text-blue-800 dark:border-blue-900 dark:bg-blue-950/40 dark:text-blue-200"}`}
+        >
+          {notice.message}
+        </div>
+      )}
+
       <Card>
-        <CardHeader>
-          <CardTitle>Delivery routing</CardTitle>
-        </CardHeader>
+        <CardHeader><CardTitle>Delivery routing</CardTitle></CardHeader>
         <CardContent className="space-y-3">
           <label className="flex items-center gap-3 text-sm font-medium">
             <input
               type="checkbox"
               role="switch"
               checked={current.isFallbackEnabled}
+              disabled={Boolean(editor) || saveMutation.isPending}
               onChange={(event) => setFallbackEnabled(event.target.checked)}
               className="size-4 accent-blue-600"
             />
@@ -322,157 +304,209 @@ export function MultiChannelSettingsForm() {
           </label>
           <p className="text-sm text-muted-foreground">
             {current.isFallbackEnabled
-              ? "Try every destination at the same priority, then stop if any succeeds."
-              : "Send to every enabled channel at the same time."}
+              ? "Try every enabled destination at the same priority, then stop if any succeeds. Table position does not control delivery order."
+              : "Send to every enabled destination when an alert reaches this notification service."}
           </p>
         </CardContent>
       </Card>
 
-      <div className="flex flex-wrap gap-2">
-        {channels.filter((channel) => channel !== "email").map((channel) => (
-          <Button key={channel} type="button" variant="outline" onClick={() => addRecipient(channel)}>
-            <Plus className="size-4" /> Add {labels[channel]}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="text-sm text-muted-foreground">Global destinations · {current.recipients.length}/100 in list</p>
+        <div className="flex gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            disabled={Boolean(editor) || current.recipients.length >= 100 || saveMutation.isPending}
+            onClick={() => setEditor({ kind: "add" })}
+          >
+            <Plus className="size-4" /> Add destination
           </Button>
-        ))}
+          <Button
+            type="button"
+            variant="outline"
+            disabled={Boolean(editor) || draft !== null || saved.recipients.length === 0 || saveMutation.isPending || testMutation.isPending}
+            onClick={() => {
+              setSelectedTestId(saved.recipients[0]?.recipientId ?? "");
+              setTestOpen(true);
+            }}
+          >
+            <Send className="size-4" /> Test notification
+          </Button>
+        </div>
       </div>
+      {draft && <p className="text-sm text-amber-700 dark:text-amber-300">You have unsaved changes. Save or discard them before sending a test.</p>}
+
+      {editor && (editor.kind === "add" || editingRecipient) && (
+        <DestinationEditor
+          key={editor.kind === "add" ? "add" : editor.key}
+          initial={editingRecipient}
+          hasSecretToken={editingRecipient?.hasSecretToken}
+          users={usersQuery.data ?? []}
+          usersUnavailable={usersQuery.isError}
+          isFallbackEnabled={current.isFallbackEnabled}
+          priorityOptions={priorityOptions}
+          existingDestinations={otherDestinations}
+          onSubmit={applyDestination}
+          onCancel={() => setEditor(null)}
+        />
+      )}
 
       <Card>
         <CardHeader>
-          <CardTitle>Email recipients</CardTitle>
+          <CardTitle>Delivery destinations</CardTitle>
+          <p className="text-sm text-muted-foreground">These destinations apply globally to alerts routed through this service. Display names do not create teams.</p>
         </CardHeader>
         <CardContent>
-          <RecipientPicker
-            users={usersQuery.data ?? []}
-            emails={emailRecipients.map((recipient) => recipient.destination.trim().toLowerCase())}
-            usersLoading={usersQuery.isLoading}
-            usersUnavailable={usersQuery.isError}
-            onAdd={addEmail}
-          />
+          {rows.length === 0 ? (
+            <p className="rounded-md border border-dashed p-6 text-center text-sm text-muted-foreground">
+              No destinations configured. Add a destination to begin.
+            </p>
+          ) : (
+            <Table className="min-w-[760px]">
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Channel</TableHead>
+                  <TableHead>Name</TableHead>
+                  <TableHead>Destination</TableHead>
+                  <TableHead>Enabled</TableHead>
+                  <TableHead>Priority</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {rows.map((recipient) => {
+                  const ChannelIcon = channelIcons[recipient.channel];
+                  const highlighted = identity(recipient) === highlightIdentity;
+                  return (
+                    <TableRow
+                      key={recipient.key}
+                      ref={highlighted ? highlightRowRef : undefined}
+                      className={highlighted ? "bg-blue-50/70 dark:bg-blue-950/30" : undefined}
+                    >
+                      <TableCell>
+                        <span className="inline-flex items-center gap-2">
+                          <span className={`flex size-7 items-center justify-center rounded-md ${channelIconStyles[recipient.channel]}`}>
+                            <ChannelIcon className="size-4" aria-hidden="true" />
+                          </span>
+                          {labels[recipient.channel]}
+                        </span>
+                      </TableCell>
+                      <TableCell>
+                        <span className="font-medium">{recipient.name}</span>
+                        {!recipient.recipientId && <Badge variant="secondary" className="ml-2">Not saved</Badge>}
+                      </TableCell>
+                      <TableCell className="max-w-60 truncate" title={recipient.channel === "email" ? recipient.destination : undefined}>
+                        {displayedDestination(recipient)}
+                      </TableCell>
+                      <TableCell>
+                        <label className="inline-flex items-center gap-2 text-sm">
+                          <input
+                            type="checkbox"
+                            checked={recipient.isEnabled}
+                            disabled={Boolean(editor) || saveMutation.isPending}
+                            onChange={(event) => updateRecipient(recipient.key, {
+                              isEnabled: event.target.checked,
+                              priority: event.target.checked && current.isFallbackEnabled &&
+                                (recipient.priority === null || recipient.priority > nextPriority(current))
+                                ? nextPriority(current)
+                                : recipient.priority,
+                            })}
+                            className="size-4 accent-blue-600"
+                            aria-label={`Enable ${recipient.name}`}
+                          />
+                          <span>{recipient.isEnabled ? "On" : "Off"}</span>
+                        </label>
+                      </TableCell>
+                      <TableCell>{current.isFallbackEnabled && recipient.isEnabled ? recipient.priority ?? "—" : "—"}</TableCell>
+                      <TableCell>
+                        <div className="flex justify-end gap-1">
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            disabled={Boolean(editor) || saveMutation.isPending}
+                            onClick={() => setEditor({ kind: "edit", key: recipient.key })}
+                          >Edit</Button>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            disabled={Boolean(editor) || saveMutation.isPending}
+                            onClick={() => {
+                              edit((value) => ({
+                                ...value,
+                                recipients: value.recipients.filter((item) => item.key !== recipient.key),
+                              }));
+                              if (highlighted) setHighlightIdentity(null);
+                              setNotice({ kind: "info", message: "Destination removed from the list. Save Changes to apply it." });
+                            }}
+                            aria-label={`Remove ${recipient.name}`}
+                          >
+                            <Trash2 className="size-4" /> Remove
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          )}
         </CardContent>
       </Card>
 
-      {current.recipients.length === 0 && (
-        <p className="rounded-md border border-dashed p-6 text-center text-sm text-muted-foreground">
-          No channels configured. Add a destination to begin.
-        </p>
-      )}
-
-      {current.recipients.map((recipient) => {
-        const ChannelIcon = channelIcons[recipient.channel];
-        const systemUser = recipient.channel === "email"
-          ? usersQuery.data?.find((user) => user.email.trim().toLowerCase() === recipient.destination.trim().toLowerCase())
-          : undefined;
-        return (
-          <Card key={recipient.key}>
-            <CardContent className="space-y-4 pt-5">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div className="flex items-center gap-3">
-                  <span className={`flex size-8 items-center justify-center rounded-md ${channelIconStyles[recipient.channel]}`}>
-                    <ChannelIcon className="size-4" aria-hidden="true" />
-                  </span>
-                  <span className="rounded bg-blue-50 px-2 py-1 text-xs font-semibold text-blue-700">
-                    {labels[recipient.channel]}
-                  </span>
-                  <label className="flex items-center gap-2 text-sm">
-                    <input
-                      type="checkbox"
-                      checked={recipient.isEnabled}
-                      onChange={(event) => updateRecipient(recipient.key, {
-                        isEnabled: event.target.checked,
-                        priority: event.target.checked && recipient.priority === null
-                          ? nextPriority(current)
-                          : recipient.priority,
-                      })}
-                    />
-                    Enabled
-                  </label>
-                </div>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => edit((value) => ({
-                    ...value,
-                    recipients: value.recipients.filter((item) => item.key !== recipient.key),
-                  }))}
-                  aria-label={`Remove ${recipient.name}`}
-                >
-                  <Trash2 className="size-4" /> Remove
-                </Button>
-              </div>
-
-              {recipient.channel === "email" && (
-                <p className="text-xs text-muted-foreground">
-                  {systemUser
-                    ? `${systemUser.displayName} · ${systemUser.status === "ACTIVE" ? "System user" : "Inactive system user"}`
-                    : "External email"}
-                </p>
-              )}
-
-              <div className="grid gap-4 md:grid-cols-2">
-                <label className="space-y-1 text-sm font-medium">
-                  Name
-                  <Input value={recipient.name} onChange={(event) => updateRecipient(recipient.key, { name: event.target.value })} maxLength={120} />
-                </label>
-                <label className="space-y-1 text-sm font-medium">
-                  Destination
-                  <Input value={recipient.destination} onChange={(event) => updateRecipient(recipient.key, { destination: event.target.value })} placeholder={placeholders[recipient.channel]} maxLength={2048} />
-                </label>
-              </div>
-
-              {recipient.channel === "webhook" && (
-                <label className="block space-y-1 text-sm font-medium">
-                  Secret Key
-                  <Input type="password" autoComplete="new-password" value={recipient.secretToken} onChange={(event) => updateRecipient(recipient.key, { secretToken: event.target.value })} placeholder={recipient.hasSecretToken ? "Configured - leave blank to keep" : "Enter signing secret"} />
-                </label>
-              )}
-
-              <div className="flex flex-wrap items-center justify-between gap-3 border-t pt-3">
-                {current.isFallbackEnabled && recipient.isEnabled ? (
-                  <label className="flex items-center gap-2 text-sm font-medium">
-                    Priority
-                    <select
-                      aria-label={`Priority for ${recipient.name}`}
-                      value={recipient.priority ?? ""}
-                      onChange={(event) => updateRecipient(recipient.key, { priority: Number(event.target.value) })}
-                      className="h-9 rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                    >
-                      <option value="" disabled>Select</option>
-                      {Array.from({ length: priorityOptionCount }, (_, index) => index + 1).map((priority) => (
-                        <option key={priority} value={priority}>{priority}</option>
-                      ))}
-                    </select>
-                  </label>
-                ) : <span />}
-                <Button
-                  type="button"
-                  variant="outline"
-                  disabled={!recipient.recipientId || draft !== null || testMutation.isPending || saveMutation.isPending}
-                  onClick={() => recipient.recipientId && testChannel(recipient.recipientId, recipient.channel)}
-                >
-                  {testingId === recipient.recipientId ? <LoaderCircle className="size-4 animate-spin" /> : <Send className="size-4" />}
-                  Test Channel
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        );
-      })}
-
-      {(feedback || saveMutation.error || testMutation.error) && (
-        <p role="status" className="text-sm">
-          {feedback ?? (saveMutation.error instanceof Error ? saveMutation.error.message : null) ??
-            (testMutation.error instanceof Error ? testMutation.error.message : "Operation failed")}
-        </p>
-      )}
-
       <div className="flex justify-end gap-2">
-        <Button type="button" variant="outline" disabled={!draft || saveMutation.isPending} onClick={() => { setDraft(null); setFeedback(null); }}>Discard</Button>
-        <Button type="button" className="bg-blue-600 text-white hover:bg-blue-700 dark:bg-blue-600 dark:text-white dark:hover:bg-blue-700" disabled={!draft || saveMutation.isPending} onClick={save}>
+        <Button
+          type="button"
+          variant="outline"
+          disabled={!draft || saveMutation.isPending}
+          onClick={() => {
+            setDraft(null);
+            setEditor(null);
+            setNotice(null);
+            setHighlightIdentity(null);
+          }}
+        >Discard</Button>
+        <Button
+          type="button"
+          disabled={!draft || Boolean(editor) || saveMutation.isPending}
+          className="bg-blue-600 text-white hover:bg-blue-700 dark:bg-blue-600 dark:text-white dark:hover:bg-blue-700"
+          onClick={save}
+        >
           {saveMutation.isPending && <LoaderCircle className="size-4 animate-spin" />}
           Save Changes
         </Button>
       </div>
+
+      <Dialog open={testOpen} onOpenChange={setTestOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Test notification</DialogTitle>
+            <DialogDescription>Send one real test message to a saved destination. Disabled destinations can also be tested.</DialogDescription>
+          </DialogHeader>
+          <label className="space-y-1 text-sm font-medium">
+            <span>Destination to test</span>
+            <select
+              value={selectedTestId}
+              onChange={(event) => setSelectedTestId(event.target.value)}
+              className="block h-9 w-full rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              {saved.recipients.map((recipient) => (
+                <option key={recipient.recipientId} value={recipient.recipientId}>
+                  {labels[recipient.channel]} · {recipient.name}{recipient.isEnabled ? "" : " (disabled)"}
+                </option>
+              ))}
+            </select>
+          </label>
+          <DialogFooter>
+            <Button type="button" variant="outline" disabled={testMutation.isPending} onClick={() => setTestOpen(false)}>Cancel</Button>
+            <Button type="button" disabled={!selectedTestId || testMutation.isPending} onClick={sendTest}>
+              {testMutation.isPending && <LoaderCircle className="size-4 animate-spin" />}
+              Send test
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
