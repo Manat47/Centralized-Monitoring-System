@@ -63,43 +63,45 @@ export function EmailDestinationPicker({
         if (!event.currentTarget.contains(event.relatedTarget)) setOpen(false);
       }}
     >
-      <Search className="pointer-events-none absolute left-3 top-[1.1rem] size-4 text-muted-foreground" />
-      <Input
-        value={value}
-        disabled={disabled}
-        onChange={(event) => {
-          onChange(event.target.value);
-          setHighlightedIndex(0);
-          setOpen(true);
-        }}
-        onFocus={() => setOpen(true)}
-        onKeyDown={(event) => {
-          if (event.key === "Escape") setOpen(false);
-          if (event.key === "ArrowDown") {
-            event.preventDefault();
+      <div className="relative">
+        <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+        <Input
+          value={value}
+          disabled={disabled}
+          onChange={(event) => {
+            onChange(event.target.value);
+            setHighlightedIndex(0);
             setOpen(true);
-            setHighlightedIndex((index) => Math.min(index + 1, Math.max(optionCount - 1, 0)));
-          }
-          if (event.key === "ArrowUp") {
-            event.preventDefault();
-            setHighlightedIndex((index) => Math.max(index - 1, 0));
-          }
-          if (event.key === "Enter" && open && optionCount > 0) {
-            event.preventDefault();
-            selectHighlighted();
-          }
-        }}
-        placeholder="Search a system user or enter an external email"
-        maxLength={2048}
-        required
-        autoComplete="off"
-        role="combobox"
-        aria-label="Recipient email"
-        aria-expanded={open}
-        aria-controls="email-destination-options"
-        aria-activedescendant={open && optionCount > 0 ? `email-destination-option-${highlightedIndex}` : undefined}
-        className="h-9 bg-white pl-9 focus-visible:border-blue-500 focus-visible:ring-2 focus-visible:ring-blue-500/20 dark:bg-slate-950"
-      />
+          }}
+          onFocus={() => setOpen(true)}
+          onKeyDown={(event) => {
+            if (event.key === "Escape") setOpen(false);
+            if (event.key === "ArrowDown") {
+              event.preventDefault();
+              setOpen(true);
+              setHighlightedIndex((index) => Math.min(index + 1, Math.max(optionCount - 1, 0)));
+            }
+            if (event.key === "ArrowUp") {
+              event.preventDefault();
+              setHighlightedIndex((index) => Math.max(index - 1, 0));
+            }
+            if (event.key === "Enter" && open && optionCount > 0) {
+              event.preventDefault();
+              selectHighlighted();
+            }
+          }}
+          placeholder="Search a system user or enter an external email"
+          maxLength={2048}
+          required
+          autoComplete="off"
+          role="combobox"
+          aria-label="Recipient email"
+          aria-expanded={open}
+          aria-controls="email-destination-options"
+          aria-activedescendant={open && optionCount > 0 ? `email-destination-option-${highlightedIndex}` : undefined}
+          className="h-9 bg-white pl-9 focus-visible:border-blue-500 focus-visible:ring-2 focus-visible:ring-blue-500/20 dark:bg-slate-950"
+        />
+      </div>
       {open && (
         <div
           id="email-destination-options"

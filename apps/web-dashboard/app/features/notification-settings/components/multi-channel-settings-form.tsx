@@ -329,7 +329,7 @@ export function MultiChannelSettingsForm() {
         <DialogContent className="sm:max-w-xl">
           <DialogHeader>
             <DialogTitle>{editor?.kind === "edit" ? "Edit destination" : "Add destination"}</DialogTitle>
-            <DialogDescription>These global settings apply to alerts from this service. Saving this destination takes effect immediately.</DialogDescription>
+            <DialogDescription className="sr-only">Configure a destination for alert notifications.</DialogDescription>
           </DialogHeader>
           {editor && (editor.kind === "add" || editingRecipient) && (
             <DestinationEditor

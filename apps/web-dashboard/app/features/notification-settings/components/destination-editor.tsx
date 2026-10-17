@@ -187,7 +187,6 @@ export function DestinationEditor({
                 required={values.channel !== "email"}
                 className="h-9 bg-white focus-visible:border-blue-500 focus-visible:ring-2 focus-visible:ring-blue-500/20 dark:bg-slate-950"
               />
-              <span className="block text-xs font-normal text-muted-foreground">For identifying this row only; it does not select a team.</span>
             </label>
           </div>
 
@@ -214,7 +213,9 @@ export function DestinationEditor({
                 className="h-9 bg-white focus-visible:border-blue-500 focus-visible:ring-2 focus-visible:ring-blue-500/20 dark:bg-slate-950"
               />
             )}
-            <span className="block text-xs font-normal text-muted-foreground">{copy.help}</span>
+            {values.channel !== "email" && (
+              <span className="block text-xs font-normal text-muted-foreground">{copy.help}</span>
+            )}
           </div>
 
           {values.channel === "webhook" && (
@@ -236,11 +237,10 @@ export function DestinationEditor({
             </label>
           )}
 
-          <div className="flex flex-wrap items-end gap-5">
-            <label className="flex items-center gap-2 text-sm font-medium">
+          <div className="space-y-3">
+            <label className="inline-flex items-center gap-2 text-sm font-medium">
               <input
                 type="checkbox"
-                role="switch"
                 disabled={isSaving}
                 checked={values.isEnabled}
                 onChange={(event) => change({
@@ -255,18 +255,26 @@ export function DestinationEditor({
               Enabled
             </label>
             {isFallbackEnabled && values.isEnabled && (
-              <label className="space-y-1.5 text-xs font-medium text-slate-600 dark:text-slate-300">
+              <label className="block max-w-56 space-y-1.5 text-xs font-medium text-slate-600 dark:text-slate-300">
                 <span>Fallback priority</span>
                 <Select
                   value={String(values.priority ?? "")}
                   disabled={isSaving}
                   onValueChange={(priority) => change({ priority: priority ? Number(priority) : null })}
                 >
-                  <SelectTrigger aria-label="Fallback priority" className="h-9 min-w-36 bg-white dark:bg-slate-950">
-                    <SelectValue>{values.priority ?? "Select"}</SelectValue>
+                  <SelectTrigger aria-label="Fallback priority" className="h-9 w-full bg-white dark:bg-slate-950">
+                    <SelectValue>
+                      {values.priority === null
+                        ? "Select priority"
+                        : `${values.priority}${values.priority === priorityOptions.at(-1) ? " · New level" : ""}`}
+                    </SelectValue>
                   </SelectTrigger>
                   <SelectContent alignItemWithTrigger={false} sideOffset={6}>
-                    {priorityOptions.map((priority) => <SelectItem key={priority} value={String(priority)}>{priority}</SelectItem>)}
+                    {priorityOptions.map((priority) => (
+                      <SelectItem key={priority} value={String(priority)}>
+                        {priority}{priority === priorityOptions.at(-1) ? " · New level" : ""}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </label>
