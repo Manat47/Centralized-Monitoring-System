@@ -115,7 +115,7 @@ export function NetworkRateChart({
       {
         name: "RX",
         type: "line",
-        smooth: true,
+        smooth: false,
         showSymbol: false,
         lineStyle: { width: 2 },
         data: data.map((point) => [
@@ -126,7 +126,7 @@ export function NetworkRateChart({
       {
         name: "TX",
         type: "line",
-        smooth: true,
+        smooth: false,
         showSymbol: false,
         lineStyle: { width: 2 },
         data: data.map((point) => [

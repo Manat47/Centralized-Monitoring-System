@@ -368,7 +368,7 @@ function MetricContext({ alert }: { alert: Alert }) {
     series: [
       {
         type: "line",
-        smooth: true,
+        smooth: false,
         symbol: "none",
         lineStyle: { color: "#ef4444", width: 2 },
         areaStyle: { color: "rgba(239,68,68,0.06)" },

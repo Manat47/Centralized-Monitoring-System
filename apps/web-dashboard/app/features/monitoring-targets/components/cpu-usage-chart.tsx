@@ -114,7 +114,7 @@ export function CpuUsageChart({
       {
         name: selectedCpu === "ALL" ? "All cores (avg)" : selectedCpu,
         type: "line",
-        smooth: true,
+        smooth: false,
         showSymbol: false,
         lineStyle: { width: 2 },
         areaStyle: { color: "rgba(37, 99, 235, 0.08)" },
