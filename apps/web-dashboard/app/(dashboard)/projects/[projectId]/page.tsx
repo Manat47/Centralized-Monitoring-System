@@ -4,8 +4,7 @@ import { connection } from "next/server";
 export default async function Page({ params }: { params: Promise<{ projectId: string }> }) {
   await connection();
   const { projectId } = await params;
-  const configuredUrl = process.env.LOG_INGEST_PUBLIC_URL?.trim() ||
-    (process.env.NODE_ENV === "development" ? "http://localhost:3010" : "");
+  const configuredUrl = process.env.LOG_INGEST_PUBLIC_URL?.trim();
   let ingestEndpoint: string | null = null;
 
   if (configuredUrl) {
@@ -19,7 +18,7 @@ export default async function Page({ params }: { params: Promise<{ projectId: st
         ingestEndpoint = new URL("/api/ingest/logs", origin).toString();
       }
     } catch {
-      // The page shows a configuration message instead of an unusable command.
+      // Fall back to the origin of the dashboard page.
     }
   }
 
