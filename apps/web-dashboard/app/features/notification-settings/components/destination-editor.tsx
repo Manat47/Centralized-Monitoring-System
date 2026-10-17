@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 import type { NotificationChannel } from "../types/notification-settings";
+import { EmailDestinationPicker } from "./email-destination-picker";
 
 export interface DestinationFormValues {
   channel: NotificationChannel;
@@ -28,6 +29,7 @@ interface DestinationEditorProps {
   existingDestinations: Array<{ channel: NotificationChannel; destination: string }>;
   onSubmit: (values: DestinationFormValues) => void;
   onCancel: () => void;
+  isSaving: boolean;
 }
 
 const channelCopy: Record<NotificationChannel, {
@@ -72,6 +74,7 @@ export function DestinationEditor({
   existingDestinations,
   onSubmit,
   onCancel,
+  isSaving,
 }: DestinationEditorProps) {
   const [values, setValues] = useState<DestinationFormValues>(() => initial ?? {
     channel: "email",
@@ -148,24 +151,14 @@ export function DestinationEditor({
   }
 
   return (
-    <section className="space-y-4" aria-label={initial ? "Edit destination" : "Add destination"}>
-      <div>
-        <h3 className="text-sm font-semibold text-slate-950 dark:text-slate-50">
-          {initial ? "Edit destination" : "Add destination"}
-        </h3>
-        <p className="mt-1 text-xs text-muted-foreground">
-          {initial
-            ? "Apply the edit to the list, then Save Changes to update global alert delivery."
-            : "Add to the list first, then Save Changes to apply it to global alert delivery."}
-        </p>
-      </div>
+    <section aria-label={initial ? "Edit destination" : "Add destination"}>
       <form className="space-y-4" onSubmit={submit}>
           <div className="grid gap-4 md:grid-cols-2">
             <label className="space-y-1.5 text-xs font-medium text-slate-600 dark:text-slate-300">
               <span>Channel</span>
               <Select
                 value={values.channel}
-                disabled={Boolean(initial)}
+                disabled={Boolean(initial) || isSaving}
                 onValueChange={(channel) => change({
                   channel: (channel ?? "email") as NotificationChannel,
                   name: "",
@@ -187,6 +180,7 @@ export function DestinationEditor({
               <span>Display name {values.channel === "email" && <span className="font-normal text-muted-foreground">(optional)</span>}</span>
               <Input
                 value={values.name}
+                disabled={isSaving}
                 onChange={(event) => change({ name: event.target.value })}
                 placeholder={values.channel === "email" ? "Defaults to user name or email" : "e.g. Operations"}
                 maxLength={120}
@@ -197,38 +191,38 @@ export function DestinationEditor({
             </label>
           </div>
 
-          <label className="block space-y-1.5 text-xs font-medium text-slate-600 dark:text-slate-300">
+          <div className="space-y-1.5 text-xs font-medium text-slate-600 dark:text-slate-300">
             <span>{copy.destinationLabel}</span>
-            <Input
-              value={values.destination}
-              onChange={(event) => change({ destination: event.target.value })}
-              placeholder={copy.placeholder}
-              list={values.channel === "email" ? "notification-active-users" : undefined}
-              maxLength={2048}
-              required
-              autoComplete="off"
-              className="h-9 bg-white focus-visible:border-blue-500 focus-visible:ring-2 focus-visible:ring-blue-500/20 dark:bg-slate-950"
-            />
+            {values.channel === "email" ? (
+              <EmailDestinationPicker
+                value={values.destination}
+                users={users}
+                usersUnavailable={usersUnavailable}
+                existingEmails={existingDestinations.filter((item) => item.channel === "email").map((item) => item.destination)}
+                onChange={(destination) => change({ destination })}
+                disabled={isSaving}
+              />
+            ) : (
+              <Input
+                value={values.destination}
+                disabled={isSaving}
+                onChange={(event) => change({ destination: event.target.value })}
+                placeholder={copy.placeholder}
+                maxLength={2048}
+                required
+                autoComplete="off"
+                className="h-9 bg-white focus-visible:border-blue-500 focus-visible:ring-2 focus-visible:ring-blue-500/20 dark:bg-slate-950"
+              />
+            )}
             <span className="block text-xs font-normal text-muted-foreground">{copy.help}</span>
-          </label>
-          {values.channel === "email" && (
-            <>
-              <datalist id="notification-active-users">
-                {activeUsers.map((user) => (
-                  <option key={user.userId} value={user.email} label={user.displayName} />
-                ))}
-              </datalist>
-              {usersUnavailable && (
-                <p className="text-xs text-amber-700">System users could not be loaded. You can still enter an external email.</p>
-              )}
-            </>
-          )}
+          </div>
 
           {values.channel === "webhook" && (
             <label className="block space-y-1.5 text-xs font-medium text-slate-600 dark:text-slate-300">
               <span>Signing secret</span>
               <Input
                 type="password"
+                disabled={isSaving}
                 autoComplete="new-password"
                 value={values.secretToken}
                 onChange={(event) => change({ secretToken: event.target.value })}
@@ -247,6 +241,7 @@ export function DestinationEditor({
               <input
                 type="checkbox"
                 role="switch"
+                disabled={isSaving}
                 checked={values.isEnabled}
                 onChange={(event) => change({
                   isEnabled: event.target.checked,
@@ -264,6 +259,7 @@ export function DestinationEditor({
                 <span>Fallback priority</span>
                 <Select
                   value={String(values.priority ?? "")}
+                  disabled={isSaving}
                   onValueChange={(priority) => change({ priority: priority ? Number(priority) : null })}
                 >
                   <SelectTrigger aria-label="Fallback priority" className="h-9 min-w-36 bg-white dark:bg-slate-950">
@@ -279,9 +275,9 @@ export function DestinationEditor({
 
           {error && <p role="alert" className="text-sm text-rose-600">{error}</p>}
           <div className="flex justify-end gap-2 border-t border-slate-200 pt-4 dark:border-slate-800">
-            <Button type="button" variant="outline" onClick={onCancel}>Cancel</Button>
-            <Button type="submit" className="bg-blue-600 text-white hover:bg-blue-700 dark:bg-blue-600 dark:text-white dark:hover:bg-blue-700">
-              {initial ? "Apply edit to list" : "Add to list"}
+            <Button type="button" variant="outline" disabled={isSaving} onClick={onCancel}>Cancel</Button>
+            <Button type="submit" disabled={isSaving} className="bg-blue-600 text-white hover:bg-blue-700 dark:bg-blue-600 dark:text-white dark:hover:bg-blue-700">
+              {isSaving ? "Saving..." : "Save destination"}
             </Button>
           </div>
       </form>

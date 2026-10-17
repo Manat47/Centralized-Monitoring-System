@@ -25,6 +25,7 @@ See the [root README](../../README.md) for the full architecture and stack setup
 | `/api/monitoring-targets`, `/api/health-check-targets`, `/api/metric-rules` | Monitoring service |
 | `/api/alerts` | Alerting service |
 | `/api/notification-recipients` | Notification service |
+| `/api/notification-settings` | Notification service |
 | `/api/audit-logs`, `/api/reports` | Security and report service |
 | `/api/dashboard/summary` | Gateway aggregation |
 | `/api/system/status` | Gateway aggregation |

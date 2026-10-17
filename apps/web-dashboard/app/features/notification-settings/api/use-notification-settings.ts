@@ -3,37 +3,13 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import {
-  getNotificationRecipients,
-  sendTestNotification,
-  updateNotificationRecipients,
   getNotificationSettings,
-  updateNotificationSettings,
   testNotificationChannel,
+  createNotificationChannel,
+  patchNotificationChannel,
+  deleteNotificationChannel,
+  patchNotificationRouting,
 } from "./notification-settings";
-
-const queryKey = ["notification-recipients"];
-
-export function useNotificationRecipients() {
-  return useQuery({
-    queryKey,
-    queryFn: getNotificationRecipients,
-  });
-}
-
-export function useUpdateNotificationRecipients() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: updateNotificationRecipients,
-    onSuccess: (recipients) => {
-      queryClient.setQueryData(queryKey, recipients);
-    },
-  });
-}
-
-export function useSendTestNotification() {
-  return useMutation({ mutationFn: sendTestNotification });
-}
 
 const settingsQueryKey = ["multi-channel-notification-settings"];
 
@@ -41,14 +17,38 @@ export function useMultiChannelSettings() {
   return useQuery({ queryKey: settingsQueryKey, queryFn: getNotificationSettings });
 }
 
-export function useUpdateMultiChannelSettings() {
+export function useTestNotificationChannel() {
+  return useMutation({ mutationFn: testNotificationChannel });
+}
+
+export function useCreateNotificationChannel() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: updateNotificationSettings,
+    mutationFn: createNotificationChannel,
     onSuccess: (settings) => queryClient.setQueryData(settingsQueryKey, settings),
   });
 }
 
-export function useTestNotificationChannel() {
-  return useMutation({ mutationFn: testNotificationChannel });
+export function usePatchNotificationChannel() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: patchNotificationChannel,
+    onSuccess: (settings) => queryClient.setQueryData(settingsQueryKey, settings),
+  });
+}
+
+export function useDeleteNotificationChannel() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: deleteNotificationChannel,
+    onSuccess: (settings) => queryClient.setQueryData(settingsQueryKey, settings),
+  });
+}
+
+export function usePatchNotificationRouting() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: patchNotificationRouting,
+    onSuccess: (settings) => queryClient.setQueryData(settingsQueryKey, settings),
+  });
 }

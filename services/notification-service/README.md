@@ -1,8 +1,8 @@
 # Notification Service
 
 The Notification service consumes notification events and delivers operational
-email through Gmail SMTP. It also owns the configured recipient list used for
-alert notifications.
+email through Gmail SMTP. It also owns the configured delivery destinations
+used for alert notifications.
 
 See the [root README](../../README.md) for the full architecture and stack setup.
 
@@ -11,9 +11,9 @@ See the [root README](../../README.md) for the full architecture and stack setup
 - Consume alert and user-invitation notification events from RabbitMQ.
 - Render readable HTML and plain-text email content.
 - Deliver messages through authenticated SMTP.
-- Store a deduplicated list of notification recipient email addresses.
+- Store email, LINE, Slack, and webhook delivery destinations.
 - Accept both system-user addresses and external addresses.
-- Send a test message to the currently configured recipients.
+- Send a test notification to a selected destination.
 - Publish audit events when recipient settings change.
 
 Recipients are delivery destinations only. An address does not need a system
@@ -25,12 +25,24 @@ The service listens on port `3003`.
 
 | Method | Route | Purpose |
 | --- | --- | --- |
+| `GET` | `/notification-settings` | Read delivery destinations and routing mode |
+| `PUT` | `/notification-settings` | Replace all settings (existing bulk client) |
+| `POST` | `/notification-settings/recipients` | Create one destination |
+| `PATCH` | `/notification-settings/recipients/:recipientId` | Update one destination, including its enabled state |
+| `DELETE` | `/notification-settings/recipients/:recipientId` | Remove one destination |
+| `PATCH` | `/notification-settings/routing` | Set broadcast or fallback mode |
+| `POST` | `/notification-settings/:recipientId/test` | Test one destination |
 | `GET` | `/notification-recipients` | List configured recipients |
 | `PUT` | `/notification-recipients` | Replace the recipient list |
 | `POST` | `/notification-recipients/test` | Send a test notification |
 | `GET` | `/health` | Service health probe |
 
-The settings UI uses `/api/notification-recipients` through the API Gateway.
+The `/notification-recipients` routes are the older email-only API. The
+settings UI uses the individual `/api/notification-settings` routes through the
+API Gateway. The bulk `PUT` route remains available for existing clients. The
+individual mutation routes return the full updated settings view. Fallback
+priority levels are compacted after individual changes so enabled destinations
+retain consecutive levels.
 
 ## Persistence and Events
 

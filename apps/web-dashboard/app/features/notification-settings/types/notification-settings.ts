@@ -1,16 +1,3 @@
-export interface NotificationRecipient {
-  recipientId: string;
-  email: string;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface TestNotificationResult {
-  recipientCount: number;
-  sentCount: number;
-  failedCount: number;
-}
-
 export type NotificationChannel = "email" | "line" | "slack" | "webhook";
 
 export interface NotificationChannelRecipient {
@@ -38,10 +25,11 @@ export interface UpdateNotificationChannelInput {
   priority: number | null;
 }
 
-export interface UpdateNotificationSettingsInput {
-  isFallbackEnabled: boolean;
-  recipients: UpdateNotificationChannelInput[];
-}
+export type CreateNotificationChannelInput = Omit<UpdateNotificationChannelInput, "recipientId">;
+
+export type PatchNotificationChannelInput = Partial<
+  Pick<UpdateNotificationChannelInput, "name" | "destination" | "secretToken" | "isEnabled" | "priority">
+>;
 
 export interface TestChannelResult {
   success: boolean;

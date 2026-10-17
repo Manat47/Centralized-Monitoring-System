@@ -76,7 +76,153 @@ export class ManageNotificationSettingsUseCase {
     input: UpdateNotificationSettingsInput,
     actor: SettingsActor,
   ): Promise<NotificationSettingsView> {
-    const existing = await this.repository.get();
+    const saved = await this.repository.mutate((current) =>
+      this.buildSettings(current, input),
+    );
+    await this.publishUpdateAudit(actor, saved, 'replace');
+    return this.toView(saved);
+  }
+
+  async createRecipient(
+    input: Omit<RecipientSettingsInput, 'recipientId'>,
+    actor: SettingsActor,
+  ): Promise<NotificationSettingsView> {
+    const saved = await this.repository.mutate((current) => {
+      if (current.recipients.length >= 100) {
+        throw new BadRequestException(
+          'A maximum of 100 destinations is allowed',
+        );
+      }
+      return this.buildSettings(
+        current,
+        {
+          isFallbackEnabled: current.isFallbackEnabled,
+          recipients: [
+            ...current.recipients.map((recipient) => this.toInput(recipient)),
+            input,
+          ],
+        },
+        true,
+      );
+    });
+    await this.publishUpdateAudit(actor, saved, 'create');
+    return this.toView(saved);
+  }
+
+  async updateRecipient(
+    recipientId: string,
+    patch: Partial<Omit<RecipientSettingsInput, 'recipientId' | 'channel'>>,
+    actor: SettingsActor,
+  ): Promise<NotificationSettingsView> {
+    const changes = {
+      ...(patch.name !== undefined ? { name: patch.name } : {}),
+      ...(patch.destination !== undefined
+        ? { destination: patch.destination }
+        : {}),
+      ...(patch.secretToken !== undefined
+        ? { secretToken: patch.secretToken }
+        : {}),
+      ...(patch.isEnabled !== undefined ? { isEnabled: patch.isEnabled } : {}),
+      ...(patch.priority !== undefined ? { priority: patch.priority } : {}),
+    };
+    if (Object.keys(changes).length === 0) {
+      throw new BadRequestException('Enter at least one field to update');
+    }
+    const saved = await this.repository.mutate((current) => {
+      const previous = current.recipients.find(
+        (recipient) => recipient.recipientId === recipientId,
+      );
+      if (!previous)
+        throw new NotFoundException('Notification channel not found');
+      return this.buildSettings(
+        current,
+        {
+          isFallbackEnabled: current.isFallbackEnabled,
+          recipients: current.recipients.map((recipient) =>
+            recipient.recipientId === recipientId
+              ? { ...this.toInput(recipient), ...changes }
+              : this.toInput(recipient),
+          ),
+        },
+        true,
+      );
+    });
+    await this.publishUpdateAudit(actor, saved, 'update', recipientId);
+    return this.toView(saved);
+  }
+
+  async deleteRecipient(
+    recipientId: string,
+    actor: SettingsActor,
+  ): Promise<NotificationSettingsView> {
+    const saved = await this.repository.mutate((current) => {
+      if (
+        !current.recipients.some(
+          (recipient) => recipient.recipientId === recipientId,
+        )
+      ) {
+        throw new NotFoundException('Notification channel not found');
+      }
+      return this.buildSettings(
+        current,
+        {
+          isFallbackEnabled: current.isFallbackEnabled,
+          recipients: current.recipients
+            .filter((recipient) => recipient.recipientId !== recipientId)
+            .map((recipient) => this.toInput(recipient)),
+        },
+        true,
+      );
+    });
+    await this.publishUpdateAudit(actor, saved, 'delete', recipientId);
+    return this.toView(saved);
+  }
+
+  async updateRouting(
+    isFallbackEnabled: boolean,
+    actor: SettingsActor,
+  ): Promise<NotificationSettingsView> {
+    const saved = await this.repository.mutate((current) =>
+      this.buildSettings(
+        current,
+        {
+          isFallbackEnabled,
+          recipients: current.recipients.map((recipient) =>
+            this.toInput(recipient),
+          ),
+        },
+        true,
+      ),
+    );
+    await this.publishUpdateAudit(actor, saved, 'routing');
+    return this.toView(saved);
+  }
+
+  private toInput(
+    recipient: NotificationSettingsRecipientRecord,
+  ): RecipientSettingsInput {
+    return {
+      recipientId: recipient.recipientId,
+      channel: recipient.channel,
+      name: recipient.name,
+      destination: recipient.destination,
+      secretToken: recipient.secretToken ?? undefined,
+      isEnabled: recipient.isEnabled,
+      priority: recipient.priority,
+    };
+  }
+
+  private buildSettings(
+    existing: {
+      isFallbackEnabled: boolean;
+      recipients: NotificationSettingsRecipientRecord[];
+    },
+    input: UpdateNotificationSettingsInput,
+    normalizePriorities = false,
+  ): {
+    isFallbackEnabled: boolean;
+    recipients: NotificationSettingsRecipientRecord[];
+  } {
     const byId = new Map(
       existing.recipients.map((recipient) => [
         recipient.recipientId,
@@ -87,7 +233,7 @@ export class ManageNotificationSettingsUseCase {
     const seenDestinations = new Set<string>();
     const now = new Date();
 
-    const recipients = input.recipients.map((item) => {
+    let recipients = input.recipients.map((item) => {
       const previous = item.recipientId
         ? byId.get(item.recipientId)
         : undefined;
@@ -155,6 +301,33 @@ export class ManageNotificationSettingsUseCase {
       } satisfies NotificationSettingsRecipientRecord;
     });
 
+    if (input.isFallbackEnabled && normalizePriorities) {
+      const levels = [
+        ...new Set(
+          recipients
+            .filter(
+              (recipient) => recipient.isEnabled && recipient.priority !== null,
+            )
+            .map((recipient) => recipient.priority as number),
+        ),
+      ].sort((a, b) => a - b);
+      const compactLevel = new Map(
+        levels.map((level, index) => [level, index + 1]),
+      );
+      let nextLevel = levels.length;
+      recipients = recipients.map((recipient) =>
+        recipient.isEnabled
+          ? {
+              ...recipient,
+              priority:
+                recipient.priority === null
+                  ? ++nextLevel
+                  : compactLevel.get(recipient.priority)!,
+            }
+          : recipient,
+      );
+    }
+
     if (input.isFallbackEnabled) {
       const priorities = recipients
         .filter((recipient) => recipient.isEnabled)
@@ -169,23 +342,35 @@ export class ManageNotificationSettingsUseCase {
       }
     }
 
-    const saved = await this.repository.replace({
+    return {
       isFallbackEnabled: input.isFallbackEnabled,
       recipients,
-    });
+    };
+  }
+
+  private async publishUpdateAudit(
+    actor: SettingsActor,
+    saved: {
+      isFallbackEnabled: boolean;
+      recipients: NotificationSettingsRecipientRecord[];
+    },
+    operation: 'replace' | 'create' | 'update' | 'delete' | 'routing',
+    recipientId?: string,
+  ): Promise<void> {
     await this.auditPublisher.publish({
       ...actor,
       action: 'NOTIFICATION_RECIPIENTS_UPDATED',
       resourceType: 'NOTIFICATION_SETTINGS',
+      resourceId: recipientId ?? null,
       resourceName: 'Multi-channel notification settings',
       result: 'SUCCESS',
       metadata: {
-        recipientCount: recipients.length,
-        isFallbackEnabled: input.isFallbackEnabled,
+        operation,
+        recipientCount: saved.recipients.length,
+        isFallbackEnabled: saved.isFallbackEnabled,
       },
       occurredAt: new Date(),
     });
-    return this.toView(saved);
   }
 
   async testChannel(
