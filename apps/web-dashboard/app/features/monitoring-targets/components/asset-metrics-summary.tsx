@@ -50,7 +50,9 @@ export function AssetMetricsSummary({ assetId: selectedAssetId, assetCreatedAt }
           rule.enabled,
       )
       .flatMap((rule) => [
-        { id: `${rule.ruleId}-warning`, value: rule.warningThreshold, severity: "WARNING" as const },
+        ...(rule.warningEnabled !== false
+          ? [{ id: `${rule.ruleId}-warning`, value: rule.warningThreshold, severity: "WARNING" as const }]
+          : []),
         { id: `${rule.ruleId}-critical`, value: rule.criticalThreshold, severity: "CRITICAL" as const },
       ]);
 
