@@ -1,65 +1,58 @@
 # Asset Management Service
 
-The Asset Management service owns the system inventory and asset lifecycle. An
-asset is the stable identity referenced by monitoring targets, health checks,
-metric rules, alerts, audit records, and reports.
+บริการนี้ดูแลทะเบียน Asset และวงจรชีวิตของ Asset ซึ่งเป็นตัวตนอ้างอิงร่วมกันระหว่าง Monitoring Targets, Health Checks, Metric Rules, Alerts, Audit Logs และ Reports ดูภาพรวมระบบใน [README หลัก](../../README.md)
 
-See the [root README](../../README.md) for the full architecture and stack setup.
+## ข้อมูลและสถานะ
 
-## Domain
+ประเภท Asset ที่รองรับ:
 
-Supported asset types:
+- `SERVER`: เครื่องที่ติดตามด้วย Node Exporter
+- `APPLICATION`: แอปพลิเคชันที่มี endpoint และ Health Check
+- `SERVICE`: รายการในทะเบียนที่ยังไม่ติดตามโดยตรงใน V1
 
-- `SERVER` for host-level monitoring through Node Exporter.
-- `APPLICATION` for application endpoints and health checks.
-- `SERVICE` for inventory records that are not directly monitored in V1.
+Environment ที่รองรับคือ `PRODUCTION`, `STAGING` และ `DEVELOPMENT`
 
-Supported environments are `PRODUCTION`, `STAGING`, and `DEVELOPMENT`.
+- `ACTIVATE`: ใช้งานและพร้อมสำหรับ Monitoring ที่ตั้งค่าไว้
+- `INACTIVATE`: พักชั่วคราว โดยเก็บการตั้งค่าและประวัติ
+- `DEACTIVATE`: เลิกใช้งานถาวรและแก้ไขไม่ได้
 
-Lifecycle states:
-
-- `ACTIVATE`: operational and available for configured monitoring.
-- `INACTIVATE`: temporarily paused while retaining configuration and history.
-- `DEACTIVATE`: permanently retired and no longer editable.
-
-Deactivation publishes an alert event so related active alerts can resolve while
-their lifecycle history remains available.
+เมื่อ Deactivate จะเผยแพร่เหตุการณ์ให้ Alert ที่เกี่ยวข้องสามารถ Resolved ได้ โดยยังเก็บประวัติวงจรชีวิตไว้
 
 ## HTTP API
 
-The service listens on port `3000`. Direct service routes do not use the
-Gateway's `/api` prefix.
+บริการรับคำขอที่พอร์ต `3000` เส้นทางภายในไม่มี prefix `/api` แบบ Gateway
 
-| Method | Route | Purpose |
+| Method | Route | หน้าที่ |
 | --- | --- | --- |
-| `POST` | `/assets` | Register an asset |
-| `GET` | `/assets` | List assets |
-| `GET` | `/assets/:id` | Get one asset |
-| `PATCH` | `/assets/:id` | Update asset metadata |
-| `PATCH` | `/assets/:id/status` | Switch between active and inactive |
-| `PATCH` | `/assets/:id/deactivate` | Permanently deactivate an asset |
-| `GET` | `/health` | Service health probe |
+| `POST` | `/assets` | ลงทะเบียน Asset |
+| `GET` | `/assets` | แสดงรายการ Asset |
+| `GET` | `/assets/:id` | ดู Asset หนึ่งรายการ |
+| `PATCH` | `/assets/:id` | แก้ข้อมูล Asset |
+| `PATCH` | `/assets/:id/status` | สลับ Active/Inactive |
+| `PATCH` | `/assets/:id/deactivate` | เลิกใช้งาน Asset ถาวร |
+| `GET` | `/health` | ตรวจสถานะบริการ |
 
-All browser traffic should use the corresponding `/api/assets` routes through
-the API Gateway.
+คำขอจาก browser ใช้เส้นทาง `/api/assets` ผ่าน API Gateway
 
-## Persistence and Events
+## การจัดเก็บและเหตุการณ์
 
-- PostgreSQL stores asset identity, environment, endpoint, address, and status.
-- RabbitMQ receives audit events for asset changes.
-- Asset deactivation publishes to the alert-event queue.
+- PostgreSQL เก็บตัวตน Environment, Endpoint, Address และสถานะของ Asset
+- RabbitMQ รับเหตุการณ์ Audit จากการเปลี่ยน Asset
+- การ Deactivate ส่งเหตุการณ์ไปยังคิว Alert
 
-## Environment
+## ตัวแปรแวดล้อม
 
-| Variable | Purpose |
+| ตัวแปร | หน้าที่ |
 | --- | --- |
-| `PORT` | HTTP port; defaults to `3000` |
-| `DATABASE_URL` | Asset PostgreSQL connection string |
-| `RABBITMQ_URL` | RabbitMQ connection string |
-| `RABBITMQ_AUDIT_QUEUE` | Audit event queue |
-| `RABBITMQ_ALERT_QUEUE` | Alert event queue; defaults to `alert_events` |
+| `PORT` | พอร์ต HTTP; ค่าเริ่มต้น `3000` |
+| `DATABASE_URL` | การเชื่อมต่อ PostgreSQL ของ Asset |
+| `RABBITMQ_URL` | การเชื่อมต่อ RabbitMQ |
+| `RABBITMQ_AUDIT_QUEUE` | คิว Audit event |
+| `RABBITMQ_ALERT_QUEUE` | คิว Alert event; ค่าเริ่มต้น `alert_events` |
 
-## Development
+## พัฒนาและตรวจงาน
+
+จากโฟลเดอร์นี้:
 
 ```bash
 npm ci
@@ -73,5 +66,4 @@ npm run test:e2e
 npm run build
 ```
 
-Run `npm run db:generate` only after an intentional schema change. Review the
-generated SQL before applying it.
+รัน `npm run db:generate` เมื่อเปลี่ยน schema โดยตั้งใจเท่านั้น และตรวจ SQL ที่สร้างก่อนนำไปใช้

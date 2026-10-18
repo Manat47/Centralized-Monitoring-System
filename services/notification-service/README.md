@@ -1,74 +1,62 @@
 # Notification Service
 
-The Notification service consumes notification events and delivers operational
-email through Gmail SMTP. It also owns the configured delivery destinations
-used for alert notifications.
+บริการนี้รับ Notification events และส่ง Email, LINE, Slack หรือ Webhook ตามปลายทางที่ตั้งไว้ รวมทั้งส่งอีเมลคำเชิญผู้ใช้ ดูภาพรวมระบบใน [README หลัก](../../README.md)
 
-See the [root README](../../README.md) for the full architecture and stack setup.
+## หน้าที่
 
-## Responsibilities
+- รับ Alert และ User Invitation events จาก RabbitMQ
+- สร้างเนื้อหาการแจ้งเตือนตามช่องทาง รวมทั้ง HTML และ plain-text Email
+- ส่ง Email ผ่าน SMTP และส่ง LINE, Slack, Webhook ตามปลายทางที่เปิดใช้งาน
+- เก็บปลายทางแจ้งเตือนทั้งอีเมลผู้ใช้ในระบบและอีเมลภายนอก
+- ส่งข้อความทดสอบไปยังปลายทางที่เลือก
+- ส่ง Audit events เมื่อเปลี่ยนการตั้งค่าหรือส่งทดสอบ
 
-- Consume alert and user-invitation notification events from RabbitMQ.
-- Render readable HTML and plain-text email content.
-- Deliver messages through authenticated SMTP.
-- Store email, LINE, Slack, and webhook delivery destinations.
-- Accept both system-user addresses and external addresses.
-- Send a test notification to a selected destination.
-- Publish audit events when recipient settings change.
-
-Recipients are delivery destinations only. An address does not need a system
-account, and adding it does not grant application access.
+การตั้งค่าปลายทางเป็น **ส่วนกลางของบริการ** ไม่ได้แยกตามทีม การเพิ่มอีเมลภายนอกเป็นเพียงปลายทางรับข้อความ ไม่ได้สร้างบัญชีหรือให้สิทธิ์เข้าใช้งานระบบ
 
 ## HTTP API
 
-The service listens on port `3003`.
+บริการรับคำขอที่พอร์ต `3003`
 
-| Method | Route | Purpose |
+| Method | Route | หน้าที่ |
 | --- | --- | --- |
-| `GET` | `/notification-settings` | Read delivery destinations and routing mode |
-| `PUT` | `/notification-settings` | Replace all settings (existing bulk client) |
-| `POST` | `/notification-settings/recipients` | Create one destination |
-| `PATCH` | `/notification-settings/recipients/:recipientId` | Update one destination, including its enabled state |
-| `DELETE` | `/notification-settings/recipients/:recipientId` | Remove one destination |
-| `PATCH` | `/notification-settings/routing` | Set broadcast or fallback mode |
-| `POST` | `/notification-settings/:recipientId/test` | Test one destination |
-| `GET` | `/notification-recipients` | List configured recipients |
-| `PUT` | `/notification-recipients` | Replace the recipient list |
-| `POST` | `/notification-recipients/test` | Send a test notification |
-| `GET` | `/health` | Service health probe |
+| `GET` | `/notification-settings` | อ่านปลายทางและโหมดการส่ง |
+| `PUT` | `/notification-settings` | แทนที่การตั้งค่าทั้งชุดสำหรับ client เดิม |
+| `POST` | `/notification-settings/recipients` | เพิ่มปลายทางหนึ่งรายการ |
+| `PATCH` | `/notification-settings/recipients/:recipientId` | แก้ปลายทาง รวมถึงสถานะ Enabled |
+| `DELETE` | `/notification-settings/recipients/:recipientId` | ลบปลายทาง |
+| `PATCH` | `/notification-settings/routing` | ตั้ง Broadcast หรือ Fallback |
+| `POST` | `/notification-settings/:recipientId/test` | ทดสอบปลายทางหนึ่งรายการ |
+| `GET` | `/notification-recipients` | แสดงปลายทางอีเมลแบบเดิม |
+| `PUT` | `/notification-recipients` | แทนที่รายการอีเมลแบบเดิม |
+| `POST` | `/notification-recipients/test` | ส่งอีเมลทดสอบแบบเดิม |
+| `GET` | `/health` | ตรวจสถานะบริการ |
 
-The `/notification-recipients` routes are the older email-only API. The
-settings UI uses the individual `/api/notification-settings` routes through the
-API Gateway. The bulk `PUT` route remains available for existing clients. The
-individual mutation routes return the full updated settings view. Fallback
-priority levels are compacted after individual changes so enabled destinations
-retain consecutive levels.
+`/notification-recipients` เป็น API อีเมลเดิม หน้า Settings ปัจจุบันใช้เส้นทางรายรายการของ `/api/notification-settings` ผ่าน Gateway ส่วน `PUT` แบบทั้งชุดยังมีไว้ให้ client เดิม การแก้รายรายการคืนข้อมูลการตั้งค่าล่าสุด และลำดับ Fallback จะถูกจัดใหม่ให้ต่อเนื่อง
 
-## Persistence and Events
+## การจัดเก็บและเหตุการณ์
 
-- PostgreSQL stores recipient configuration.
-- RabbitMQ supplies notification events.
-- RabbitMQ receives audit events for recipient changes and test sends.
+- PostgreSQL เก็บการตั้งค่าปลายทาง
+- RabbitMQ ส่ง Notification events เข้ามา
+- RabbitMQ รับ Audit events จากการเปลี่ยนค่าและการส่งทดสอบ
 
-## Environment
+## ตัวแปรแวดล้อม
 
-| Variable | Purpose |
+| ตัวแปร | หน้าที่ |
 | --- | --- |
-| `PORT` | HTTP port; defaults to `3003` |
-| `DATABASE_URL` | Notification PostgreSQL connection string |
-| `RABBITMQ_URL` | RabbitMQ connection string |
-| `RABBITMQ_NOTIFICATION_QUEUE` | Incoming notification queue; defaults to `notification_events` |
-| `RABBITMQ_AUDIT_QUEUE` | Audit event queue; defaults to `audit_events` |
-| `SMTP_USER` | Gmail account used as the sender |
-| `SMTP_PASS` | Gmail app password or SMTP credential |
-| `DASHBOARD_PUBLIC_URL` | Public Dashboard origin for alert links in email, LINE, Slack, and webhook presentation data (for example `https://monitor.example`) |
+| `PORT` | พอร์ต HTTP; ค่าเริ่มต้น `3003` |
+| `DATABASE_URL` | PostgreSQL ของ Notification |
+| `RABBITMQ_URL` | การเชื่อมต่อ RabbitMQ |
+| `RABBITMQ_NOTIFICATION_QUEUE` | คิว Notification ขาเข้า; ค่าเริ่มต้น `notification_events` |
+| `RABBITMQ_AUDIT_QUEUE` | คิว Audit; ค่าเริ่มต้น `audit_events` |
+| `SMTP_USER` | บัญชี Email ผู้ส่ง |
+| `SMTP_PASS` | App password หรือ SMTP credential |
+| `DASHBOARD_PUBLIC_URL` | URL หลักของ Dashboard สำหรับลิงก์ใน Email, LINE, Slack และข้อมูล Webhook เช่น `https://monitor.example` |
 
-Webhook deliveries retain the existing alert fields and include a `presentation`
-object with a readable headline, source name, severity, summary, and Dashboard
-URL when configured. `X-Signature-SHA256` signs the exact JSON body including
-this object.
+Webhook ยังคงส่งฟิลด์ Alert เดิม และเพิ่ม `presentation` ซึ่งมีหัวข้อ ชื่อแหล่งที่มา ระดับความรุนแรง สรุป และลิงก์ Dashboard เมื่อกำหนด URL ไว้ โดย `X-Signature-SHA256` จะลงลายเซ็นบน JSON ที่ส่งจริงทั้งหมด รวมถึง `presentation`
 
-## Development
+## พัฒนาและตรวจงาน
+
+จากโฟลเดอร์นี้:
 
 ```bash
 npm ci
@@ -82,5 +70,4 @@ npm run test:e2e
 npm run build
 ```
 
-Use a dedicated SMTP credential for development. Do not commit it or use a
-personal account password.
+การทดสอบการส่งจริงต้องตั้งค่า Provider ของแต่ละช่องทาง แยก Credential สำหรับพัฒนา และไม่ commit Secret ลง Git

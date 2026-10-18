@@ -115,7 +115,7 @@ export class InfluxHealthCheckQuery implements HealthCheckQuery {
       }
 
       if (row.field === 'error' && typeof row.value === 'string') {
-        point.error = row.value;
+        point.error = row.value.trim() ? row.value : null;
       }
     }
 
@@ -171,7 +171,10 @@ export class InfluxHealthCheckQuery implements HealthCheckQuery {
           responseTimeMs:
             typeof row.responseTimeMs === 'number' ? row.responseTimeMs : 0,
 
-          error: typeof row.error === 'string' ? row.error : null,
+          error:
+            typeof row.error === 'string' && row.error.trim()
+              ? row.error
+              : null,
         };
       },
     );
@@ -237,7 +240,10 @@ export class InfluxHealthCheckQuery implements HealthCheckQuery {
             typeof row.statusCode === 'number' ? row.statusCode : null,
           responseTimeMs:
             typeof row.responseTimeMs === 'number' ? row.responseTimeMs : 0,
-          error: typeof row.error === 'string' ? row.error : null,
+          error:
+            typeof row.error === 'string' && row.error.trim()
+              ? row.error
+              : null,
         };
       },
     );

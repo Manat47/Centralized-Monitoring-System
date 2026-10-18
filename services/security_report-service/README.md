@@ -1,71 +1,65 @@
 # Security and Report Service
 
-This service owns two related operational records: immutable audit entries and
-generated monitoring reports. The folder retains its existing
-`security_report-service` name for compatibility.
+บริการนี้ดูแล Audit Logs ที่บันทึกการดำเนินงาน และรายงาน Monitoring ที่สร้างเป็น PDF ชื่อโฟลเดอร์ยังเป็น `security_report-service` เพื่อความเข้ากันได้ ดูภาพรวมระบบใน [README หลัก](../../README.md)
 
-See the [root README](../../README.md) for the full architecture and stack setup.
+## หน้าที่ด้าน Audit
 
-## Audit Responsibilities
+- รับ Audit events จาก RabbitMQ
+- ตรวจและบันทึกผู้ดำเนินการ, Action, Resource, Result, Metadata และเวลา
+- ให้ผู้ดูแลค้น Audit Logs ตามตัวกรอง
+- แยกการรับ Audit event จากเส้นทาง HTTP ของบริการต้นทาง
 
-- Consume audit events from RabbitMQ.
-- Validate and persist actor, action, resource, result, metadata, and event time.
-- Provide filtered audit-log queries for administrators.
-- Keep audit ingestion separate from the availability of the originating
-  service's HTTP request path.
+## หน้าที่ด้าน Report
 
-## Report Responsibilities
-
-- Generate an all-assets or single-asset report for a requested time range.
-- Read asset, metric, health-check, and alert summaries from their owning
-  services.
-- Populate the versioned Word template in `templates/`.
-- Convert the rendered document to PDF with LibreOffice.
-- Persist generation status and failure details.
-- Store completed PDF files under `storage/reports`.
-- Generate the previous month's all-assets report at midnight on the first day
-  of each month in the `Asia/Bangkok` time zone.
+- สร้างรายงานทุก Asset หรือ Asset เดียวตามช่วงเวลาที่ขอ
+- อ่านข้อมูลสรุป Asset, Metrics, Health Checks และ Alerts จากบริการเจ้าของข้อมูล
+- เติมข้อมูลลงแม่แบบ Word ที่ `templates/`
+- ใช้ LibreOffice แปลง DOCX เป็น PDF
+- บันทึกสถานะการสร้างและรายละเอียดเมื่อเกิดข้อผิดพลาด
+- เก็บ PDF ที่สร้างสำเร็จใน `storage/reports`
+- สร้างรายงานทุก Asset ของเดือนก่อน ณ เที่ยงคืนวันแรกของเดือน ตามเขตเวลา `Asia/Bangkok`
 
 ## HTTP API
 
-The service listens on port `3006`.
+บริการรับคำขอที่พอร์ต `3006`
 
-| Method | Route | Purpose |
+| Method | Route | หน้าที่ |
 | --- | --- | --- |
-| `GET` | `/audit-logs` | Filter and list audit records |
-| `GET` | `/reports` | List generated reports |
-| `GET` | `/reports/:id` | Get report metadata and status |
-| `GET` | `/reports/:id/download` | Download a completed PDF |
-| `POST` | `/reports/generate` | Generate an on-demand report |
+| `GET` | `/audit-logs` | กรองและแสดง Audit Logs |
+| `GET` | `/reports` | แสดงรายการรายงาน |
+| `GET` | `/reports/:id` | ดูข้อมูลและสถานะรายงาน |
+| `GET` | `/reports/:id/download` | ดาวน์โหลด PDF ที่สร้างเสร็จ |
+| `POST` | `/reports/generate` | สร้างรายงานตามคำขอ |
 
-The dashboard accesses these endpoints as `/api/audit-logs` and `/api/reports`
-through the API Gateway.
+Dashboard เรียกผ่าน `/api/audit-logs` และ `/api/reports` ของ Gateway
 
-## Persistence and Dependencies
+## การจัดเก็บและ Dependencies
 
-- PostgreSQL stores audit records and report metadata.
-- RabbitMQ supplies audit events.
-- Asset, Monitoring, and Alerting services supply report data over HTTP.
-- LibreOffice performs DOCX-to-PDF conversion.
+- PostgreSQL เก็บ Audit Logs และ metadata ของรายงาน
+- RabbitMQ ส่ง Audit events เข้ามา
+- Asset, Monitoring และ Alerting Services ให้ข้อมูลรายงานผ่าน HTTP
+- LibreOffice แปลง DOCX เป็น PDF
 
-## Environment
+## ตัวแปรแวดล้อม
 
-| Variable | Purpose |
+| ตัวแปร | หน้าที่ |
 | --- | --- |
-| `PORT` | HTTP port; defaults to `3006` |
-| `DATABASE_URL` | Security/report PostgreSQL connection string |
-| `RABBITMQ_URL` | RabbitMQ connection string |
-| `RABBITMQ_AUDIT_QUEUE` | Incoming audit queue; defaults to `audit_events` |
-| `ASSET_SERVICE_URL` | Asset service base URL |
-| `MONITORING_SERVICE_URL` | Monitoring service base URL |
-| `ALERTING_SERVICE_URL` | Alerting service base URL |
-| `LIBREOFFICE_PATH` | LibreOffice executable path |
-| `REPORT_TEMPLATE_PATH` | DOCX template path; defaults to `templates/monitoring-report-template.docx` |
-| `REPORT_TEMPLATE_VERSION` | Template version stored with report metadata |
+| `PORT` | พอร์ต HTTP; ค่าเริ่มต้น `3006` |
+| `DATABASE_URL` | PostgreSQL ของ Audit/Report |
+| `RABBITMQ_URL` | การเชื่อมต่อ RabbitMQ |
+| `RABBITMQ_AUDIT_QUEUE` | คิว Audit ขาเข้า; ค่าเริ่มต้น `audit_events` |
+| `ASSET_SERVICE_URL` | URL ของ Asset Service |
+| `MONITORING_SERVICE_URL` | URL ของ Monitoring Service |
+| `ALERTING_SERVICE_URL` | URL ของ Alerting Service |
+| `LIBREOFFICE_PATH` | ตำแหน่งโปรแกรม LibreOffice |
+| `REPORT_TEMPLATE_PATH` | ตำแหน่งแม่แบบ DOCX; ค่าเริ่มต้น `templates/monitoring-report-template.docx` |
+| `REPORT_TEMPLATE_VERSION` | เวอร์ชันแม่แบบที่เก็บกับ metadata |
 
-Docker persists generated PDFs in the `report_storage` volume.
+Docker เก็บ PDF ใน volume `report_storage`
 
-## Development
+## พัฒนาและตรวจงาน
+
+จากโฟลเดอร์นี้:
 
 ```bash
 npm ci
@@ -79,5 +73,4 @@ npm run test:e2e
 npm run build
 ```
 
-When changing the Word template or its data mapping, render a real PDF and
-inspect its layout in addition to running unit tests.
+เมื่อแก้แม่แบบ Word หรือ mapping ของข้อมูล ให้สร้าง PDF จริงและตรวจหน้าตารายงานเพิ่มเติมจาก Unit Tests
