@@ -30,12 +30,7 @@
 
 Browser เรียก backend ผ่าน API Gateway เท่านั้น หน้าเว็บใช้เส้นทาง `/api` ซึ่ง Next.js ส่งต่อไปยัง Gateway ภายใน Docker network แต่ละบริการที่มีข้อมูลธุรกรรมใช้ PostgreSQL ของตนเอง InfluxDB ใช้กับข้อมูล time series; RabbitMQ ส่งงานและเหตุการณ์ระหว่างบริการ; Redis ช่วย cache และจำกัดอัตราคำขอของ Log API
 
-```text
-Browser → Web Dashboard → API Gateway → Backend services
-                                         ├─ Monitoring → Node Exporter / HTTP Health Check → InfluxDB
-                                         ├─ Log Service → RabbitMQ → PostgreSQL (log-db)
-                                         └─ Alerting → Notification → Email / Slack / LINE / Webhook
-```
+<img width="1101" height="1419" alt="Microservice Pattern Design (1)" src="https://github.com/user-attachments/assets/895b95cb-cd79-40c9-965b-fe1b3c02919c" />
 
 `log-service` ใช้ PostgreSQL สำหรับโปรเจกต์ token receipts records rules และ findings ใช้ Redis สำหรับ cache/rate limit และใช้ InfluxDB เฉพาะข้อมูลสรุป log metrics ดูข้อจำกัดของการค้นหาและ rule ใน README ของบริการ ไม่ควรตีความว่า JSON ทุกระดับค้นหาได้
 
