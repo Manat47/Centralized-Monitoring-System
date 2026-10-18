@@ -297,8 +297,8 @@ export function HealthChecksTable() {
                 <TableHead>URL</TableHead>
                 <TableHead>State</TableHead>
                 <TableHead>Result</TableHead>
-                <TableHead className="text-right">Expected HTTP</TableHead>
-                <TableHead className="text-right">Actual HTTP</TableHead>
+                <TableHead>Expected</TableHead>
+                <TableHead>Actual</TableHead>
                 <TableHead>Duration</TableHead>
                 <TableHead>Last checked</TableHead>
                 <TableHead className="pr-4 text-right">Actions</TableHead>
@@ -385,10 +385,10 @@ export function HealthChecksTable() {
                             )}
                           </div>
                         </TableCell>
-                        <TableCell className="text-right font-mono text-xs">
+                        <TableCell>
                           {target.expectedStatus}
                         </TableCell>
-                        <TableCell className="text-right font-mono text-xs">
+                        <TableCell>
                           {target.latest?.statusCode ?? "—"}
                         </TableCell>
                         <TableCell>
