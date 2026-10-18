@@ -1,48 +1,31 @@
-# Log service
+# Log Service
 
-The service receives customer-reported JSON records, assigns a server envelope,
-and exposes one Log & Event Explorer per project. It also observes its own Log
-API requests. These are distinct sources of information: receiving a record
-named `auth.login` does not verify that a login happened in the customer's app.
+บริการนี้รับ JSON records ที่ระบบภายนอกส่งมา เติมข้อมูลกำกับจากฝั่งเซิร์ฟเวอร์ และเปิด Log & Event Explorer แยกตามโปรเจกต์ นอกจากนี้ยังวัดคำขอที่เข้ามายัง Log API ของตัวเอง ข้อมูลสองส่วนนี้มีที่มาต่างกัน: การรับ record ชื่อ `auth.login` ไม่ได้ยืนยันว่ามีการ Login เกิดขึ้นจริงในแอปของลูกค้า ดูภาพรวมระบบใน [README หลัก](../../README.md)
 
-## Storage and setup
+## การจัดเก็บและตั้งค่า
 
-- PostgreSQL stores projects, tokens, request receipts, complete record JSONB,
-  search columns, rules, and findings. New records use `log_event_records`.
-- RabbitMQ confirms durable queue admission before the API returns HTTP 202.
-  A worker inserts records into PostgreSQL; search visibility can lag behind 202.
-- Redis caches token lookups, enforces the shared 600 request per rolling minute
-  project limit, buffers per-minute metric counters, and stages HTTP request
-  receipts until RabbitMQ confirms them. The gateway also limits ingestion by
-  the connecting IP and project token before forwarding to this service. If a
-  reverse proxy forwards API traffic, its IP shares one gateway limit unless
-  client IP handling is configured at that trusted edge.
-- InfluxDB bucket `log_metrics` stores only aggregated per-minute request and
-  ingestion metrics. New raw logs are never written there.
+- PostgreSQL เก็บ Projects, Tokens, Request Receipts, JSONB ของ Record, คอลัมน์สำหรับค้นหา, Rules และ Findings โดย Record ใหม่อยู่ใน `log_event_records`
+- RabbitMQ ยืนยันว่ารับ batch เข้า durable queue ก่อน API ตอบ HTTP `202` จากนั้น Worker บันทึกลง PostgreSQL ข้อมูลอาจยังค้นหาไม่พบทันทีหลังได้ `202`
+- Redis cache การตรวจ Token, จำกัดคำขอร่วมกันที่ 600 ครั้งต่อโปรเจกต์ต่อ 60 วินาทีแบบ rolling window, พักตัวนับ Metrics รายหนึ่งนาที และพัก Receipt จน RabbitMQ ยืนยันการรับ Gateway ยังจำกัด Ingest ตาม IP และ Project Token ก่อนส่งมาบริการนี้ หาก Reverse Proxy ส่งคำขอทั้งหมดมาด้วย IP เดียว คำขอเหล่านั้นจะใช้ขีดจำกัด IP ที่ Gateway ร่วมกัน เว้นแต่ตั้งค่าการส่ง Client IP ที่ขอบเครือข่ายที่เชื่อถือได้
+- InfluxDB bucket `log_metrics` เก็บเพียง Metrics สรุปรายหนึ่งนาทีของคำขอและการรับ Log ไม่เก็บ Raw Logs ใหม่
 
-Configure `DATABASE_URL`, `REDIS_URL`, `RABBITMQ_URL`, `INFLUXDB_URL`,
-`INFLUXDB_TOKEN`, `INFLUXDB_ORG`, `INFLUXDB_LOG_METRICS_BUCKET` (default
-`log_metrics`), `AUTH_SERVICE_URL`, and `INTERNAL_SERVICE_SECRET`. The optional
-`LOG_RATE_LIMIT_RPM` defaults to 600. The Influx token needs permission to
-create the metrics bucket. Run `npm install`, `npm run db:migrate`, and
-`npm run start:dev`. Compose runs migrations on service startup.
+กำหนด `DATABASE_URL`, `REDIS_URL`, `RABBITMQ_URL`, `INFLUXDB_URL`, `INFLUXDB_TOKEN`, `INFLUXDB_ORG`, `INFLUXDB_LOG_METRICS_BUCKET` (ค่าเริ่มต้น `log_metrics`), `AUTH_SERVICE_URL` และ `INTERNAL_SERVICE_SECRET` ตัวเลือก `LOG_RATE_LIMIT_RPM` มีค่าเริ่มต้น 600 โดย Influx Token ต้องมีสิทธิ์สร้าง Metrics bucket
 
-**Existing data:** migrations `003_generic_log_records.sql` and
-`004_ingestion_batch_status.sql` add records and batch tracking. Existing
-accepted batches are marked `UNKNOWN` because their processing history cannot
-be reconstructed.
-It does not erase the older Activity tables or raw Influx bucket. Historical
-records in those stores are not automatically copied into the new Explorer:
-the old Activity projection lacks the original customer payload, and the old
-Influx application series cannot reconstruct one. Review a historical data
-backfill separately before removing the legacy tables and bucket. No database
-migration or data backfill is run by editing this repository.
+เมื่อรันจากโฟลเดอร์นี้ ให้ติดตั้ง Dependencies, รัน Migration แล้วเริ่มบริการ; Docker Compose รัน Migration ตอน Log Service เริ่ม
 
-## Send a record
+```bash
+npm ci
+npm run db:migrate
+npm run start:dev
+```
 
-Create a project token in the dashboard. Use one token per sending system so
-each can be rotated independently. Tokens from the same project share records
-and the RPM limit. The secret is shown only at creation.
+ตรวจงานด้วย `npm test -- --runInBand` และ `npm run build` บริการนี้ไม่มีสคริปต์ `test:e2e` ใน `package.json`
+
+**ข้อมูลเดิม:** Migrations `003_generic_log_records.sql` และ `004_ingestion_batch_status.sql` เพิ่ม Record และ Batch Tracking Batch ที่รับก่อนมีการติดตามสถานะจะถูกระบุเป็น `UNKNOWN` เพราะย้อนสร้างประวัติการประมวลผลไม่ได้ การเปลี่ยนนี้ไม่ลบ Activity Tables หรือ Raw Influx Bucket เดิม และไม่ได้คัดลอกข้อมูลเก่าเข้ามา Explorer ใหม่โดยอัตโนมัติ Activity projection เดิมไม่มี payload ต้นฉบับ และ series เดิมใน InfluxDB ก็สร้าง payload กลับมาไม่ได้ ควรวางแผน backfill แยกต่างหากก่อนลบตารางหรือ bucket เดิม การแก้เอกสารนี้ไม่ได้รัน migration หรือ backfill
+
+## ส่ง Record
+
+สร้าง Project Token ใน Dashboard ใช้หนึ่ง Token ต่อหนึ่งระบบที่ส่งเพื่อหมุนเปลี่ยนได้แยกกัน Token ในโปรเจกต์เดียวกันใช้ Records และขีดจำกัด RPM ร่วมกัน Secret แสดงเพียงตอนสร้าง
 
 ```powershell
 $token = 'prj_live_REPLACE_ME'
@@ -59,88 +42,43 @@ $body = @'
 Invoke-RestMethod -Uri 'https://YOUR_HOST/api/ingest/logs' -Method Post -Headers @{ Authorization = "Bearer $token" } -ContentType 'application/json' -Body $body
 ```
 
-Every record requires nonempty `source` and `event_type` strings. The customer
-chooses the event name. `message`, `severity` (`INFO`, `WARN`, `ERROR`,
-`CRITICAL`; lower case accepted), `timestamp`, `duration_ms`, `status_code`,
-`user_id`, `client.ip`, `client.location`, and `tags` are optional indexed or
-display fields. Other JSON fields may contain nested objects or arrays within
-the eight-level depth and 1 MB request limit. They are preserved in
-`rawPayload` and visible in the inline JSON inspector, but cannot be searched or used
-for record rules in this version. A customer-supplied `project_id` stays in
-raw JSON and cannot override the project derived from the token.
+ทุก Record ต้องมี `source` และ `event_type` เป็นข้อความไม่ว่าง ผู้ส่งเป็นผู้กำหนดชื่อ Event เอง ฟิลด์ `message`, `severity` (`INFO`, `WARN`, `ERROR`, `CRITICAL`; ใช้ตัวพิมพ์เล็กได้), `timestamp`, `duration_ms`, `status_code`, `user_id`, `client.ip`, `client.location` และ `tags` เป็นทางเลือก ฟิลด์ JSON อื่น ๆ รองรับ Objects/Arrays ซ้อนกันภายใต้ข้อจำกัดความลึก 8 ระดับและขนาดคำขอ 1 MB ระบบเก็บไว้ใน `rawPayload` และแสดงใน Inline JSON Inspector ส่วนการค้นหา custom field รองรับเฉพาะค่า scalar ระดับบนสุดด้วย `payload.<key>:value` ตามหัวข้อการค้นหาด้านล่าง ผู้ส่งระบุ `project_id` ใน Raw JSON ได้ แต่ไม่อาจแทน Project ที่ระบบระบุจาก Token
 
-Send one object, an array, or `{ "events": [...] }` with 1–500 records. The
-`events` envelope is recognized only when it is the sole top-level key and is
-an array; a single record may use `events` as a custom field. Leading and
-trailing whitespace in `source` and `event_type` is removed from indexed values,
-while the original JSON is preserved. A bad
-record rejects the entire batch with its `events[index].field` in HTTP 400.
-Event timestamps may be at most 30 days old or five minutes ahead. When absent,
-the server uses receive time and marks `timeSource: "received"`. No source,
-message, login result, IP, or severity is inferred.
+ส่งได้เป็น Object เดียว, Array หรือ `{"events":[...]}` ที่มี 1–500 Records โดย Envelope `events` จะถูกตีความพิเศษเมื่อเป็น Key เดียวของ Object ชั้นบนสุดและมีค่าเป็น Array เท่านั้น Record เดี่ยวจึงใช้ `events` เป็น custom field ได้ ระบบตัดช่องว่างหัวท้ายของ `source` และ `event_type` สำหรับค่าที่ใช้ค้นหา แต่เก็บ JSON ต้นฉบับไว้ หาก Record ใดผิดรูปแบบ จะปฏิเสธทั้ง Batch พร้อมระบุ `events[index].field` ใน HTTP `400`
 
-An optional `Idempotency-Key` protects retries of the exact same body for 24
-hours per project. Reusing it with different content returns 409; retrying the
-same accepted body returns 202 with `duplicate: true` and adds no records.
+เวลา Event ย้อนหลังได้ไม่เกิน 30 วัน และล่วงหน้าได้ไม่เกิน 5 นาที ถ้าไม่ส่งเวลา ระบบใช้เวลารับข้อมูลและระบุ `timeSource: "received"` ระบบไม่อนุมาน Source, Message, ผล Login, IP หรือ Severity เอง
 
-### Common responses
+`Idempotency-Key` เป็นทางเลือกสำหรับป้องกันการส่งซ้ำของ Body เดิมในโปรเจกต์เดียวกันเป็นเวลา 24 ชั่วโมง หากใช้ Key เดิมกับเนื้อหาต่างกันจะตอบ `409`; ถ้าส่ง Body ที่เคยรับแล้วจะตอบ `202` พร้อม `duplicate: true` โดยไม่เพิ่ม Records
 
-| Status | Meaning |
+### ผลตอบกลับที่พบบ่อย
+
+| HTTP status | ความหมาย |
 | --- | --- |
-| 202 | RabbitMQ durably accepted the batch; `acceptedRecords` reports its size and `batchId` identifies it. |
-| 400 | JSON or a required/standard field is invalid; the response names the failing index. |
-| 401 | Missing, invalid, or revoked project token. |
-| 409 | Idempotency key is already in progress or was used for another body. |
-| 413 | Body exceeds 1 MB. |
-| 429 | Project used more than its allowed requests in the last rolling 60 seconds. |
-| 503 | Ingestion dependency or queue unavailable; retry with the same idempotency key. |
+| `202` | RabbitMQ รับ Batch เข้า durable queue; `acceptedRecords` บอกจำนวน และ `batchId` ใช้ติดตาม |
+| `400` | JSON หรือฟิลด์จำเป็น/มาตรฐานผิดรูปแบบ; Response ระบุตำแหน่ง Record ที่ผิด |
+| `401` | ไม่มี Project Token, Token ไม่ถูกต้องหรือถูกเพิกถอน |
+| `409` | Idempotency Key กำลังประมวลผลหรือเคยใช้กับ Body อื่น |
+| `413` | Body เกิน 1 MB |
+| `429` | โปรเจกต์เกินจำนวนคำขอที่อนุญาตใน 60 วินาทีล่าสุด |
+| `503` | Dependency หรือ Queue ไม่พร้อม; ลองใหม่ด้วย Idempotency Key เดิม |
 
-After 202, call `GET /api/ingest/logs/receipts/<batchId>` with the same project
-Bearer token to check `QUEUED`, `STORED`, or `FAILED`. `UNKNOWN` applies only to
-historical batches created before tracking. A duplicate idempotent request
-returns the original `batchId` when available. The receipt may briefly be absent
-if the database was unavailable after RabbitMQ accepted the batch; retry the
-status request. Open the project's Log & Event Explorer to inspect stored records.
-Its inline inspector shows the raw payload and a separate envelope with
-project, token ID/name, request ID, server event ID, receive time, and storage
-status. It never shows the token secret. Recent valid-token rejection reasons
-appear on the project page. Gateway-blocked 429 responses do not reach the log
-service and therefore are absent from its request receipts and project counters.
-Invalid-token requests that reach the log service have no attributable project
-and are shown only as a system-level rate to global admins.
+หลังได้ `202` ใช้ `GET /api/ingest/logs/receipts/<batchId>` พร้อม Bearer Token ของโปรเจกต์เดิมเพื่อตรวจ `QUEUED`, `STORED` หรือ `FAILED`; `UNKNOWN` ใช้กับ Batch เก่าก่อนมีระบบติดตามสถานะเท่านั้น คำขอซ้ำแบบ Idempotent จะได้ `batchId` เดิมเมื่อมีข้อมูล Receipt อาจยังไม่พบชั่วคราวหากฐานข้อมูลล้มเหลวหลัง RabbitMQ รับ Batch ให้ลองอ่านสถานะอีกครั้ง
 
-## Search and rules
+Log & Event Explorer แสดง Record ที่จัดเก็บแล้ว Inline Inspector แยก Raw Payload กับข้อมูลกำกับ เช่น Project, Token ID/ชื่อ, Request ID, Server Event ID, เวลารับ และสถานะการจัดเก็บ โดยไม่แสดง Token Secret สาเหตุของคำขอที่ใช้ Token ถูกต้องแต่ถูกปฏิเสธล่าสุดอยู่ในหน้าโปรเจกต์ คำขอ `429` ที่ Gateway บล็อกจะไม่ถึง Log Service จึงไม่ปรากฏใน Receipts หรือ Counters ของโปรเจกต์ ส่วน Token ที่ไม่ถูกต้องไม่สามารถผูกกับโปรเจกต์ได้ จะแสดงเพียงอัตรารวมระดับระบบให้ Global Admin
 
-`GET /api/projects/:id/logs` is member-only. Its default range is the last 24
-hours of **received time**. Filters include source, event type, severity, and
-the search syntax `source:payments`, `event_type:provider_timeout`,
-`severity:WARN`, `user_id:u123`, `tag:payments`, `ip:203.0.*`,
-`status_code >= 400`, `duration_ms < 1000`, or plain message words. Multiple
-terms use AND. An unindexed custom key returns `Unsupported search field`.
-The response includes current-range facets and a received-time histogram.
+## ค้นหาและกฎ
 
-Project owners can create two kinds of count rule:
+`GET /api/projects/:id/logs` ให้สมาชิกโปรเจกต์อ่านได้ ช่วงเวลาเริ่มต้นคือ 24 ชั่วโมงล่าสุดตาม **เวลาที่รับข้อมูล** ตัวกรองมี Source, Event Type, Severity และ Search Syntax เช่น `source:payments`, `event_type:provider_timeout`, `severity:WARN`, `user_id:u123`, `tag:payments`, `ip:203.0.*`, `status_code >= 400`, `duration_ms < 1000` หรือคำใน Message หลายคำใช้ AND
 
-- `LOG_API_REQUESTS`: server-observed HTTP status or accepted/rejected result,
-  grouped by project or token ID. Every Log API request, including a rejected
-  one, can contribute after its response is sent.
-- `ACCEPTED_RECORDS`: customer-reported event type and supported field value,
-  grouped by project, token ID, IP, or user ID when present. Only records whose
-  event timestamp differs from receive time by at most five minutes and that
-  were received after the rule was enabled contribute. Older records remain
-  searchable but do not trigger these rules.
+Custom Field ที่เป็นค่า scalar ระดับบนสุดค้นหาได้ด้วย `payload.service_name:billing` และตัดออกด้วย `NOT payload.service_name:billing` เท่านั้น ยังไม่รองรับเส้นทางซ้อน เช่น `payload.context.provider:example` หรือเงื่อนไขหลายระดับทั่วไป การค้นหา Key ที่ไม่รองรับจะตอบ `Unsupported search field` ผลลัพธ์มี Facets และ Histogram ตามเวลารับข้อมูลในช่วงที่เลือก
 
-Rule preview and list show recent matching data or `Waiting for data`.
-Findings identify their data source, condition, group, count, and window. A
-group produces at most one finding per window. Members can read findings;
-only owners manage rules. No notification is sent in this release.
+Project Owner สร้าง Count Rules ได้สองแบบ:
 
-New records, request receipts, and findings are retained for 30 days. The
-worker retries failed processing through durable retry queues and sends
-exhausted messages to durable dead-letter queues. Receipt publishing retries
-from Redis until RabbitMQ confirms it. The future warm/cold storage
-port is in `src/log-events/domain/ports/activity-archive.port.ts`.
+- `LOG_API_REQUESTS`: ข้อมูล HTTP Status หรือผลรับ/ปฏิเสธที่เซิร์ฟเวอร์สังเกตเอง แบ่งกลุ่มตาม Project หรือ Token ID ทุกคำขอของ Log API รวมถึงคำขอที่ถูกปฏิเสธมีผลต่อ Rule ได้หลังส่ง Response
+- `ACCEPTED_RECORDS`: Event Type และค่าฟิลด์ที่รองรับตามข้อมูลที่ลูกค้าส่ง แบ่งกลุ่มตาม Project, Token ID, IP หรือ User ID เมื่อมีค่า เฉพาะ Record ที่เวลา Event ต่างจากเวลารับไม่เกิน 5 นาทีและถูกรับหลังเปิด Rule จึงมีผลต่อ Rule; Record เก่ายังค้นหาได้แต่ไม่ Trigger Rule นี้
 
-The 100,000 records per project per day and typical two-second 24-hour search
-are design targets. They still require measurement against representative data.
-`GET /health/ready` checks PostgreSQL, Redis, InfluxDB and RabbitMQ.
+Preview และรายการ Rule แสดงข้อมูลที่ตรงล่าสุดหรือ `Waiting for data` Finding ระบุ Data Source, Condition, Group, Count และ Window หนึ่ง Group เกิดได้ไม่เกินหนึ่ง Finding ต่อ Window สมาชิกอ่าน Findings ได้ แต่ Owner เท่านั้นที่จัดการ Rules เมื่อเงื่อนไขของ Log Finding Rule เข้าเกณฑ์ Alerting Service สามารถส่งเหตุการณ์แจ้งเตือนไป Notification Service ได้
+
+Records ใหม่, Request Receipts และ Findings เก็บ 30 วัน Worker ลองประมวลผลที่ล้มเหลวผ่าน Durable Retry Queues และส่งข้อความที่ลองครบแล้วไป Durable Dead-letter Queues ส่วนการเผยแพร่ Receipt จะลองจาก Redis ต่อจน RabbitMQ ยืนยัน Port สำหรับ Warm/Cold Storage ในอนาคตอยู่ที่ `src/log-events/domain/ports/activity-archive.port.ts`
+
+เป้าหมายการออกแบบคือ 100,000 Records ต่อโปรเจกต์ต่อวัน และการค้นหา 24 ชั่วโมงภายในประมาณสองวินาที ยังต้องวัดจริงกับข้อมูลที่ใกล้เคียงการใช้งาน `GET /health/ready` ตรวจ PostgreSQL, Redis, InfluxDB และ RabbitMQ

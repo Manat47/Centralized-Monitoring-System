@@ -1,56 +1,54 @@
 # API Gateway
 
-The API Gateway is the browser-facing boundary of the Centralized Monitoring
-System. It validates access tokens, applies role-based authorization, proxies
-requests to internal services, and aggregates cross-service dashboard data.
+API Gateway เป็นจุดรับคำขอจากเว็บของระบบ Centralized Monitoring ตรวจ access token และสิทธิ์ ส่งคำขอไปยังบริการเจ้าของข้อมูล และรวมข้อมูลที่ต้องใช้จากหลายบริการ ดูสถาปัตยกรรมและการเริ่ม stack ใน [README หลัก](../../README.md)
 
-See the [root README](../../README.md) for the full architecture and stack setup.
+## หน้าที่
 
-## Responsibilities
+- เปิด API ภายใต้ `/api` ที่พอร์ต `3005`
+- ตรวจ JWT access token และส่งข้อมูลตัวตนที่ตรวจแล้วให้บริการภายใน
+- บังคับสิทธิ์ตาม role `ADMIN` และ `OPERATOR`
+- จำกัด credentialed CORS ตาม `FRONTEND_URL`
+- ส่งคำขอของแต่ละฟีเจอร์ไปยังบริการที่รับผิดชอบ
+- รวมข้อมูล Dashboard, System Status และผลกระทบต่อวงจรชีวิต Asset
+- เปิด Gateway HTTP metrics ที่ `GET /api/metrics`
+- ใช้ Redis จำกัดอัตราคำขอ Log Ingest ก่อนส่งต่อไป Log Service
 
-- Expose the public API under `/api` on port `3005`.
-- Validate JWT access tokens and forward trusted user identity headers.
-- Enforce `ADMIN` and `OPERATOR` route permissions.
-- Restrict credentialed CORS requests to `FRONTEND_URL`.
-- Proxy feature APIs to their owning services.
-- Aggregate dashboard summaries, system status, and asset lifecycle impact.
-- Export Gateway HTTP metrics at `GET /api/metrics`.
+## เส้นทาง API
 
-## Route Ownership
-
-| Gateway route | Destination |
+| เส้นทางที่ Gateway | ปลายทาง |
 | --- | --- |
-| `/api/auth`, `/api/users` | Auth service |
-| `/api/assets` | Asset service |
-| `/api/monitoring-targets`, `/api/health-check-targets`, `/api/metric-rules` | Monitoring service |
-| `/api/alerts` | Alerting service |
-| `/api/notification-recipients` | Notification service |
-| `/api/notification-settings` | Notification service |
-| `/api/audit-logs`, `/api/reports` | Security and report service |
-| `/api/dashboard/summary` | Gateway aggregation |
-| `/api/system/status` | Gateway aggregation |
-| `/api/asset-lifecycle-impact/:assetId` | Gateway aggregation |
+| `/api/auth`, `/api/users` | Auth Service |
+| `/api/assets` | Asset Service |
+| `/api/monitoring-targets`, `/api/health-check-targets`, `/api/metric-rules` | Monitoring Service |
+| `/api/alerts`, `/api/log-finding-rules` | Alerting Service |
+| `/api/notification-recipients`, `/api/notification-settings` | Notification Service |
+| `/api/audit-logs`, `/api/reports` | Security and Report Service |
+| `/api/projects`, `/api/ingest/logs` | Log Service |
+| `/api/dashboard/summary`, `/api/system/status`, `/api/asset-lifecycle-impact/:assetId` | Gateway รวมข้อมูลจากบริการภายใน |
 
-Login, token refresh, logout, invitation validation, invitation acceptance, and
-Gateway metrics are public routes. All other routes require an authenticated
-role. Configuration and administration routes require `ADMIN`; operators retain
-read access and can manage the alert lifecycle.
+Login, refresh, logout, invitation validation/acceptance, `POST /api/ingest/logs` และ Gateway metrics เป็นเส้นทางที่ไม่ต้องใช้ access token ของผู้ใช้ โดย Log Ingest ต้องใช้ project token ตามกติกาของ Log Service เส้นทางอื่นตรวจ role และเส้นทางจัดการระบบต้องใช้ `ADMIN` ส่วน `OPERATOR` อ่านข้อมูลและจัดการวงจรชีวิต Alert ตามสิทธิ์ที่กำหนด
 
-## Environment
+## ตัวแปรแวดล้อม
 
-| Variable | Purpose |
+| ตัวแปร | หน้าที่ |
 | --- | --- |
-| `PORT` | HTTP port; defaults to `3005` |
-| `FRONTEND_URL` | Allowed dashboard origin; defaults to `http://localhost:3010` |
-| `JWT_ACCESS_SECRET` | Access-token verification secret; must match Auth service |
-| `ASSET_SERVICE_URL` | Asset service base URL |
-| `MONITORING_SERVICE_URL` | Monitoring service base URL |
-| `ALERTING_SERVICE_URL` | Alerting service base URL |
-| `NOTIFICATION_SERVICE_URL` | Notification service base URL |
-| `AUTH_SERVICE_URL` | Auth service base URL |
-| `SECURITY_REPORT_SERVICE_URL` | Security and report service base URL |
+| `PORT` | พอร์ต HTTP; ค่าเริ่มต้น `3005` |
+| `FRONTEND_URL` | Origin ของ Dashboard ที่อนุญาต; ค่าเริ่มต้น `http://localhost:3010` |
+| `JWT_ACCESS_SECRET` | Secret สำหรับตรวจ access token; ต้องตรงกับ Auth Service |
+| `ASSET_SERVICE_URL` | URL ของ Asset Service |
+| `MONITORING_SERVICE_URL` | URL ของ Monitoring Service |
+| `ALERTING_SERVICE_URL` | URL ของ Alerting Service |
+| `NOTIFICATION_SERVICE_URL` | URL ของ Notification Service |
+| `AUTH_SERVICE_URL` | URL ของ Auth Service |
+| `SECURITY_REPORT_SERVICE_URL` | URL ของ Security and Report Service |
+| `LOG_SERVICE_URL` | URL ของ Log Service |
+| `REDIS_URL` | Redis สำหรับจำกัดอัตราคำขอ Log Ingest |
+| `LOG_RATE_LIMIT_RPM` | ขีดจำกัดคำขอ Log Ingest ต่อนาที |
+| `INTERNAL_SERVICE_SECRET` | Secret ที่ใช้ส่งคำขอไปยัง API ภายใน |
 
-## Development
+## พัฒนาและตรวจงาน
+
+จากโฟลเดอร์นี้:
 
 ```bash
 npm ci
@@ -63,5 +61,4 @@ npm run test:e2e
 npm run build
 ```
 
-This service owns no database and has no migration step. Browser clients should
-use the Gateway rather than calling internal services directly.
+บริการนี้ไม่มีฐานข้อมูลของตัวเอง จึงไม่มีขั้นตอน migration เว็บควรเรียกผ่าน Gateway แทนการเรียกบริการภายในโดยตรง

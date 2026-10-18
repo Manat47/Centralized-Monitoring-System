@@ -1,64 +1,59 @@
 # Auth Service
 
-The Auth service owns users, credentials, refresh sessions, invitations, and
-role assignment for the Centralized Monitoring System.
+บริการนี้ดูแลผู้ใช้ Credentials, Refresh Sessions, Invitations และ Role ของระบบ Centralized Monitoring ดูภาพรวมระบบใน [README หลัก](../../README.md)
 
-See the [root README](../../README.md) for the full architecture and stack setup.
+## ขั้นตอนยืนยันตัวตน
 
-## Authentication Flow
+1. ผู้ดูแลที่เตรียมไว้ล่วงหน้าสร้างคำเชิญผู้ใช้ โดยกำหนดอีเมล ชื่อ และ Role; ผู้ดูแลไม่ได้กำหนดรหัสผ่านให้
+2. บริการสร้างคำเชิญที่มีอายุจำกัดและส่ง Email event
+3. ผู้รับเปิดลิงก์ Dashboard และตั้งรหัสผ่าน
+4. Login ส่ง access token อายุสั้นและตั้ง refresh token แบบหมุนเวียนใน HTTP-only cookie
+5. Logout เพิกถอน Refresh Session และล้าง cookie
 
-1. A pre-provisioned administrator creates a user with an email, display name,
-   and role. No password is chosen by the administrator.
-2. The service creates a time-limited invitation and publishes an email event.
-3. The invited user opens the dashboard link and sets a password.
-4. Login returns a short-lived access token and sets a rotating refresh token in
-   an HTTP-only cookie.
-5. Logout revokes the refresh session and clears the cookie.
-
-Roles are `ADMIN` and `OPERATOR`. User administration is restricted to
-administrators. User states include invited, active, and inactive account flows.
+Role คือ `ADMIN` และ `OPERATOR` เฉพาะผู้ดูแลเท่านั้นที่จัดการผู้ใช้ได้ สถานะผู้ใช้ครอบคลุมบัญชีที่เชิญแล้ว ใช้งานอยู่ และปิดใช้งาน
 
 ## HTTP API
 
-The service listens on port `3004`.
+บริการรับคำขอที่พอร์ต `3004`
 
-| Method | Route | Purpose |
+| Method | Route | หน้าที่ |
 | --- | --- | --- |
-| `POST` | `/auth/login` | Authenticate with email and password |
-| `POST` | `/auth/refresh` | Rotate the refresh session and issue an access token |
-| `POST` | `/auth/logout` | Revoke the current refresh session |
-| `GET` | `/auth/me` | Return the authenticated user |
-| `POST` | `/auth/invitations/validate` | Validate an invitation token |
-| `POST` | `/auth/invitations/accept` | Set the invited user's password |
-| `POST` | `/users` | Create a user invitation |
-| `GET` | `/users`, `/users/:userId` | List or inspect users |
-| `PATCH` | `/users/:userId` | Update display name or role |
-| `PATCH` | `/users/:userId/status` | Activate or deactivate a user |
-| `POST` | `/users/:userId/invitations/resend` | Replace and resend a pending invitation |
-| `DELETE` | `/users/:userId/invitations` | Revoke a pending invitation |
-| `GET` | `/health`, `/health/ready` | Liveness and database readiness probes |
+| `POST` | `/auth/login` | เข้าสู่ระบบด้วยอีเมลและรหัสผ่าน |
+| `POST` | `/auth/refresh` | หมุน Refresh Session และออก access token |
+| `POST` | `/auth/logout` | เพิกถอน Refresh Session |
+| `GET` | `/auth/me` | คืนข้อมูลผู้ใช้ที่เข้าสู่ระบบ |
+| `POST` | `/auth/invitations/validate` | ตรวจ token คำเชิญ |
+| `POST` | `/auth/invitations/accept` | ตั้งรหัสผ่านจากคำเชิญ |
+| `POST` | `/users` | เชิญผู้ใช้ |
+| `GET` | `/users`, `/users/:userId` | แสดงรายการหรือดูผู้ใช้ |
+| `PATCH` | `/users/:userId` | แก้ชื่อหรือ Role |
+| `PATCH` | `/users/:userId/status` | เปิด/ปิดบัญชี |
+| `POST` | `/users/:userId/invitations/resend` | ส่งคำเชิญใหม่ |
+| `DELETE` | `/users/:userId/invitations` | เพิกถอนคำเชิญ |
+| `GET` | `/health`, `/health/ready` | ตรวจ process และความพร้อมฐานข้อมูล |
 
-The dashboard accesses these endpoints under `/api` through the API Gateway.
+Dashboard เรียกเส้นทางเหล่านี้ภายใต้ `/api` ผ่าน Gateway
 
-## Environment
+## ตัวแปรแวดล้อม
 
-| Variable | Purpose |
+| ตัวแปร | หน้าที่ |
 | --- | --- |
-| `PORT` | HTTP port; defaults to `3004` |
-| `DATABASE_URL` | Auth PostgreSQL connection string |
-| `JWT_ACCESS_SECRET` | Access-token signing secret; must match API Gateway |
-| `JWT_ACCESS_EXPIRES_IN` | Access-token lifetime; defaults to `15m` |
-| `REFRESH_TOKEN_EXPIRES_IN_DAYS` | Refresh-session lifetime; defaults to `7` |
-| `USER_INVITATION_EXPIRES_IN_HOURS` | Invitation lifetime; defaults to `48` |
-| `FRONTEND_URL` | Base URL used in invitation links; defaults to `http://localhost:3010` |
-| `RABBITMQ_URL` | RabbitMQ connection string |
-| `RABBITMQ_NOTIFICATION_QUEUE` | Invitation email queue; defaults to `notification_events` |
-| `RABBITMQ_AUDIT_QUEUE` | Audit event queue |
+| `PORT` | พอร์ต HTTP; ค่าเริ่มต้น `3004` |
+| `DATABASE_URL` | PostgreSQL ของ Auth |
+| `JWT_ACCESS_SECRET` | Secret สำหรับลงชื่อ access token; ต้องตรงกับ Gateway |
+| `JWT_ACCESS_EXPIRES_IN` | อายุ access token; ค่าเริ่มต้น `15m` |
+| `REFRESH_TOKEN_EXPIRES_IN_DAYS` | อายุ Refresh Session; ค่าเริ่มต้น `7` วัน |
+| `USER_INVITATION_EXPIRES_IN_HOURS` | อายุคำเชิญ; ค่าเริ่มต้น `48` ชั่วโมง |
+| `FRONTEND_URL` | URL ฐานของลิงก์คำเชิญ; ค่าเริ่มต้น `http://localhost:3010` |
+| `RABBITMQ_URL` | การเชื่อมต่อ RabbitMQ |
+| `RABBITMQ_NOTIFICATION_QUEUE` | คิว Email คำเชิญ; ค่าเริ่มต้น `notification_events` |
+| `RABBITMQ_AUDIT_QUEUE` | คิว Audit event |
 
-In production, `NODE_ENV=production` marks the refresh cookie as secure. Serve
-the dashboard and Gateway over HTTPS before enabling that mode.
+เมื่อ `NODE_ENV=production` refresh cookie จะเป็น Secure จึงควรให้ Dashboard และ Gateway ทำงานผ่าน HTTPS
 
-## Development
+## พัฒนาและตรวจงาน
+
+จากโฟลเดอร์นี้:
 
 ```bash
 npm ci
@@ -72,5 +67,4 @@ npm run test:e2e
 npm run build
 ```
 
-The repository does not currently seed a default administrator. A fresh
-environment requires an explicitly provisioned initial admin account.
+Repository ยังไม่มีการ seed บัญชี `ADMIN` เริ่มต้น ฐานข้อมูลใหม่ต้องเตรียมผู้ดูแลคนแรกอย่างชัดเจน

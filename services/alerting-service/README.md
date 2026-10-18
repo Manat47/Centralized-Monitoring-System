@@ -1,61 +1,60 @@
 # Alerting Service
 
-The Alerting service owns alert records, lifecycle events, deduplication state,
-and transitions caused by metric rules, health checks, and asset lifecycle
-changes.
+บริการนี้ดูแล Alert, ประวัติการเปลี่ยนสถานะ, การกันเหตุการณ์ซ้ำ และการเปลี่ยนสถานะจาก Metric Rules, Health Checks และวงจรชีวิต Asset รวมถึงจัดการ Log Finding Rules ดูภาพรวมระบบใน [README หลัก](../../README.md)
 
-See the [root README](../../README.md) for the full architecture and stack setup.
+## หน้าที่
 
-## Responsibilities
+- รับ Alert และ Asset lifecycle events จาก RabbitMQ
+- รับ Alert event จาก internal HTTP endpoint
+- สร้างหรืออัปเดต Alert โดยไม่สร้างเงื่อนไขที่ยังเปิดอยู่ซ้ำ
+- ติดตามสถานะ `TRIGGERED`, `ACKNOWLEDGED`, `RESOLVED` และ `CLOSED`
+- Resolve อัตโนมัติเมื่อ Metric หรือ Health Check ฟื้นตัว และเมื่อ Asset ถูก Deactivate
+- ส่ง Notification และ Audit events
+- เก็บประวัติเพื่อใช้ในหน้า Alert Detail และ Reports
+- จัดการ Log Finding Rules และประมวลผล Finding events
 
-- Consume alert and asset-lifecycle events from RabbitMQ.
-- Accept alert events through the internal HTTP ingestion endpoint.
-- Create or update alerts without duplicating an already-open condition.
-- Track `TRIGGERED`, `ACKNOWLEDGED`, `RESOLVED`, and `CLOSED` states.
-- Automatically resolve alerts when a metric or health check recovers.
-- Resolve related alerts when an asset is deactivated.
-- Publish email-notification and audit events.
-- Preserve lifecycle history for the alert detail view and reports.
-
-Alert sources are `METRIC_RULE` and `HEALTH_CHECK`. Severities are `WARNING` and
-`CRITICAL`.
+แหล่ง Alert หลักคือ `METRIC_RULE` และ `HEALTH_CHECK` ระดับความรุนแรงคือ `WARNING` และ `CRITICAL`
 
 ## HTTP API
 
-The service listens on port `3002`.
+บริการรับคำขอที่พอร์ต `3002`
 
-| Method | Route | Purpose |
+| Method | Route | หน้าที่ |
 | --- | --- | --- |
-| `GET` | `/alerts` | Filter and list alerts |
-| `GET` | `/alerts/:id` | Get alert details and lifecycle history |
-| `PATCH` | `/alerts/:id/acknowledge` | Acknowledge a triggered alert |
-| `PATCH` | `/alerts/:id/close` | Close a resolved alert |
-| `GET` | `/alerts/report-summary` | Aggregate alert data for reports |
-| `GET` | `/alerts/asset/:assetId/lifecycle-impact` | Count alerts affected by an asset transition |
-| `POST` | `/internal/alert-events` | Internal alert-event ingestion |
-| `GET` | `/health` | Service health probe |
+| `GET` | `/alerts` | กรองและแสดง Alerts |
+| `GET` | `/alerts/:id` | ดูรายละเอียดและประวัติ |
+| `PATCH` | `/alerts/:id/acknowledge` | รับทราบ Alert ที่ Triggered |
+| `PATCH` | `/alerts/:id/close` | ปิด Alert ที่ Resolved |
+| `GET` | `/alerts/report-summary` | สรุป Alerts สำหรับ Reports |
+| `GET` | `/alerts/asset/:assetId/lifecycle-impact` | นับ Alerts ที่ได้รับผลจาก Asset |
+| `POST` | `/internal/alert-events` | รับ Alert events ภายใน |
+| `GET`, `POST`, `PATCH`, `DELETE` | `/log-finding-rules` | แสดงและจัดการ Log Finding Rules |
+| `GET` | `/health` | ตรวจสถานะบริการ |
 
-Browser clients access `/api/alerts` through the API Gateway.
+Browser เรียก `/api/alerts` และ `/api/log-finding-rules` ผ่าน Gateway
 
-## Persistence and Events
+## การจัดเก็บและเหตุการณ์
 
-- PostgreSQL stores alerts, lifecycle events, and health-check alert state.
-- RabbitMQ supplies incoming alert events.
-- Notification events are sent to the Notification service.
-- Audit events are consumed by the Security and report service.
+- PostgreSQL เก็บ Alerts, lifecycle events, สถานะ Health Check Alert และ Log Finding Rules
+- RabbitMQ ส่ง Alert events เข้ามา
+- Notification Service รับเหตุการณ์แจ้งเตือน
+- Security and Report Service รับ Audit events
 
-## Environment
+## ตัวแปรแวดล้อม
 
-| Variable | Purpose |
+| ตัวแปร | หน้าที่ |
 | --- | --- |
-| `PORT` | HTTP port; defaults to `3002` |
-| `DATABASE_URL` | Alerting PostgreSQL connection string |
-| `RABBITMQ_URL` | RabbitMQ connection string |
-| `RABBITMQ_ALERT_QUEUE` | Incoming alert event queue |
-| `RABBITMQ_NOTIFICATION_QUEUE` | Outgoing notification event queue |
-| `RABBITMQ_AUDIT_QUEUE` | Outgoing audit event queue |
+| `PORT` | พอร์ต HTTP; ค่าเริ่มต้น `3002` |
+| `DATABASE_URL` | PostgreSQL ของ Alerting |
+| `RABBITMQ_URL` | การเชื่อมต่อ RabbitMQ |
+| `RABBITMQ_ALERT_QUEUE` | คิว Alert event ขาเข้า |
+| `RABBITMQ_NOTIFICATION_QUEUE` | คิว Notification event ขาออก |
+| `RABBITMQ_AUDIT_QUEUE` | คิว Audit event ขาออก |
+| `INTERNAL_SERVICE_SECRET` | ป้องกัน API จัดการ Log Finding Rules ภายใน |
 
-## Development
+## พัฒนาและตรวจงาน
+
+จากโฟลเดอร์นี้:
 
 ```bash
 npm ci
@@ -69,5 +68,4 @@ npm run test:e2e
 npm run build
 ```
 
-Changes to lifecycle transitions should include tests for duplicate events,
-recovery, acknowledgement, closure, and asset deactivation.
+เมื่อเปลี่ยนวงจรชีวิต Alert ควรทดสอบ Event ซ้ำ, การฟื้นตัว, การ Acknowledge, การ Close และการ Deactivate Asset
