@@ -15,6 +15,7 @@ export interface MetricThresholdExceededEvent {
   eventType: 'METRIC_THRESHOLD_EXCEEDED';
   ruleId: string;
   assetId: string;
+  sourceName?: string;
   metricType: string;
   severity: AlertSeverity;
   thresholdValue: number;
@@ -28,6 +29,7 @@ export interface MetricThresholdRecoveredEvent {
   eventType: 'METRIC_THRESHOLD_RECOVERED';
   ruleId: string;
   assetId: string;
+  sourceName?: string;
   metricType: string;
   severity: AlertSeverity;
   thresholdValue: number;
@@ -66,6 +68,7 @@ export interface HealthCheckResultRecordedEvent {
   alertActive?: boolean;
   available?: boolean;
   healthCheckTargetId: string;
+  sourceName?: string;
   assetId: string | null;
   url: string;
   checkIntervalSeconds: number;

@@ -132,6 +132,7 @@ export class CheckHealthTargetUseCase {
         alertActive: target.toObject().alertActive,
         available,
         healthCheckTargetId: data.healthCheckTargetId,
+        sourceName: data.name,
         assetId: data.assetId,
         url: data.url,
         checkIntervalSeconds: data.checkIntervalSeconds,

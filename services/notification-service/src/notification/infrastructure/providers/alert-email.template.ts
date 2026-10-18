@@ -11,19 +11,28 @@ export function buildAlertEmail(
 ): AlertEmailContent {
   const resolved = input.status === 'RESOLVED';
 
-  const statusLabel = resolved ? 'Resolved' : 'Triggered';
   const severityLabel = toTitleCase(input.severity);
   const metricLabel = formatMetric(input.metricType);
   const eventTimeLabel = resolved ? 'Resolved at' : 'Triggered at';
   const occurredAt = formatBangkokTime(input.occurredAt);
   const headline = buildHeadline(input);
-  const referenceLabel =
+  const sourceName = emailSourceName(input);
+  const summary = buildSummary(input, sourceName);
+  const category =
     input.alertType === 'LOG_FINDING'
+      ? 'Log finding'
+      : input.alertType === 'METRIC_THRESHOLD'
+        ? 'Metric alert'
+        : 'Health check';
+  const actionLabel =
+    input.alertType === 'LOG_FINDING'
+      ? 'View logs in dashboard'
+      : 'View alert in dashboard';
+  const referenceLabel =
+    input.alertType === 'METRIC_THRESHOLD' || input.alertType === 'LOG_FINDING'
       ? 'Rule ID'
-      : input.assetId === null
-        ? 'Health check target ID'
-        : 'Asset ID';
-  const referenceId = input.assetId ?? input.sourceId;
+      : 'Health check target ID';
+  const referenceId = input.sourceId;
 
   const accentColor = resolved
     ? '#059669'
@@ -31,17 +40,23 @@ export function buildAlertEmail(
       ? '#dc2626'
       : '#d97706';
 
-  const subject = `[Centralized Monitoring] ${severityLabel} alert ${statusLabel.toLowerCase()}`;
+  const subjectStatus = resolved
+    ? '🟢 Resolved'
+    : `${severityEmoji(input.severity)} ${severityLabel}`;
+  const subject = `${subjectStatus} · ${buildSubjectEvent(input)} · ${sourceName}${input.alertType === 'LOG_FINDING' ? ` · ${input.title}` : ''}`;
 
   const text = [
-    'Centralized Monitoring',
+    category,
     '',
-    `${severityLabel.toUpperCase()} · ${statusLabel.toUpperCase()}`,
+    resolved
+      ? `🟢 RESOLVED · Previously ${severityLabel.toUpperCase()}`
+      : `${severityEmoji(input.severity)} ${severityLabel.toUpperCase()} · TRIGGERED`,
     headline,
     '',
-    input.message,
-    ...(input.actionUrl ? [`Open: ${input.actionUrl}`] : []),
+    summary,
+    ...(input.actionUrl ? [`${actionLabel}: ${input.actionUrl}`] : []),
     '',
+    `Source: ${sourceName}`,
     `Signal: ${metricLabel}`,
     `${eventTimeLabel}: ${occurredAt}`,
     ...(input.resolutionReason
@@ -50,9 +65,10 @@ export function buildAlertEmail(
     '',
     'Technical reference',
     `${referenceLabel}: ${referenceId}`,
+    ...(input.assetId ? [`Asset ID: ${input.assetId}`] : []),
     `Alert ID: ${input.alertId}`,
     '',
-    'Automated notification from Centralized Monitoring.',
+    'Automated alert notification.',
   ].join('\n');
 
   const html = `<!doctype html>
@@ -65,7 +81,7 @@ export function buildAlertEmail(
 
   <body style="margin:0;background:#f1f5f9;font-family:Arial,sans-serif;color:#0f172a;">
     <div style="display:none;max-height:0;overflow:hidden;opacity:0;">
-      ${escapeHtml(input.message)}
+      ${escapeHtml(summary)}
     </div>
 
     <table
@@ -101,7 +117,7 @@ export function buildAlertEmail(
                 "
               >
                 <div style="font-size:18px;font-weight:700;">
-                  Centralized Monitoring
+                  ${escapeHtml(category)}
                 </div>
 
                 <div
@@ -111,7 +127,7 @@ export function buildAlertEmail(
                     color:#cbd5e1;
                   "
                 >
-                  Operational alert notification
+                  ${escapeHtml(sourceName)}
                 </div>
               </td>
             </tr>
@@ -128,9 +144,7 @@ export function buildAlertEmail(
                     color:${accentColor};
                   "
                 >
-                  ${escapeHtml(severityLabel.toUpperCase())}
-                  &nbsp;·&nbsp;
-                  ${escapeHtml(statusLabel.toUpperCase())}
+                  ${resolved ? '🟢 RESOLVED' : `${severityEmoji(input.severity)} ${escapeHtml(severityLabel.toUpperCase())} · TRIGGERED`}
                 </div>
 
                 <h1
@@ -152,10 +166,10 @@ export function buildAlertEmail(
                     color:#334155;
                   "
                 >
-                  ${escapeHtml(input.message)}
+                  ${escapeHtml(summary)}
                 </p>
 
-                ${input.actionUrl ? `<p style="margin:18px 0 0;"><a href="${escapeHtml(input.actionUrl)}" style="display:inline-block;padding:10px 16px;border-radius:6px;background:#2563eb;color:#ffffff;text-decoration:none;font-size:14px;font-weight:600;">Open Log Explorer</a></p>` : ''}
+                ${input.actionUrl ? `<p style="margin:18px 0 0;"><a href="${escapeHtml(input.actionUrl)}" style="display:inline-block;padding:10px 16px;border-radius:6px;background:#2563eb;color:#ffffff;text-decoration:none;font-size:14px;font-weight:600;">${escapeHtml(actionLabel)}</a></p>` : ''}
 
                 <div
                   style="
@@ -164,7 +178,9 @@ export function buildAlertEmail(
                     border-top:1px solid #e2e8f0;
                   "
                 >
+                  ${detailItem('Source', sourceName)}
                   ${detailItem('Signal', metricLabel)}
+                  ${detailItem(resolved ? 'Previous severity' : 'Severity', severityLabel)}
                   ${detailItem(eventTimeLabel, occurredAt)}
 
                   ${
@@ -207,6 +223,7 @@ export function buildAlertEmail(
                     "
                   >
                     ${referenceLabel}: ${escapeHtml(referenceId)}
+                    ${input.assetId ? `<br>Asset ID: ${escapeHtml(input.assetId)}` : ''}
                     <br>
                     Alert ID: ${escapeHtml(input.alertId)}
                   </div>
@@ -226,7 +243,7 @@ export function buildAlertEmail(
                   color:#64748b;
                 "
               >
-                Automated notification from Centralized Monitoring.
+                Automated alert notification.
               </td>
             </tr>
           </table>
@@ -285,6 +302,9 @@ function buildHeadline(input: SendNotificationInput): string {
   }
 
   if (input.alertType === 'METRIC_THRESHOLD') {
+    if (resolved && input.resolutionReason?.startsWith('METRIC_RULE_')) {
+      return `${formatMetric(input.metricType)} alert ended (${formatReason(input.resolutionReason).replace('Metric Rule ', 'rule ').toLowerCase()})`;
+    }
     return resolved
       ? `${formatMetric(input.metricType)} alert resolved`
       : `${formatMetric(input.metricType)} threshold exceeded`;
@@ -297,6 +317,115 @@ function buildHeadline(input: SendNotificationInput): string {
   }
 
   return resolved ? 'Health check alert resolved' : 'Health check failed';
+}
+
+function buildSubjectEvent(input: SendNotificationInput): string {
+  if (input.alertType === 'LOG_FINDING') return 'Log finding';
+  if (input.alertType === 'METRIC_THRESHOLD') {
+    const change = input.resolutionReason?.startsWith('METRIC_RULE_')
+      ? ` (rule ${input.resolutionReason.split('_').at(-1)?.toLowerCase()})`
+      : '';
+    return `${formatMetric(input.metricType)}${change}`;
+  }
+  if (input.alertType === 'HEALTH_CHECK_STALE') {
+    if (input.status !== 'RESOLVED') return 'Health check data stale';
+    return input.resolutionReason === 'HEALTH_CHECK_DATA_RESUMED'
+      ? 'Health check data resumed'
+      : 'Health check alert ended';
+  }
+  if (input.resolutionReason === 'HEALTH_CHECK_DATA_STALE') {
+    return 'Health check data stale';
+  }
+  if (input.resolutionReason === 'HEALTH_CHECK_TARGET_PAUSED') {
+    return 'Health check paused';
+  }
+  if (input.resolutionReason === 'HEALTH_CHECK_TARGET_ARCHIVED') {
+    return 'Health check archived';
+  }
+  return input.status === 'RESOLVED'
+    ? 'Health check recovered'
+    : 'Health check failed';
+}
+
+function severityEmoji(severity: SendNotificationInput['severity']): string {
+  return severity === 'CRITICAL' ? '🔴' : '🟠';
+}
+
+function fallbackSourceName(input: SendNotificationInput): string {
+  if (input.alertType === 'LOG_FINDING') return input.title;
+  if (input.alertType === 'METRIC_THRESHOLD') {
+    return input.assetId
+      ? `Asset ${input.assetId.slice(0, 8)}`
+      : `Rule ${input.sourceId.slice(0, 8)}`;
+  }
+  return `Target ${input.sourceId.slice(0, 8)}`;
+}
+
+function emailSourceName(input: SendNotificationInput): string {
+  const name = input.sourceName?.trim() || fallbackSourceName(input);
+  if (
+    input.alertType !== 'ENDPOINT_UNAVAILABLE' &&
+    input.alertType !== 'HEALTH_CHECK_STALE'
+  ) {
+    return name;
+  }
+  try {
+    const url = new URL(name);
+    if (url.protocol === 'http:' || url.protocol === 'https:') {
+      return `${url.hostname}${url.pathname === '/' ? '' : ` · ${url.pathname}`}`;
+    }
+  } catch {
+    // Custom target names are displayed as written.
+  }
+  return name;
+}
+
+function buildSummary(
+  input: SendNotificationInput,
+  sourceName: string,
+): string {
+  if (
+    input.alertType === 'METRIC_THRESHOLD' &&
+    input.resolutionReason?.startsWith('METRIC_RULE_')
+  ) {
+    const change =
+      {
+        METRIC_RULE_UPDATED: 'updated',
+        METRIC_RULE_DISABLED: 'disabled',
+        METRIC_RULE_ARCHIVED: 'archived',
+      }[input.resolutionReason] ?? 'changed';
+    return `The ${formatMetric(input.metricType)} alert for ${sourceName} ended because the rule was ${change}.`;
+  }
+  if (
+    input.alertType !== 'ENDPOINT_UNAVAILABLE' &&
+    input.alertType !== 'HEALTH_CHECK_STALE'
+  ) {
+    return input.message;
+  }
+
+  if (input.resolutionReason === 'HEALTH_CHECK_DATA_RESUMED') {
+    return `Health check data resumed for ${sourceName}.`;
+  }
+  if (input.resolutionReason === 'HEALTH_CHECK_TARGET_PAUSED') {
+    return `Monitoring for ${sourceName} was paused; the open alert was resolved.`;
+  }
+  if (input.resolutionReason === 'HEALTH_CHECK_TARGET_ARCHIVED') {
+    return `The health check ${sourceName} was archived; the open alert was resolved.`;
+  }
+  if (input.resolutionReason === 'HEALTH_CHECK_DATA_STALE') {
+    return `Recent results for ${sourceName} stopped arriving; the previous alert was resolved.`;
+  }
+  if (input.status === 'RESOLVED') {
+    return `Health check ${sourceName} recovered.`;
+  }
+  if (input.alertType === 'HEALTH_CHECK_STALE') {
+    return `No recent health check result for ${sourceName}.`;
+  }
+
+  const detail = input.message.match(
+    /:\s*(HTTP \d+|No response|fetch failed)$/i,
+  )?.[1];
+  return `Health check ${sourceName} failed${detail ? `: ${detail}` : '.'}`;
 }
 
 function formatBangkokTime(value: Date): string {

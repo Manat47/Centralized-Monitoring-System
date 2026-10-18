@@ -56,6 +56,7 @@ describe('CheckHealthTargetUseCase', () => {
 
   it('checks and stores a standalone target without asset lookup and publishes a heartbeat', async () => {
     target = HealthCheckTarget.create('target-1', {
+      name: 'register-uasportal',
       url: 'https://example.com/health',
     });
     await useCase.execute('target-1');
@@ -73,6 +74,7 @@ describe('CheckHealthTargetUseCase', () => {
       expect.objectContaining({
         eventType: 'HEALTH_CHECK_RESULT_RECORDED',
         assetId: null,
+        sourceName: 'register-uasportal',
       }),
     );
   });

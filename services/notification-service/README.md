@@ -50,7 +50,9 @@
 | `RABBITMQ_AUDIT_QUEUE` | คิว Audit; ค่าเริ่มต้น `audit_events` |
 | `SMTP_USER` | บัญชี Email ผู้ส่ง |
 | `SMTP_PASS` | App password หรือ SMTP credential |
-| `DASHBOARD_PUBLIC_URL` | Public origin ของ Dashboard สำหรับลิงก์ Log Finding |
+| `DASHBOARD_PUBLIC_URL` | URL หลักของ Dashboard สำหรับลิงก์ใน Email, LINE, Slack และข้อมูล Webhook เช่น `https://monitor.example` |
+
+Webhook ยังคงส่งฟิลด์ Alert เดิม และเพิ่ม `presentation` ซึ่งมีหัวข้อ ชื่อแหล่งที่มา ระดับความรุนแรง สรุป และลิงก์ Dashboard เมื่อกำหนด URL ไว้ โดย `X-Signature-SHA256` จะลงลายเซ็นบน JSON ที่ส่งจริงทั้งหมด รวมถึง `presentation`
 
 ## พัฒนาและตรวจงาน
 

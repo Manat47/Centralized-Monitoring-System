@@ -181,6 +181,7 @@ describe('EvaluateMetricRulesUseCase sample-aware duration', () => {
       expect.objectContaining({
         eventType: 'METRIC_THRESHOLD_EXCEEDED',
         actualValue: 80,
+        sourceName: 'server-01',
       }),
     );
   });
